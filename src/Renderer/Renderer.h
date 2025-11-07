@@ -11,6 +11,7 @@ public:
 
 	bool InitializeD3D12(HWND& windowHandle);
 	bool Shutdown();
+	void Draw();
 
 private:
 	void CreateDebugController();
@@ -45,6 +46,8 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_SwapChainBuffer[SwapChainBufferCount];
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_DepthStencilBuffer;
 	int m_CurrentBackBuffer = 0;
+
+	D3D12_RECT m_ScissorRect;
 
 	UINT m_RtvDescriptorSize = 0;
 	UINT m_DsvDescriptorSize = 0;

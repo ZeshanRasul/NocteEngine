@@ -40,6 +40,22 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	return true;
 }
 
+void Renderer::Draw()
+{
+	D3D12_VIEWPORT vp;
+	vp.TopLeftX = 0.0f;
+	vp.TopLeftY = 0.0f;
+	vp.Width = m_ClientWidth;
+	vp.Height = m_ClientHeight;
+	vp.MinDepth = 0.0f;
+	vp.MaxDepth = 0.0f;
+
+	m_CommandList->RSSetViewports(1, &vp);
+
+	m_ScissorRect = { 0, 0, static_cast<long>(m_ClientWidth), static_cast<long>(m_ClientHeight) };
+	m_CommandList->RSSetScissorRects(1, &m_ScissorRect);
+}
+
 void Renderer::CreateDebugController()
 {
 	ThrowIfFailed(D3D12GetDebugInterface(IID_PPV_ARGS(&m_DebugController)));

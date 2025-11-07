@@ -38,6 +38,8 @@ int Application::Run()
 		{
 			return *ecode;
 		}
+	
+		m_Renderer->Draw();
 	}
 
 	return 0;
