@@ -42,6 +42,12 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 void Renderer::Draw()
 {
+	ThrowIfFailed(m_CommandAllocator->Reset());
+
+	ThrowIfFailed(m_CommandList->Reset(m_CommandAllocator.Get(), nullptr));
+
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+
 	D3D12_VIEWPORT vp;
 	vp.TopLeftX = 0.0f;
 	vp.TopLeftY = 0.0f;
@@ -54,6 +60,25 @@ void Renderer::Draw()
 
 	m_ScissorRect = { 0, 0, static_cast<long>(m_ClientWidth), static_cast<long>(m_ClientHeight) };
 	m_CommandList->RSSetScissorRects(1, &m_ScissorRect);
+
+	const float clearColor[4] = {0.690196097f, 0.768627524f, 0.870588303f, 1.f};
+
+	m_CommandList->ClearRenderTargetView(CurrentBackBufferView(), clearColor, 0, nullptr);
+	m_CommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+
+	m_CommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
+
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+
+	ThrowIfFailed(m_CommandList->Close());
+
+	ID3D12CommandList* cmdLists[] = {m_CommandList.Get()};
+	m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+
+	ThrowIfFailed(m_SwapChain->Present(0, 0));
+	m_CurrentBackBuffer = (m_CurrentBackBuffer + 1) % SwapChainBufferCount;
+
+	FlushCommandQueue();
 }
 
 void Renderer::CreateDebugController()
@@ -208,4 +233,26 @@ void Renderer::CreateDepthStencilView()
 	m_Device->CreateDepthStencilView(m_DepthStencilBuffer.Get(), nullptr, DepthStencilView());
 
 	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_DepthStencilBuffer.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE));
+}
+
+void Renderer::FlushCommandQueue()
+{
+	m_CurrentFence++;
+
+	ThrowIfFailed(m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence));
+
+	if (m_Fence->GetCompletedValue() < m_CurrentFence)
+	{
+		HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
+
+		ThrowIfFailed(m_Fence->SetEventOnCompletion(m_CurrentFence, eventHandle));
+
+		WaitForSingleObject(eventHandle, INFINITE);
+		CloseHandle(eventHandle);
+	}
+}
+
+ID3D12Resource* Renderer::CurrentBackBuffer() const
+{
+	return m_SwapChainBuffer[m_CurrentBackBuffer].Get();
 }

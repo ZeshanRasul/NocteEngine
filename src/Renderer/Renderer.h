@@ -27,6 +27,10 @@ private:
 	void CreateRenderTargetView();
 	void CreateDepthStencilView();
 
+	void FlushCommandQueue();
+
+	ID3D12Resource* CurrentBackBuffer() const;
+
 	Microsoft::WRL::ComPtr<ID3D12Device> m_Device;
 	Microsoft::WRL::ComPtr<IDXGIAdapter> m_WarpAdapter;
 	Microsoft::WRL::ComPtr<ID3D12Debug> m_DebugController;
@@ -52,6 +56,8 @@ private:
 	UINT m_RtvDescriptorSize = 0;
 	UINT m_DsvDescriptorSize = 0;
 	UINT m_CbvSrvDescriptorSize = 0;
+
+	UINT m_CurrentFence = 0;
 
 	UINT m_4xMsaaQuality = 0;
 	bool m_MsaaState = false;
