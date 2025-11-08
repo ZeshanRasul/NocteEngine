@@ -23,7 +23,7 @@ VertexOut VS(VertexIn vIn)
     
     vOut.PosH = mul(float4(vIn.PosL, 1.0f), gWorldViewProj);
     
-//vOut.PosH = float4(vIn.PosL, 1.0f);
+    //vOut.PosH = float4(vIn.PosL, 1.0f);
     
     vOut.Color = vIn.Color;
     

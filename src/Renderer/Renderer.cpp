@@ -64,7 +64,11 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 void Renderer::Update()
 {
-	XMVECTOR pos = XMVectorSet(0.0f, 0.0f, -10.0f, 1.0f);
+	float x = m_Radius * sinf(m_Phi) * cosf(m_Theta);
+	float z = m_Radius * sinf(m_Phi) * sinf(m_Theta);
+	float y = m_Radius * cosf(m_Phi);
+
+	XMVECTOR pos = XMVectorSet(0.0f, 0.0f, -13.0f, 0.0f);
 	XMVECTOR target = XMVectorZero();
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
@@ -72,6 +76,8 @@ void Renderer::Update()
 	XMStoreFloat4x4(&m_View, view);
 
 	XMMATRIX world = XMLoadFloat4x4(&m_World);
+	XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * MathHelper::Pi, (m_ClientWidth / m_ClientHeight), 0.1f, 1000.0f);
+	XMStoreFloat4x4(&m_Proj, P);
 	XMMATRIX proj = XMLoadFloat4x4(&m_Proj);
 
 	XMMATRIX worldViewProj = world * view * proj;
@@ -118,7 +124,8 @@ void Renderer::Draw()
 
 	m_CommandList->SetGraphicsRootDescriptorTable(0, m_CbvHeap->GetGPUDescriptorHandleForHeapStart());
 
-	m_CommandList->DrawIndexedInstanced(indices.size(), 1, 0, 0, 0);
+
+	m_CommandList->DrawIndexedInstanced((UINT)indices.size(), 1, 0, 0, 0);
 
 	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 

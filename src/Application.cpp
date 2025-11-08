@@ -38,7 +38,7 @@ int Application::Run()
 		{
 			return *ecode;
 		}
-	
+		m_Renderer->Update();
 		m_Renderer->Draw();
 	}
 

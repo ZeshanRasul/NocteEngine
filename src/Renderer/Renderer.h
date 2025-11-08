@@ -121,6 +121,10 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_RootSignature;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PipelineStateObject;
 
+	float m_Theta = 1.5f * DirectX::XM_PI;
+	float m_Phi = DirectX::XM_PIDIV4;
+	float m_Radius = 5.0f;
+
 	struct Vertex
 	{
 		DirectX::XMFLOAT3 Pos;
