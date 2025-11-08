@@ -40,6 +40,9 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateVertexBuffer();
 	CreateVertexBufferView();
 
+	CreateIndexBuffer();
+	CreateIndexBufferView();
+
 	return true;
 }
 
@@ -240,18 +243,34 @@ void Renderer::CreateDepthStencilView()
 
 void Renderer::CreateVertexBuffer()
 {
-	const UINT64 vbByteSize = 8 * sizeof(Vertex);
+	m_VbByteSize = 8 * sizeof(Vertex);
 
-	m_vertexBufferGPU = d3dUtil::CreateDefaultBuffer(m_Device.Get(), m_CommandList.Get(), &vertices, vbByteSize, m_vertexBufferUploader);
+	m_VertexBufferGPU = d3dUtil::CreateDefaultBuffer(m_Device.Get(), m_CommandList.Get(), &vertices, m_VbByteSize, m_VertexBufferUploader);
+}
+
+void Renderer::CreateIndexBuffer()
+{
+	m_IbByteSize = 36 * sizeof(uint16_t);
+	m_IndexBufferGPU = d3dUtil::CreateDefaultBuffer(m_Device.Get(), m_CommandList.Get(), &indices, m_IbByteSize, m_IndexBufferUploader);
+}
+
+void Renderer::CreateIndexBufferView()
+{
+	m_IbView.BufferLocation = m_IndexBufferGPU->GetGPUVirtualAddress();
+	m_IbView.Format = DXGI_FORMAT_R16_UINT;
+	m_IbView.SizeInBytes = m_IbByteSize;
+
+	D3D12_INDEX_BUFFER_VIEW indexBuffers[1] = { m_IbView };
+	m_CommandList->IASetIndexBuffer(indexBuffers);
 }
 
 void Renderer::CreateVertexBufferView()
 {
-	m_vbView.BufferLocation = m_vertexBufferGPU->GetGPUVirtualAddress();
-	m_vbView.StrideInBytes = sizeof(Vertex);
-	m_vbView.SizeInBytes = 8 * sizeof(Vertex);
+	m_VbView.BufferLocation = m_VertexBufferGPU->GetGPUVirtualAddress();
+	m_VbView.StrideInBytes = sizeof(Vertex);
+	m_VbView.SizeInBytes = m_VbByteSize;
 
-	D3D12_VERTEX_BUFFER_VIEW vertexBuffers[1] = { m_vbView };
+	D3D12_VERTEX_BUFFER_VIEW vertexBuffers[1] = { m_VbView };
 	m_CommandList->IASetVertexBuffers(0, 1, vertexBuffers);
 }
 

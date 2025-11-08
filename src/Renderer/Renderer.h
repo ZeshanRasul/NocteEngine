@@ -32,6 +32,9 @@ private:
 	void CreateVertexBuffer();
 	void CreateVertexBufferView();
 
+	void CreateIndexBuffer();
+	void CreateIndexBufferView();
+
 	void FlushCommandQueue();
 
 	ID3D12Resource* CurrentBackBuffer() const;
@@ -58,9 +61,15 @@ private:
 
 	D3D12_RECT m_ScissorRect;
 
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_vertexBufferGPU = nullptr;
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_vertexBufferUploader = nullptr;
-	D3D12_VERTEX_BUFFER_VIEW m_vbView;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_VertexBufferGPU = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_VertexBufferUploader = nullptr;
+	D3D12_VERTEX_BUFFER_VIEW m_VbView;
+	UINT64 m_VbByteSize = 0;
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_IndexBufferGPU = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_IndexBufferUploader = nullptr;
+	D3D12_INDEX_BUFFER_VIEW m_IbView;
+	UINT64 m_IbByteSize = 0;
 
 	UINT m_RtvDescriptorSize = 0;
 	UINT m_DsvDescriptorSize = 0;
@@ -93,5 +102,32 @@ private:
 		Vertex({ XMFLOAT3(-1.0f, +1.0f, +1.0f), XMFLOAT4(Colors::Yellow) }),
 		Vertex({ XMFLOAT3(+1.0f, +1.0f, +1.0f), XMFLOAT4(Colors::Cyan) }),
 		Vertex({ XMFLOAT3(+1.0f, -1.0f, +1.0f), XMFLOAT4(Colors::Magenta) })
+	};
+
+	std::array<std::uint16_t, 36> indices =
+	{
+		// front face
+		0, 1, 2,
+		0, 2, 3,
+
+		// back face
+		4, 6, 5,
+		4, 7, 6,
+
+		// left face
+		4, 5, 1,
+		4, 1, 0,
+
+		// right face
+		3, 2, 6,
+		3, 6, 7,
+
+		// top face
+		1, 5, 6,
+		1, 6, 2,
+
+		// bottom face
+		4, 0, 3,
+		4, 3, 7
 	};
 };
