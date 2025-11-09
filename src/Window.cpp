@@ -196,7 +196,7 @@ LRESULT Window::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			PostQuitMessage(0);
 			break;
 		}
-
+		
 		}
 	case WM_SYSKEYDOWN:
 	{

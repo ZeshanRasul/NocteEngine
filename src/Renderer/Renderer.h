@@ -1,8 +1,11 @@
 #pragma once
+#include <vector>
+
 #include "../Utils/d3dUtil.h"
 #include "../Utils/GeometryGenerator.h"
 #include "UploadBuffer.h"
 #include "FrameResource.h"
+#include "nv_helpers_dx12/TopLevelASGenerator.h"
 
 using namespace DirectX;
 
@@ -43,7 +46,7 @@ private:
 	void CreateRootSignature();
 
 	void BuildShadersAndInputLayout();
-	
+
 	void BuildPSOs();
 
 	void BuildMaterials();
@@ -149,4 +152,22 @@ private:
 	std::unordered_map<std::string, std::unique_ptr<Material>> m_Materials;
 
 	PassConstants m_MainPassCB;
+
+	struct AccelerationStructureBuffers
+	{
+		Microsoft::WRL::ComPtr<ID3D12Resource> pScratch;
+		Microsoft::WRL::ComPtr<ID3D12Resource> pResult;
+		Microsoft::WRL::ComPtr<ID3D12Resource> pInstanceDesc;
+	};
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_BottomLevelAS;
+
+	nv_helpers_dx12::TopLevelASGenerator m_topLevelASGenerator;
+	AccelerationStructureBuffers m_topLevelASBuffers;
+	std::vector<std::pair<UINT, DirectX::XMMATRIX>> m_Instances;
+
+	AccelerationStructureBuffers CreateBottomLevelAS(std::vector <std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, uint32_t>> vVertexBuffers);
+	void CreateTopLevelAS(std::vector <std::pair<uint32_t, DirectX::XMMATRIX>>& instances);
+	void CreateAccelerationStructures();
+
 };

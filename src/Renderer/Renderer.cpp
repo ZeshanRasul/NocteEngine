@@ -1,3 +1,5 @@
+#include "DXRHelper.h"
+#include "nv_helpers_dx12/BottomLevelASGenerator.h"
 #include "Renderer.h"
 
 const int gNumFrameResources = 3;
@@ -967,4 +969,37 @@ void Renderer::FlushCommandQueue()
 ID3D12Resource* Renderer::CurrentBackBuffer() const
 {
 	return m_SwapChainBuffer[m_CurrentBackBuffer].Get();
+}
+
+Renderer::AccelerationStructureBuffers Renderer::CreateBottomLevelAS(std::vector <std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, uint32_t>> vVertexBuffers)
+{
+	nv_helpers_dx12::BottomLevelASGenerator bottomLevelAS;
+
+	for (const auto& buffer : vVertexBuffers)
+	{
+		bottomLevelAS.AddVertexBuffer(buffer.first.Get(), 0, buffer.second, sizeof(Vertex), 0, 0);
+	}
+
+	UINT64 scratchSizeInBytes = 0;
+
+	UINT64 resultSizeInBytes = 0;
+
+	bottomLevelAS.ComputeASBufferSizes(m_Device.Get(), false, &scratchSizeInBytes, &resultSizeInBytes);
+
+	AccelerationStructureBuffers buffers;
+
+	buffers.pScratch = nv_helpers_dx12::CreateBuffer(m_Device.Get(), scratchSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON, nv_helpers_dx12::kDefaultHeapProps);
+	buffers.pResult = nv_helpers_dx12::CreateBuffer(m_Device.Get(), resultSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, nv_helpers_dx12::kDefaultHeapProps);
+
+	bottomLevelAS.Generate(m_CommandList.Get(), buffers.pScratch.Get(), buffers.pResult.Get(), false, nullptr);
+
+	return AccelerationStructureBuffers();
+}
+
+void Renderer::CreateTopLevelAS(std::vector<std::pair<uint32_t, DirectX::XMMATRIX>>& instances)
+{
+}
+
+void Renderer::CreateAccelerationStructures()
+{
 }

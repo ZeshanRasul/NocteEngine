@@ -87,6 +87,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     dxgi
     dxguid
     d3dcompiler
+    dxcompiler
 )
 
 # Optional: treat warnings as errors in CI builds
