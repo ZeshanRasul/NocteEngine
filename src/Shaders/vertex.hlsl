@@ -1,3 +1,5 @@
+#include "LightingUtil.hlsl"
+
 cbuffer cbPerObject : register(b0)
 {
     float4x4 gWorld;
@@ -28,6 +30,8 @@ cbuffer cbPass : register(b2)
     float cbPerObjectPad2;
     float cbPerObjectPad3;
     float4 gAmbientLight;
+    
+    Light gLights[MaxLights];
 };
 
 struct VertexIn

@@ -77,7 +77,7 @@ void Renderer::Update()
 		CloseHandle(eventHandle);
 	}
 
-	XMVECTOR pos = XMVectorSet(0.0f, 1.0f, 22.0f, 1.0f);
+	XMVECTOR pos = XMVectorSet(0.0f, 1.0f, -27.0f, 1.0f);
 	XMVECTOR target = XMVectorZero();
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 	XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
@@ -919,6 +919,12 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.NearZ = 1.0f;
 	m_MainPassCB.FarZ = 1000.0f;
 	m_MainPassCB.AmbientLight = { 0.4f, 0.3f, 0.4f, 1.0f };
+	m_MainPassCB.Lights[0].Direction = { 0.57735f, -0.57735f, 0.57735f };
+	m_MainPassCB.Lights[0].Strength = { 0.6f, 0.6f, 0.6f };
+	m_MainPassCB.Lights[1].Direction = { -0.57735f, -0.57735f, 0.57735f };
+	m_MainPassCB.Lights[1].Strength = { 0.3f, 0.3f, 0.3f };
+	m_MainPassCB.Lights[2].Direction = { 0.0f, -0.707f, -0.707f };
+	m_MainPassCB.Lights[2].Strength = { 0.15f, 0.15f, 0.15f };
 
 	auto currPassCB = m_CurrentFrameResource->PassCB.get();
 	currPassCB->CopyData(0, m_MainPassCB);

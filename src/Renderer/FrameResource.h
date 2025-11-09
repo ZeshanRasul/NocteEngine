@@ -27,6 +27,8 @@ struct PassConstants
 	float TotalTime = 0.0f;
 	float DeltaTime = 0.0f;
 	XMFLOAT4 AmbientLight = { 0.2f, 0.2f, 0.2f, 1.0f };
+
+	Light Lights[MaxLights];
 };
 
 struct Vertex

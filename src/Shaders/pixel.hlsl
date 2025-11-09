@@ -1,3 +1,9 @@
+#ifndef NUM_DIR_LIGHTS
+    #define NUM_DIR_LIGHTS 3
+#endif
+
+#include "LightingUtil.hlsl"
+
 struct PixelIn
 {
     float4 PosH : SV_POSITION;
@@ -30,9 +36,27 @@ cbuffer cbPass : register(b2)
     float cbPerObjectPad2;
     float cbPerObjectPad3;
     float4 gAmbientLight;
+    
+    Light gLights[MaxLights];
 };
 
 float4 PS(PixelIn pIn) : SV_Target
 {
-    return gAmbientLight * gDiffuseAlbedo;
+    pIn.NormalW = normalize(pIn.NormalW);
+    
+    float3 toEyeW = normalize(gEyePosW - pIn.PosW);
+    
+    float4 ambient = gAmbientLight * gDiffuseAlbedo;
+    
+    const float shininess = 1.0f - gRoughness;
+    Material mat = { gDiffuseAlbedo, gFresnelR0, shininess };
+    float3 shadowFactor = 1.0f;
+    
+    float4 directLight = ComputeLighting(gLights, mat, pIn.PosW, pIn.NormalW, toEyeW, shadowFactor);
+    
+    float4 litColor = ambient + directLight;
+    
+    litColor.a = gDiffuseAlbedo.a;
+    
+    return litColor;
 }
