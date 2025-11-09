@@ -1,6 +1,8 @@
 #pragma once
 #include "../Utils/d3dUtil.h"
+#include "../Utils/GeometryGenerator.h"
 #include "UploadBuffer.h"
+#include "FrameResource.h"
 
 using namespace DirectX;
 
@@ -34,16 +36,21 @@ private:
 	void CreateIndexBuffer();
 	void CreateIndexBufferView();
 
-	void CreateCbvDescriptorHeap();
-	void CreateConstantBuffer();
+	void CreateCbvDescriptorHeaps();
+	void CreateConstantBufferViews();
 
 	void CreateRootSignature();
 
 	void BuildShadersAndInputLayout();
 	
-	void BuildBoxGeometry();
+	void BuildPSOs();
+	void BuildShapeGeometry();
+	void BuildRenderItems();
+	void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& riItems);
 
-	void BuildPSO();
+	void BuildFrameResources();
+	void UpdateObjectCBs();
+	void UpdateMainPassCB();
 
 	void FlushCommandQueue();
 
@@ -84,24 +91,21 @@ private:
 	D3D12_INDEX_BUFFER_VIEW m_IbView;
 	UINT64 m_IbByteSize = 0;
 
-	struct ObjectConstants
-	{
-		XMFLOAT4X4 WorldViewProj = MathHelper::Identity4x4();
-	};
-
 	UINT m_CbufferElementByteSize = 0;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_UploadCBuffer = nullptr;
 	std::unique_ptr<UploadBuffer<ObjectConstants>> m_ObjectCB = nullptr;
-
+	UINT m_PassCbvOffset;
 
 	UINT m_RtvDescriptorSize = 0;
 	UINT m_DsvDescriptorSize = 0;
-	UINT m_CbvSrvDescriptorSize = 0;
+	UINT m_CbvSrvUavDescriptorSize = 0;
 
 	UINT m_CurrentFence = 0;
 
 	UINT m_4xMsaaQuality = 0;
 	bool m_MsaaState = false;
+
+	bool m_IsWireframe = false;
 
 	DXGI_FORMAT m_BackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 	DXGI_FORMAT m_DepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -113,23 +117,32 @@ private:
 	Microsoft::WRL::ComPtr<ID3DBlob> m_VsByteCode;
 	Microsoft::WRL::ComPtr<ID3DBlob> m_PsByteCode;
 	std::vector<D3D12_INPUT_ELEMENT_DESC> m_InputLayoutDescs;
-	
+
 	XMFLOAT4X4 m_World = MathHelper::Identity4x4();
 	XMFLOAT4X4 m_View = MathHelper::Identity4x4();
 	XMFLOAT4X4 m_Proj = MathHelper::Identity4x4();
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_RootSignature;
-	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PipelineStateObject;
+	std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID3D12PipelineState>> m_PipelineStateObjects;
 
 	float m_Theta = 1.5f * DirectX::XM_PI;
 	float m_Phi = DirectX::XM_PIDIV4;
 	float m_Radius = 5.0f;
 
-	struct Vertex
-	{
-		DirectX::XMFLOAT3 Pos;
-		DirectX::XMFLOAT4 Color;
-	};
+	static const int NumFrameResources = 3;
+	std::vector<std::unique_ptr<FrameResource>> m_FrameResources;
+	FrameResource* m_CurrentFrameResource = nullptr;
+	int m_CurrentFrameResourceIndex = 0;
+	XMFLOAT3 m_EyePos;
+
+	std::vector<std::unique_ptr<RenderItem>> m_AllRenderItems;
+
+	std::vector<RenderItem*> m_OpaqueRenderItems;
+	std::vector<RenderItem*> m_TransparentRenderItems;
+
+	std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> m_Geometries;
+
+	PassConstants m_MainPassCB;
 
 	std::array<Vertex, 8> vertices =
 	{

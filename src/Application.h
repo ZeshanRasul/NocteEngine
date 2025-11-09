@@ -4,6 +4,7 @@
 
 #include "Events/Event.h"
 #include "Events/ApplicationEvent.h"
+#include "Events/MouseEvent.h"
 #include "Window.h"
 #include "Renderer/Renderer.h"
 
