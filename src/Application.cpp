@@ -38,7 +38,7 @@ int Application::Run()
 			return *ecode;
 		}
 		m_Renderer->Update();
-		m_Renderer->Draw();
+		m_Renderer->Draw(m_Window->m_Raster);
 	}
 
 	return 0;

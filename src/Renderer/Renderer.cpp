@@ -20,6 +20,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&m_DxgiFactory)));
 
 	CreateDevice();
+	CheckRaytracingSupport();
 
 	CreateFence();
 
@@ -91,7 +92,7 @@ void Renderer::Update()
 	UpdateMaterialCBs();
 }
 
-void Renderer::Draw()
+void Renderer::Draw(bool useRaster)
 {
 	auto cmdListAlloc = m_CurrentFrameResource->CmdListAlloc;
 
@@ -121,32 +122,26 @@ void Renderer::Draw()
 
 	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
-	m_CommandList->ClearRenderTargetView(CurrentBackBufferView(), DirectX::Colors::LightSteelBlue, 0, nullptr);
 	m_CommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 
 	m_CommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
 
-	//ID3D12DescriptorHeap* descriptorHeaps[] = { m_CbvHeap.Get() };
-	//m_CommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+	if (useRaster)
+	{
 
-	m_CommandList->SetGraphicsRootSignature(m_RootSignature.Get());
+		m_CommandList->ClearRenderTargetView(CurrentBackBufferView(), DirectX::Colors::LightSteelBlue, 0, nullptr);
+		m_CommandList->SetGraphicsRootSignature(m_RootSignature.Get());
 
-	/*m_CommandList->IASetVertexBuffers(0, 1, &m_VbView);
-	m_CommandList->IASetIndexBuffer(&m_IbView);
-	m_CommandList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);*/
+		auto passCB = m_CurrentFrameResource->PassCB->Resource();
+		m_CommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
 
+		DrawRenderItems(m_CommandList.Get(), m_OpaqueRenderItems);
 
-	//int passCbvIndex = m_PassCbvOffset + m_CurrentFrameResourceIndex;
-	//auto passCbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_CbvHeap->GetGPUDescriptorHandleForHeapStart());
-	//passCbvHandle.Offset(passCbvIndex, m_CbvSrvUavDescriptorSize);
-
-	auto passCB = m_CurrentFrameResource->PassCB->Resource();
-	m_CommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
-
-	//m_CommandList->DrawIndexedInstanced((UINT)indices.size(), 1, 0, 0, 0);
-
-	DrawRenderItems(m_CommandList.Get(), m_OpaqueRenderItems);
-
+	}
+	else
+	{
+		m_CommandList->ClearRenderTargetView(CurrentBackBufferView(), DirectX::Colors::Indigo, 0, nullptr);
+	}
 	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 
 	ThrowIfFailed(m_CommandList->Close());
@@ -179,6 +174,17 @@ void Renderer::CreateDevice()
 		ThrowIfFailed(m_DxgiFactory->EnumWarpAdapter(IID_PPV_ARGS(&m_WarpAdapter)));
 
 		ThrowIfFailed(D3D12CreateDevice(m_WarpAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_Device)));
+	}
+}
+
+void Renderer::CheckRaytracingSupport()
+{
+	D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5 = {};
+	ThrowIfFailed(m_Device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5)));
+
+	if (options5.RaytracingTier < D3D12_RAYTRACING_TIER_1_0)
+	{
+		throw std::runtime_error("Raytracing is not supported on this device.");
 	}
 }
 

@@ -14,11 +14,12 @@ public:
 	bool InitializeD3D12(HWND& windowHandle);
 	bool Shutdown();
 	void Update();
-	void Draw();
+	void Draw(bool useRaster);
 
 private:
 	void CreateDebugController();
 	void CreateDevice();
+	void CheckRaytracingSupport();
 	void CreateFence();
 	void GetDescriptorSizes();
 	void CheckMSAAQuality();
@@ -60,7 +61,7 @@ private:
 
 	ID3D12Resource* CurrentBackBuffer() const;
 
-	Microsoft::WRL::ComPtr<ID3D12Device> m_Device;
+	Microsoft::WRL::ComPtr<ID3D12Device5> m_Device;
 	Microsoft::WRL::ComPtr<IDXGIAdapter> m_WarpAdapter;
 	Microsoft::WRL::ComPtr<ID3D12Debug> m_DebugController;
 
@@ -69,7 +70,7 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Fence> m_Fence;
 	Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_CommandQueue;
 	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_CommandAllocator;
-	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_CommandList;
+	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList4> m_CommandList;
 
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_RtvHeap;;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_DsvHeap;

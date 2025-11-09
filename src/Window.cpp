@@ -123,7 +123,7 @@ std::optional<int> Window::ProcessMessages()
 
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
-		
+
 		return {};
 	}
 
@@ -158,81 +158,117 @@ LRESULT Window::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	switch (msg)
 	{
-		case WM_CLOSE:
-		{
-			Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-			WindowData& data = p_Wnd->m_Data;
+	case WM_CLOSE:
+	{
+		Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+		WindowData& data = p_Wnd->m_Data;
 
-			WindowCloseEvent event;
-			if (data.EventCallback != nullptr)
-			{
-				data.EventCallback(event);
-			}
+		WindowCloseEvent event;
+		if (data.EventCallback != nullptr)
+		{
+			data.EventCallback(event);
+		}
+		PostQuitMessage(0);
+		break;
+	}
+
+	case WM_KILLFOCUS:
+	{
+		input.ClearState();
+		break;
+	}
+
+	///////////////////////
+	///KEYBOARD Messages///
+	///////////////////////
+
+	case WM_KEYDOWN:
+		switch (wParam)
+		{
+
+		case VK_SPACE:
+		{
+			m_Raster = !m_Raster;
+			break;
+		}
+		case VK_ESCAPE:
+		{
 			PostQuitMessage(0);
 			break;
 		}
 
-		case WM_KILLFOCUS:
+		}
+	case WM_SYSKEYDOWN:
+	{
+		if (!(lParam & 0x40000000) || input.IsAutorepeatEnabled())
 		{
-			input.ClearState();
-			break;
+			input.OnKeyPressed(static_cast<unsigned char>(wParam));
 		}
 
-		///////////////////////
-		///KEYBOARD Messages///
-		///////////////////////
+		Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+		WindowData& data = p_Wnd->m_Data;
 
-		case WM_KEYDOWN:
-		case WM_SYSKEYDOWN:
+		KeyPressedEvent event((int)wParam, 0);
+		if (data.EventCallback != nullptr)
 		{
-			if (!(lParam & 0x40000000) || input.IsAutorepeatEnabled())
-			{
-				input.OnKeyPressed(static_cast<unsigned char>(wParam));
-			}
+			data.EventCallback(event);
+		}
+		break;
+	}
+
+	case WM_KEYUP:
+	case WM_SYSKEYUP:
+	{
+		input.OnKeyReleased(static_cast<unsigned char>(wParam));
+
+		Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+		WindowData& data = p_Wnd->m_Data;
+
+		KeyReleasedEvent event((int)wParam);
+		if (data.EventCallback != nullptr)
+		{
+			data.EventCallback(event);
+		}
+		break;
+	}
+
+	case WM_CHAR:
+	{
+		input.OnChar(static_cast <unsigned char>(wParam));
+		break;
+	}
+
+	///////////////////////
+	///MOUSE MESSAGES//////
+	///////////////////////
+	///////////////////////
+
+	case WM_MOVE:
+	{
+		const POINTS pt = MAKEPOINTS(lParam);
+
+		if (pt.x >= 0 && pt.x <= (int)m_Data.Width && pt.y >= 0 && pt.y <= (int)m_Data.Height)
+		{
+			input.OnMouseMove(pt.x, pt.y);
 
 			Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 			WindowData& data = p_Wnd->m_Data;
 
-			KeyPressedEvent event((int)wParam, 0);
+			MouseMovedEvent event((float)pt.x, (float)pt.y);
 			if (data.EventCallback != nullptr)
 			{
 				data.EventCallback(event);
 			}
-			break;
-		}
-
-		case WM_KEYUP:
-		case WM_SYSKEYUP:
-		{
-			input.OnKeyReleased(static_cast<unsigned char>(wParam));
-
-			Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-			WindowData& data = p_Wnd->m_Data;
-
-			KeyReleasedEvent event((int)wParam);
-			if (data.EventCallback != nullptr)
+			if (!input.IsInWindow())
 			{
-				data.EventCallback(event);
+				SetCapture(hWnd);
+				input.OnMouseEnter();
 			}
 			break;
 		}
-
-		case WM_CHAR:
+		else
 		{
-			input.OnChar(static_cast <unsigned char>(wParam));
-			break;
-		}
-
-		///////////////////////
-		///MOUSE MESSAGES//////
-		///////////////////////
-		///////////////////////
-
-		case WM_MOVE:
-		{
-			const POINTS pt = MAKEPOINTS(lParam);
-
-			if (pt.x >= 0 && pt.x <= (int)m_Data.Width && pt.y >= 0 && pt.y <= (int)m_Data.Height)
+			if (wParam & (MK_LBUTTON | MK_RBUTTON))
 			{
 				input.OnMouseMove(pt.x, pt.y);
 
@@ -244,149 +280,128 @@ LRESULT Window::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				{
 					data.EventCallback(event);
 				}
-				if (!input.IsInWindow())
-				{
-					SetCapture(hWnd);
-					input.OnMouseEnter();
-				}
-				break;
 			}
-			else
-			{
-				if (wParam & (MK_LBUTTON | MK_RBUTTON))
-				{
-					input.OnMouseMove(pt.x, pt.y);
-
-					Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-					WindowData& data = p_Wnd->m_Data;
-
-					MouseMovedEvent event((float)pt.x, (float)pt.y);
-					if (data.EventCallback != nullptr)
-					{
-						data.EventCallback(event);
-					}
-				}
-			}
-			break;
 		}
+		break;
+	}
 
-		case WM_LBUTTONDOWN:
+	case WM_LBUTTONDOWN:
+	{
+		const POINTS pt = MAKEPOINTS(lParam);
+		input.OnLeftPressed();
+
+		SetForegroundWindow(hWnd);
+
+		Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+		WindowData& data = p_Wnd->m_Data;
+
+		MouseButtonPressedEvent event(0);
+		if (data.EventCallback != nullptr)
 		{
-			const POINTS pt = MAKEPOINTS(lParam);
-			input.OnLeftPressed();
-
-			SetForegroundWindow(hWnd);
-			
-			Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-			WindowData& data = p_Wnd->m_Data;
-
-			MouseButtonPressedEvent event(0);
-			if (data.EventCallback != nullptr)
-			{
-				data.EventCallback(event);
-			}
-			
-			break;
+			data.EventCallback(event);
 		}
 
-		case WM_RBUTTONDOWN:
+		break;
+	}
+
+	case WM_RBUTTONDOWN:
+	{
+		const POINTS pt = MAKEPOINTS(lParam);
+		input.OnRightPressed();
+
+		Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+		WindowData& data = p_Wnd->m_Data;
+
+		MouseButtonPressedEvent event(1);
+		if (data.EventCallback != nullptr)
 		{
-			const POINTS pt = MAKEPOINTS(lParam);
-			input.OnRightPressed();
-
-			Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-			WindowData& data = p_Wnd->m_Data;
-
-			MouseButtonPressedEvent event(1);
-			if (data.EventCallback != nullptr)
-			{
-				data.EventCallback(event);
-			}
-			break;
+			data.EventCallback(event);
 		}
+		break;
+	}
 
-		case WM_LBUTTONUP:
+	case WM_LBUTTONUP:
+	{
+
+		const POINTS pt = MAKEPOINTS(lParam);
+		input.OnLeftReleased();
+
+		if (pt.x < 0 || pt.x >(int)m_Data.Width || pt.y < 0 || pt.y >(int)m_Data.Height)
 		{
-			
-			const POINTS pt = MAKEPOINTS(lParam);
-			input.OnLeftReleased();
-
-			if (pt.x < 0 || pt.x >(int)m_Data.Width || pt.y < 0 || pt.y >(int)m_Data.Height)
-			{
-				ReleaseCapture();
-				input.OnMouseLeave();
-			}
-
-			Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-			WindowData& data = p_Wnd->m_Data;
-
-			MouseButtonReleasedEvent event(0);
-			if (data.EventCallback != nullptr)
-			{
-				data.EventCallback(event);
-			}
-			
-			break;
-
+			ReleaseCapture();
+			input.OnMouseLeave();
 		}
 
-		case WM_RBUTTONUP:
+		Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+		WindowData& data = p_Wnd->m_Data;
+
+		MouseButtonReleasedEvent event(0);
+		if (data.EventCallback != nullptr)
 		{
-			const POINTS pt = MAKEPOINTS(lParam);
-			input.OnRightReleased();
-
-			if (pt.x < 0 || pt.x >(int)m_Data.Width || pt.y < 0 || pt.y >(int)m_Data.Height)
-			{
-				ReleaseCapture();
-				input.OnMouseLeave();
-			}
-
-			Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-			WindowData& data = p_Wnd->m_Data;
-
-			MouseButtonReleasedEvent event(1);
-			if (data.EventCallback != nullptr)
-			{
-				data.EventCallback(event);
-			}
-			break;
+			data.EventCallback(event);
 		}
 
-		case WM_MOUSEWHEEL:
+		break;
+
+	}
+
+	case WM_RBUTTONUP:
+	{
+		const POINTS pt = MAKEPOINTS(lParam);
+		input.OnRightReleased();
+
+		if (pt.x < 0 || pt.x >(int)m_Data.Width || pt.y < 0 || pt.y >(int)m_Data.Height)
 		{
-			const POINTS pt = MAKEPOINTS(lParam);
-
-			Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-			WindowData& data = p_Wnd->m_Data;
-
-			MouseScrolledEvent event(pt.x, pt.y);
-			if (data.EventCallback != nullptr)
-			{
-				data.EventCallback(event);
-			}
-			const int delta = GET_WHEEL_DELTA_WPARAM(wParam);
-			input.OnWheelDelta(delta);
-			break;
+			ReleaseCapture();
+			input.OnMouseLeave();
 		}
 
-		case WM_SIZE:
+		Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+		WindowData& data = p_Wnd->m_Data;
+
+		MouseButtonReleasedEvent event(1);
+		if (data.EventCallback != nullptr)
 		{
-			UINT width = LOWORD(lParam);
-			UINT height = HIWORD(lParam);
-
-			Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-			WindowData& data = p_Wnd->m_Data;
-
-			data.Width = width;
-			data.Height = height;
-
-			WindowResizeEvent event(width, height);
-			if (data.EventCallback != nullptr)
-			{
-				data.EventCallback(event);
-			}
-			break;
+			data.EventCallback(event);
 		}
+		break;
+	}
+
+	case WM_MOUSEWHEEL:
+	{
+		const POINTS pt = MAKEPOINTS(lParam);
+
+		Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+		WindowData& data = p_Wnd->m_Data;
+
+		MouseScrolledEvent event(pt.x, pt.y);
+		if (data.EventCallback != nullptr)
+		{
+			data.EventCallback(event);
+		}
+		const int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+		input.OnWheelDelta(delta);
+		break;
+	}
+
+	case WM_SIZE:
+	{
+		UINT width = LOWORD(lParam);
+		UINT height = HIWORD(lParam);
+
+		Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+		WindowData& data = p_Wnd->m_Data;
+
+		data.Width = width;
+		data.Height = height;
+
+		WindowResizeEvent event(width, height);
+		if (data.EventCallback != nullptr)
+		{
+			data.EventCallback(event);
+		}
+		break;
+	}
 	}
 
 	return DefWindowProc(hWnd, msg, wParam, lParam);

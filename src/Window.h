@@ -77,6 +77,7 @@ private:
 
 public:
 	Input input;
+	bool m_Raster = true;
 
 private:
 	void* m_Window;
