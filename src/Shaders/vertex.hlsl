@@ -3,7 +3,15 @@ cbuffer cbPerObject : register(b0)
     float4x4 gWorld;
 }
 
-cbuffer cbPass : register(b1)
+cbuffer cbMaterial : register(b1)
+{
+    float4 gDiffuseAlbedo;
+    float3 gFresnelR0;
+    float gRoughness;
+    float4x4 gMatTransform;
+}
+
+cbuffer cbPass : register(b2)
 {
     float4x4 gView;
     float4x4 gInvView;
@@ -19,30 +27,32 @@ cbuffer cbPass : register(b1)
     float gFarZ;
     float cbPerObjectPad2;
     float cbPerObjectPad3;
+    float4 gAmbientLight;
 };
 
 struct VertexIn
 {
     float3 PosL : POSITION;
-    float4 Color : COLOR;
+    float3 NormalL : NORMAL;
 };
 
 struct VertexOut
 {
     float4 PosH : SV_POSITION;
-    float4 Color : COLOR;
+    float3 PosW : POSITION;
+    float3 NormalW : NORMAL;
 };
-    
-
 
 VertexOut VS(VertexIn vIn)
 {
     VertexOut vOut;
     
     float4 posW = mul(float4(vIn.PosL, 1.0f), gWorld);
-    vOut.PosH = mul(posW, gViewProj);
-        
-    vOut.Color = vIn.Color;
+    vOut.PosW = posW.xyz;
     
+    vOut.NormalW = mul(vIn.NormalL, (float3x3)gWorld);
+    
+    vOut.PosH = mul(posW, gViewProj);
+            
     return vOut;
 }

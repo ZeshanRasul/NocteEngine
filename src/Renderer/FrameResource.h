@@ -26,12 +26,14 @@ struct PassConstants
 	float FarZ = 0.0f;
 	float TotalTime = 0.0f;
 	float DeltaTime = 0.0f;
+	XMFLOAT4 AmbientLight = { 0.2f, 0.2f, 0.2f, 1.0f };
 };
 
 struct Vertex
 {
 	DirectX::XMFLOAT3 Pos;
-	DirectX::XMFLOAT4 Color;
+	DirectX::XMFLOAT3 Normal;
+	DirectX::XMFLOAT2 TexCoord;
 };
 
 struct FrameResource
@@ -46,6 +48,7 @@ public:
 
 	std::unique_ptr<UploadBuffer<PassConstants>> PassCB = nullptr;
 	std::unique_ptr<UploadBuffer<ObjectConstants>> ObjectCB = nullptr;
+	std::unique_ptr<UploadBuffer<MaterialConstants>> MaterialCB = nullptr;
 
 	UINT Fence = 0;
 };
@@ -56,10 +59,13 @@ struct RenderItem
 
 	XMFLOAT4X4 World = MathHelper::Identity4x4();
 
+	XMFLOAT4X4 TexTransform = MathHelper::Identity4x4();
+
 	int NumFramesDirty = gNumFrameResources;
 
 	UINT ObjCBIndex = -1;
 
+	Material* Mat = nullptr;
 	MeshGeometry* Geo = nullptr;
 
 	D3D12_PRIMITIVE_TOPOLOGY PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
