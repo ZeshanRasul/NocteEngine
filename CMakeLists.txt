@@ -24,6 +24,8 @@ option(BUILD_WIN32_SUBSYSTEM "Build as a Win32 GUI app (no console window)" ON)
 file(GLOB APP_SOURCES
     "include/*.h"
     "include/*.cpp"
+    "include/nv_helpers_dx12/*.h"
+    "include/nv_helpers_dx12/*.cpp"
     "src/*.cpp"
     "src/*.h"
     "src/Events/*.cpp"
@@ -41,10 +43,16 @@ else()
     add_executable(${PROJECT_NAME} ${APP_SOURCES})
 endif()
 
+set_source_files_properties(
+    "include/nv_helpers_dx12/*.cpp"
+    PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+)
+
 target_include_directories(${PROJECT_NAME}
     PUBLIC 
         "${CMAKE_SOURCE_DIR}/include"
 )
+
 
 # Output directories (bin per configuration)
 set_target_properties(${PROJECT_NAME} PROPERTIES
