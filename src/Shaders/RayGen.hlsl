@@ -41,19 +41,32 @@ void RayGen()
 {
   // Initialize the ray payload
     HitInfo payload;
-    payload.colorAndDistance = float4(0.0, 0.0, 0.0, 0.0);
+    payload.colorAndDistance = float4(1.0, 0, 0, 0);
 
-  // Get the location within the dispatched 2D grid of work items
-  // (often maps to pixels, so this could represent a pixel coordinate).
     uint2 launchIndex = DispatchRaysIndex().xy;
-    float2 dims = float2(DispatchRaysDimensions().xy);
-    float2 d = (((launchIndex.xy + 0.5f) / dims.xy) * 2.0f - 1.0f);
-    
+    uint2 dims = DispatchRaysDimensions().xy;
+
+    // Normalized coordinates in NDC (-1..1)
+    float2 pixelCenter = (float2(launchIndex) + 0.5f) / float2(dims);
+    float2 d = pixelCenter * 2.0f - 1.0f; // NDC coords
+
+    // In DirectX, Y is inverted relative to NDC
+    d.y = -d.y;
+
+    // Construct a ray through the pixel in world space
+    float4 originVS = float4(0, 0, 0, 1);
+    float4 targetVS = mul(float4(d.x, d.y, 1.0f, 1.0f), gInvProj);
+    targetVS /= targetVS.w;
+
+    float3 originWS = mul(originVS, gInvView).xyz;
+    float3 targetWS = mul(targetVS, gInvView).xyz;
+    float3 dirWS = normalize(targetWS - originWS);
+
     RayDesc ray;
-    ray.Origin = float3(d.x, -d.y, 22);
-    ray.Direction = float3(0, 0, -1);
-    ray.TMin = 0;
-    ray.TMax = 100000;
+    ray.Origin = originWS;
+    ray.Direction = dirWS;
+    ray.TMin = 0.001f;
+    ray.TMax = 1e38f;
     
     TraceRay(
     SceneBVH,
