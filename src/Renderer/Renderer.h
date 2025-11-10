@@ -183,8 +183,15 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_MissSignature;
 
 	Microsoft::WRL::ComPtr<ID3D12StateObject> m_RtStateObject;
-
 	Microsoft::WRL::ComPtr<ID3D12StateObjectProperties> m_RtStateObjectProps;
+
+	void CreateRaytracingOutputBuffer();
+	void CreateShaderResourceHeap();
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_OutputResource;
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_SrvUavHeap;
+
+
 
 	std::pair< Microsoft::WRL::ComPtr<ID3D12Resource>, uint32_t> rtVerts;
 	std::vector<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, uint32_t>> m_BlasVertInput;
