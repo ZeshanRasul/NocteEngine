@@ -6,6 +6,7 @@
 #include "UploadBuffer.h"
 #include "FrameResource.h"
 #include "nv_helpers_dx12/TopLevelASGenerator.h"
+#include "nv_helpers_dx12/ShaderBindingTableGenerator.h"
 #include <dxcapi.h>
 
 using namespace DirectX;
@@ -191,7 +192,10 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_OutputResource;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_SrvUavHeap;
 
+	void CreateShaderBindingTable();
 
+	nv_helpers_dx12::ShaderBindingTableGenerator m_SbtHelper;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_SbtStorage;
 
 	std::pair< Microsoft::WRL::ComPtr<ID3D12Resource>, uint32_t> rtVerts;
 	std::vector<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, uint32_t>> m_BlasVertInput;

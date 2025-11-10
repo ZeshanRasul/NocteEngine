@@ -59,6 +59,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRaytracingPipeline();
 	CreateRaytracingOutputBuffer();
 	CreateShaderResourceHeap();
+	CreateShaderBindingTable();
 
 	ThrowIfFailed(m_CommandList->Close());
 	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
@@ -1070,6 +1071,30 @@ void Renderer::CreateShaderResourceHeap()
 	srvDesc.RaytracingAccelerationStructure.Location = m_topLevelASBuffers.pResult->GetGPUVirtualAddress();
 
 	m_Device->CreateShaderResourceView(nullptr, &srvDesc, srvHandle);
+}
+
+void Renderer::CreateShaderBindingTable()
+{
+	m_SbtHelper.Reset();
+
+	D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
+	auto heapPointer = reinterpret_cast<void*>(srvUavHeapHandle.ptr);
+
+	m_SbtHelper.AddRayGenerationProgram(L"RayGen", { heapPointer });
+
+	m_SbtHelper.AddMissProgram(L"Miss", {});
+	m_SbtHelper.AddHitGroup(L"HitGroup", {});
+
+	uint32_t sbtSize = m_SbtHelper.ComputeSBTSize();
+
+	m_SbtStorage = nv_helpers_dx12::CreateBuffer(m_Device.Get(), sbtSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+
+	if (!m_SbtStorage)
+	{
+		throw std::logic_error("Could not allocate the shader binding table.");
+	}
+
+	m_SbtHelper.Generate(m_SbtStorage.Get(), m_RtStateObjectProps.Get());
 }
 
 Renderer::AccelerationStructureBuffers Renderer::CreateBottomLevelAS(std::vector <std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, uint32_t>> vVertexBuffers)
