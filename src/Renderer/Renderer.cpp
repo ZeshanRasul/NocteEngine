@@ -1,5 +1,7 @@
 #include "DXRHelper.h"
 #include "nv_helpers_dx12/BottomLevelASGenerator.h"
+#include "nv_helpers_dx12/RaytracingPipelineGenerator.h"
+#include "nv_helpers_dx12/RootSignatureGenerator.h"
 #include "Renderer.h"
 
 const int gNumFrameResources = 3;
@@ -53,8 +55,8 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 	BuildPSOs();
 	CreateAccelerationStructures();
+	CreateRaytracingPipeline();
 
-	
 	ThrowIfFailed(m_CommandList->Close());
 	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
 	m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
@@ -670,8 +672,8 @@ void Renderer::BuildSkullGeometry()
 		m_CommandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
 
 	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(m_Device.Get(),
-		m_CommandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);	
-	
+		m_CommandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+
 
 	geo->VertexByteStride = sizeof(Vertex);
 	geo->VertexBufferByteSize = vbByteSize;
@@ -974,6 +976,60 @@ ID3D12Resource* Renderer::CurrentBackBuffer() const
 	return m_SwapChainBuffer[m_CurrentBackBuffer].Get();
 }
 
+Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
+{
+	nv_helpers_dx12::RootSignatureGenerator rsc;
+	rsc.AddHeapRangesParameter(
+		{ { 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0 },
+		{ 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1} }
+	);
+
+	return rsc.Generate(m_Device.Get(), true);
+}
+
+Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
+{
+	nv_helpers_dx12::RootSignatureGenerator rsc;
+	return rsc.Generate(m_Device.Get(), true);
+}
+
+Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateMissSignature()
+{
+	nv_helpers_dx12::RootSignatureGenerator rsc;
+	return rsc.Generate(m_Device.Get(), true);
+}
+
+void Renderer::CreateRaytracingPipeline()
+{
+	nv_helpers_dx12::RayTracingPipelineGenerator pipeline(m_Device.Get());
+
+	m_RayGenLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Shaders\\RayGen.hlsl");
+	m_MissLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Shaders\\Miss.hlsl");
+	m_HitLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Shaders\\Hit.hlsl");
+
+	pipeline.AddLibrary(m_RayGenLibrary.Get(), { L"RayGen" });
+	pipeline.AddLibrary(m_MissLibrary.Get(), { L"Miss" });
+	pipeline.AddLibrary(m_HitLibrary.Get(), { L"ClosestHit" });
+
+	m_RayGenSignature = CreateRayGenSignature();
+	m_MissSignature = CreateMissSignature();
+	m_HitSignature = CreateHitSignature();
+
+	pipeline.AddHitGroup(L"HitGroup", L"ClosestHit");
+
+	pipeline.AddRootSignatureAssociation(m_RayGenSignature.Get(), { L"RayGen" });
+	pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"Miss" });
+	pipeline.AddRootSignatureAssociation(m_HitSignature.Get(), { L"ClosestHit" });
+
+	pipeline.SetMaxPayloadSize(4 * sizeof(float));
+	pipeline.SetMaxAttributeSize(2 * sizeof(float));
+	pipeline.SetMaxRecursionDepth(1);
+
+	m_RtStateObject = pipeline.Generate();
+
+	ThrowIfFailed(m_RtStateObject->QueryInterface(IID_PPV_ARGS(&m_RtStateObjectProps)));
+}
+
 Renderer::AccelerationStructureBuffers Renderer::CreateBottomLevelAS(std::vector <std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, uint32_t>> vVertexBuffers)
 {
 	nv_helpers_dx12::BottomLevelASGenerator bottomLevelAS;
@@ -1024,9 +1080,9 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<Microsoft::WRL::ComPtr<ID3
 
 void Renderer::CreateAccelerationStructures()
 {
-	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount}});
+	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} });
 
-	m_Instances = { {bottomLevelBuffers.pResult, XMMatrixIdentity()}};
+	m_Instances = { {bottomLevelBuffers.pResult, XMMatrixIdentity()} };
 	CreateTopLevelAS(m_Instances);
 
 	m_CommandList->Close();

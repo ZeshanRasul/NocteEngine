@@ -6,6 +6,7 @@
 #include "UploadBuffer.h"
 #include "FrameResource.h"
 #include "nv_helpers_dx12/TopLevelASGenerator.h"
+#include <dxcapi.h>
 
 using namespace DirectX;
 
@@ -166,6 +167,24 @@ private:
 	nv_helpers_dx12::TopLevelASGenerator m_topLevelASGenerator;
 	AccelerationStructureBuffers m_topLevelASBuffers;
 	std::vector<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, DirectX::XMMATRIX>> m_Instances;
+
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> CreateRayGenSignature();
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> CreateHitSignature();
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> CreateMissSignature();
+
+	void CreateRaytracingPipeline();
+
+	Microsoft::WRL::ComPtr<IDxcBlob> m_RayGenLibrary;
+	Microsoft::WRL::ComPtr<IDxcBlob> m_HitLibrary;
+	Microsoft::WRL::ComPtr<IDxcBlob> m_MissLibrary;
+
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_RayGenSignature;
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_HitSignature;
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_MissSignature;
+
+	Microsoft::WRL::ComPtr<ID3D12StateObject> m_RtStateObject;
+
+	Microsoft::WRL::ComPtr<ID3D12StateObjectProperties> m_RtStateObjectProps;
 
 	std::pair< Microsoft::WRL::ComPtr<ID3D12Resource>, uint32_t> rtVerts;
 	std::vector<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, uint32_t>> m_BlasVertInput;
