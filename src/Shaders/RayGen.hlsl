@@ -1,7 +1,37 @@
 #include "Common.hlsl"
-
+#define MaxLights 10
+struct Light
+{
+    float3 Strength;
+    float FalloffStart;
+    float3 Direction;
+    float FalloffEnd;
+    float3 Position;
+    float SpotPower;
+};
 // Raytracing output texture, accessed as a UAV
 RWTexture2D<float4> gOutput : register(u0);
+
+cbuffer cbPass : register(b0)
+{
+    float4x4 gView;
+    float4x4 gInvView;
+    float4x4 gProj;
+    float4x4 gInvProj;
+    float4x4 gViewProj;
+    float4x4 gInvViewProj;
+    float3 gEyePosW;
+    float cbPerObjectPad1;
+    float2 gRenderTargetSize;
+    float2 gInvRenderTargetSize;
+    float gNearZ;
+    float gFarZ;
+    float cbPerObjectPad2;
+    float cbPerObjectPad3;
+    float4 gAmbientLight;
+    
+    Light gLights[MaxLights];
+};
 
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0);
