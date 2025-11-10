@@ -151,6 +151,7 @@ struct SubmeshGeometry
     UINT IndexCount = 0;
     UINT StartIndexLocation = 0;
     INT BaseVertexLocation = 0;
+    UINT vertexCount;
 
     // Bounding box of the geometry defined by this submesh. 
     // This is used in later chapters of the book.
@@ -161,7 +162,7 @@ struct MeshGeometry
 {
     // Give it a name so we can look it up by name.
     std::string Name;
-
+    UINT vertexCount;
     // System memory copies.  Use Blobs because the vertex/index format can be generic.
     // It is up to the client to cast appropriately.  
     Microsoft::WRL::ComPtr<ID3DBlob> VertexBufferCPU = nullptr;

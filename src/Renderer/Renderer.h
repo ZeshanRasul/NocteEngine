@@ -166,8 +166,10 @@ private:
 	AccelerationStructureBuffers m_topLevelASBuffers;
 	std::vector<std::pair<UINT, DirectX::XMMATRIX>> m_Instances;
 
+	std::pair< Microsoft::WRL::ComPtr<ID3D12Resource>, uint32_t> rtVerts;
+	std::vector<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, uint32_t>> m_BlasVertInput;
 	AccelerationStructureBuffers CreateBottomLevelAS(std::vector <std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, uint32_t>> vVertexBuffers);
 	void CreateTopLevelAS(std::vector <std::pair<uint32_t, DirectX::XMMATRIX>>& instances);
 	void CreateAccelerationStructures();
-
+	UINT m_vertexCount = 0;
 };

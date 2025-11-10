@@ -52,6 +52,9 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	BuildSkullGeometry();
 	BuildMaterials();
 	BuildRenderItems();
+	rtVerts = { m_AllRenderItems[0]->Geo->VertexBufferGPU, m_vertexCount};
+	m_BlasVertInput.push_back(rtVerts);
+	CreateBottomLevelAS(m_BlasVertInput);
 	BuildFrameResources();
 	//CreateCbvDescriptorHeaps();
 	//CreateConstantBufferViews();
@@ -610,6 +613,8 @@ void Renderer::BuildShapeGeometry()
 	geo->DrawArgs["sphere"] = sphereSubmesh;
 	geo->DrawArgs["cylinder"] = cylinderSubmesh;
 
+	m_vertexCount += totalVertexCount / 2;
+
 	m_Geometries[geo->Name] = std::move(geo);
 }
 
@@ -684,6 +689,8 @@ void Renderer::BuildSkullGeometry()
 	submesh.BaseVertexLocation = 0;
 
 	geo->DrawArgs["skull"] = submesh;
+
+	m_vertexCount += vertices.size() / 2;
 
 	m_Geometries[geo->Name] = std::move(geo);
 }
