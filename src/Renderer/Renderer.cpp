@@ -42,30 +42,22 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 	CreateDepthStencilView();
 
-	//CreateVertexBufferView();
-	//CreateIndexBufferView();
-
-
 	CreateRootSignature();
 	BuildShadersAndInputLayout();
 	BuildShapeGeometry();
 	BuildSkullGeometry();
 	BuildMaterials();
 	BuildRenderItems();
-	rtVerts = { m_AllRenderItems[0]->Geo->VertexBufferGPU, m_vertexCount};
-	m_BlasVertInput.push_back(rtVerts);
-	CreateBottomLevelAS(m_BlasVertInput);
+
 	BuildFrameResources();
-	//CreateCbvDescriptorHeaps();
-	//CreateConstantBufferViews();
 
 	BuildPSOs();
+	CreateAccelerationStructures();
 
+	
 	ThrowIfFailed(m_CommandList->Close());
 	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
 	m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
-
-	//	FlushCommandQueue();
 
 	return true;
 }
@@ -613,7 +605,7 @@ void Renderer::BuildShapeGeometry()
 	geo->DrawArgs["sphere"] = sphereSubmesh;
 	geo->DrawArgs["cylinder"] = cylinderSubmesh;
 
-	m_vertexCount += totalVertexCount / 2;
+	m_vertexCount += totalVertexCount;
 
 	m_Geometries[geo->Name] = std::move(geo);
 }
@@ -674,9 +666,12 @@ void Renderer::BuildSkullGeometry()
 
 	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(m_Device.Get(),
 		m_CommandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
+	skullUB = d3dUtil::CreateDefaultBuffer(m_Device.Get(),
+		m_CommandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
 
 	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(m_Device.Get(),
-		m_CommandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+		m_CommandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);	
+	
 
 	geo->VertexByteStride = sizeof(Vertex);
 	geo->VertexBufferByteSize = vbByteSize;
@@ -690,7 +685,8 @@ void Renderer::BuildSkullGeometry()
 
 	geo->DrawArgs["skull"] = submesh;
 
-	m_vertexCount += vertices.size() / 2;
+	m_vertexCount += vertices.size();
+	m_skullVertCount = vertices.size();
 
 	m_Geometries[geo->Name] = std::move(geo);
 }
@@ -1000,13 +996,60 @@ Renderer::AccelerationStructureBuffers Renderer::CreateBottomLevelAS(std::vector
 
 	bottomLevelAS.Generate(m_CommandList.Get(), buffers.pScratch.Get(), buffers.pResult.Get(), false, nullptr);
 
-	return AccelerationStructureBuffers();
+	return buffers;
 }
 
-void Renderer::CreateTopLevelAS(std::vector<std::pair<uint32_t, DirectX::XMMATRIX>>& instances)
+void Renderer::CreateTopLevelAS(std::vector<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, DirectX::XMMATRIX>>& instances)
 {
+
+	for (size_t i = 0; i < instances.size(); i++)
+	{
+		m_topLevelASGenerator.AddInstance(instances[i].first.Get(), instances[i].second, static_cast<UINT>(i), static_cast<UINT>(0));
+	}
+
+	UINT64 scratchSizeInBytes = 0;
+
+	UINT64 resultSizeInBytes = 0;
+
+	UINT64 instanceDescsSizeInBytes = 0;
+
+	m_topLevelASGenerator.ComputeASBufferSizes(m_Device.Get(), true, &scratchSizeInBytes, &resultSizeInBytes, &instanceDescsSizeInBytes);
+
+	m_topLevelASBuffers.pScratch = nv_helpers_dx12::CreateBuffer(m_Device.Get(), scratchSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON, nv_helpers_dx12::kDefaultHeapProps);
+	m_topLevelASBuffers.pResult = nv_helpers_dx12::CreateBuffer(m_Device.Get(), resultSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, nv_helpers_dx12::kDefaultHeapProps);
+	m_topLevelASBuffers.pInstanceDesc = nv_helpers_dx12::CreateBuffer(m_Device.Get(), instanceDescsSizeInBytes, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+
+	m_topLevelASGenerator.Generate(m_CommandList.Get(), m_topLevelASBuffers.pScratch.Get(), m_topLevelASBuffers.pResult.Get(), m_topLevelASBuffers.pInstanceDesc.Get());
 }
 
 void Renderer::CreateAccelerationStructures()
 {
+	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount}});
+
+	m_Instances = { {bottomLevelBuffers.pResult, XMMatrixIdentity()}};
+	CreateTopLevelAS(m_Instances);
+
+	m_CommandList->Close();
+	ID3D12CommandList* ppCommandLists[] = { m_CommandList.Get() };
+	m_CommandQueue->ExecuteCommandLists(1, ppCommandLists);
+
+	m_FrameResources[m_CurrentFrameResourceIndex].get()->Fence++;
+	m_CommandQueue->Signal(m_Fence.Get(), m_FrameResources[m_CurrentFrameResourceIndex].get()->Fence);
+
+	ThrowIfFailed(m_CommandQueue->Signal(m_Fence.Get(), m_FrameResources[m_CurrentFrameResourceIndex].get()->Fence));
+
+	if (m_Fence->GetCompletedValue() < m_FrameResources[m_CurrentFrameResourceIndex].get()->Fence)
+	{
+		HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
+
+		ThrowIfFailed(m_Fence->SetEventOnCompletion(m_FrameResources[m_CurrentFrameResourceIndex].get()->Fence, eventHandle));
+
+		WaitForSingleObject(eventHandle, INFINITE);
+		CloseHandle(eventHandle);
+	}
+
+
+	ThrowIfFailed(m_CommandList->Reset(m_CommandAllocator.Get(), m_PipelineStateObjects["opaque"].Get()));
+
+	m_BottomLevelAS = bottomLevelBuffers.pResult;
 }
