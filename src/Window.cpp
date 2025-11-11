@@ -158,6 +158,41 @@ LRESULT CALLBACK Window::HandleMessageThunk(HWND hWnd, UINT msg, WPARAM wParam, 
 
 LRESULT Window::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+
+	if ((wParam & MK_LBUTTON) != 0)
+	{
+		// Make each pixel correspond to a quarter of a degree.
+		float dx = XMConvertToRadians(0.25f * static_cast<float>(GET_X_LPARAM(lParam) - mLastMousePosX));
+		float dy = XMConvertToRadians(0.25f * static_cast<float>(GET_Y_LPARAM(lParam) - mLastMousePosY));
+
+		// Update angles based on input to orbit camera around box.
+		mTheta += dx;
+		mPhi += dy;
+
+		// Restrict the angle mPhi.
+		mPhi = MathHelper::Clamp(mPhi, 0.1f, MathHelper::Pi - 0.1f);
+
+		mLastMousePosX = GET_X_LPARAM(lParam);
+		mLastMousePosY = GET_Y_LPARAM(lParam);
+
+	}
+	else if ((wParam & MK_RBUTTON) != 0)
+	{
+		// Make each pixel correspond to 0.2 unit in the scene.
+		float dx = 0.05f * static_cast<float>(GET_X_LPARAM(lParam) - mLastMousePosX);
+		float dy = 0.05f * static_cast<float>(GET_Y_LPARAM(lParam) - mLastMousePosY);
+
+		// Update the camera radius based on input.
+		mRadius += dx - dy;
+
+		// Restrict the radius.
+		mRadius = MathHelper::Clamp(mRadius, 5.0f, 150.0f);
+		mLastMousePosX = GET_X_LPARAM(lParam);
+		mLastMousePosY = GET_Y_LPARAM(lParam);
+	}
+
+	
+
 	switch (msg)
 	{
 	case WM_CLOSE:
@@ -247,42 +282,12 @@ LRESULT Window::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 	case WM_MOVE:
 	{
-	
-		if ((wParam & MK_LBUTTON) != 0)
-		{
-			// Make each pixel correspond to a quarter of a degree.
-			float dx = XMConvertToRadians(0.25f * static_cast<float>(GET_X_LPARAM(lParam) - mLastMousePosX));
-			float dy = XMConvertToRadians(0.25f * static_cast<float>(GET_Y_LPARAM(lParam) - mLastMousePosY));
 
-			// Update angles based on input to orbit camera around box.
-			mTheta += dx;
-			mPhi += dy;
-
-			// Restrict the angle mPhi.
-			mPhi = MathHelper::Clamp(mPhi, 0.1f, MathHelper::Pi - 0.1f);
-		}
-		else if ((wParam & MK_RBUTTON) != 0)
-		{
-			// Make each pixel correspond to 0.2 unit in the scene.
-			float dx = 0.05f * static_cast<float>(GET_X_LPARAM(lParam) - mLastMousePosX);
-			float dy = 0.05f * static_cast<float>(GET_Y_LPARAM(lParam) - mLastMousePosY);
-
-			// Update the camera radius based on input.
-			mRadius += dx - dy;
-
-			// Restrict the radius.
-			mRadius = MathHelper::Clamp(mRadius, 5.0f, 150.0f);
-		}
-
-		mLastMousePosX = GET_X_LPARAM(lParam);
-		mLastMousePosY = GET_Y_LPARAM(lParam);
-
-		break;
 	}
 
 	case WM_LBUTTONDOWN:
 	{
-		nv_helpers_dx12::Manipulator::Singleton().setMousePosition(-GET_X_LPARAM(lParam), -GET_Y_LPARAM(lParam));
+		//nv_helpers_dx12::Manipulator::Singleton().setMousePosition(-GET_X_LPARAM(lParam), -GET_Y_LPARAM(lParam));
 
 
 		break;
