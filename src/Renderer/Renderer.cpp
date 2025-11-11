@@ -54,6 +54,19 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	BuildFrameResources();
 
 	BuildPSOs();
+	XMVECTOR pos = XMVectorSet(0.0f, 1.0f, -27.0f, 1.0f);
+	XMVECTOR target = XMVectorZero();
+	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
+	XMStoreFloat4x4(&m_View, view);
+
+	XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * MathHelper::Pi, (float)(m_ClientWidth / m_ClientHeight), 0.1f, 1000.0f);
+	XMStoreFloat4x4(&m_Proj, P);
+	m_CurrentFrameResource = 0;
+	m_CurrentFrameResourceIndex = (m_CurrentFrameResourceIndex + 1) % gNumFrameResources;
+	m_CurrentFrameResource = m_FrameResources[m_CurrentFrameResourceIndex].get();
+
+	UpdateMainPassCB();
 
 	CreateAccelerationStructures();
 	CreateRaytracingPipeline();
@@ -74,7 +87,7 @@ static inline UINT64 Align(UINT64 v, UINT64 alignment) {
 
 void Renderer::Update()
 {
-	m_CurrentFrameResourceIndex = (m_CurrentFrameResourceIndex + 1) % NumFrameResources;
+	m_CurrentFrameResourceIndex = (m_CurrentFrameResourceIndex + 1) % gNumFrameResources;
 	m_CurrentFrameResource = m_FrameResources[m_CurrentFrameResourceIndex].get();
 
 	if (m_CurrentFrameResource->Fence != 0 && m_Fence->GetCompletedValue() < m_CurrentFrameResource->Fence)
@@ -1040,8 +1053,9 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
 Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 {
 	nv_helpers_dx12::RootSignatureGenerator rsc;
-	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV);
-	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV);
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 0);
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 1);
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 0);
 	return rsc.Generate(m_Device.Get(), true);
 }
 
@@ -1142,7 +1156,7 @@ void Renderer::CreateShaderBindingTable()
 
 	m_SbtHelper.AddMissProgram(L"Miss", {});
 
-	m_SbtHelper.AddHitGroup(L"HitGroup", {(void*)(m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress()), heapPointer});
+	m_SbtHelper.AddHitGroup(L"HitGroup", {(void*)m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress(), (void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(), (void*)m_FrameResources[0]->PassCB->Resource()->GetGPUVirtualAddress()});
 
 	uint32_t sbtSize = m_SbtHelper.ComputeSBTSize();
 

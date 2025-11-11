@@ -17,6 +17,7 @@ struct STriVertex
 };
 
 StructuredBuffer<STriVertex> BTriVertex : register(t0);
+StructuredBuffer<int> indices : register(t1);
 
 cbuffer cbPass : register(b0)
 {
@@ -48,10 +49,10 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
     //const float3 B = float3(0.0, 1.0, 0.0);
     //const float3 C = float3(0.0, 0.0, 1.0);
     
-    //uint vertId = 3 * PrimitiveIndex();
-    //float3 hitColor = BTriVertex[vertId + 0].Normal * barycentrics.x +
-    //              BTriVertex[vertId + 1].Normal * barycentrics.y +
-    //              BTriVertex[vertId + 2].Normal * barycentrics.z;
+   uint vertId = 3 * PrimitiveIndex();
+   float3 hitColor = BTriVertex[indices[vertId + 0]].Normal * barycentrics.x +
+               BTriVertex[indices[vertId + 1]].Normal * barycentrics.y +
+               BTriVertex[indices[vertId + 2]].Normal * barycentrics.z;
     float3 col = gLights[0].Direction * gAmbientLight.xyz * 0.9;
-    payload.colorAndDistance = float4(barycentrics * col, RayTCurrent());
+    payload.colorAndDistance = float4(hitColor, RayTCurrent());
 }
