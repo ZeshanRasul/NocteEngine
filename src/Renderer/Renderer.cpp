@@ -77,6 +77,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 	CreateAccelerationStructures();
 	CreateRaytracingPipeline();
+	CreateGlobalConstantBuffer();
 	CreateRaytracingOutputBuffer();
 	CreateShaderResourceHeap();
 	CreateShaderBindingTable();
@@ -92,13 +93,13 @@ static inline UINT64 Align(UINT64 v, UINT64 alignment) {
 	return (v + (alignment - 1)) & ~(alignment - 1);
 }
 
-void Renderer::Update(float m_Theta, float m_Phi, float m_Radius, float m_LastMousePosX, float m_LastMousePosY)
+void Renderer::Update(float dt, float mTheta, float mPhi, float mRadius, float mLastMousePosX, float mLastMousePosY)
 {
-	m_Theta = m_Theta;
-	m_Phi = m_Phi;
-	m_Radius = m_Radius;
-	m_LastMousePosX = m_LastMousePosX;
-	m_LastMousePosY = m_LastMousePosY;
+	m_Theta = mTheta;
+	m_Phi = mPhi;
+	m_Radius = mRadius;
+	m_LastMousePosX = mLastMousePosX;
+	m_LastMousePosY = mLastMousePosY;
 
 	m_CurrentFrameResourceIndex = (m_CurrentFrameResourceIndex + 1) % gNumFrameResources;
 	m_CurrentFrameResource = m_FrameResources[m_CurrentFrameResourceIndex].get();
@@ -111,25 +112,6 @@ void Renderer::Update(float m_Theta, float m_Phi, float m_Radius, float m_LastMo
 		CloseHandle(eventHandle);
 	}
 
-	XMVECTOR pos = XMVectorSet(0.0f, 2.0f, -27.0f, 1.0f);
-	XMVECTOR target = XMVectorZero();
-	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-	XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
-	XMStoreFloat4x4(&m_View, view);
-	// Convert Spherical to Cartesian coordinates.
-	m_EyePos.x = m_Radius * sinf(m_Phi) * cosf(m_Theta);
-	m_EyePos.z = m_Radius * sinf(m_Phi) * sinf(m_Theta);
-	m_EyePos.y = m_Radius * cosf(m_Phi);
-
-	// Build the view matrix.
-	pos = XMVectorSet(m_EyePos.x, m_EyePos.y, m_EyePos.z, 1.0f);
-	target = XMVectorZero();
-	up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-
-	view = XMMatrixLookAtLH(pos, target, up);
-	XMStoreFloat4x4(&m_View, view);
-	XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * MathHelper::Pi, (float)((float)m_ClientWidth / (float)m_ClientHeight), 0.1f, 1000.0f);
-	XMStoreFloat4x4(&m_Proj, P);
 	UpdateCameraBuffer();
 	UpdateObjectCBs();
 	UpdateMainPassCB();
@@ -1096,6 +1078,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 0);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 1);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 0);
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 1);
 	return rsc.Generate(m_Device.Get(), true);
 }
 
@@ -1201,7 +1184,8 @@ void Renderer::CreateShaderBindingTable()
 
 	m_SbtHelper.AddMissProgram(L"Miss", {});
 
-	m_SbtHelper.AddHitGroup(L"HitGroup", {(void*)m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress(), (void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(), (void*)m_FrameResources[0]->PassCB->Resource()->GetGPUVirtualAddress()});
+	m_SbtHelper.AddHitGroup(L"HitGroup", {(void*)m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress(), (void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(), 
+		(void*)m_FrameResources[0]->PassCB->Resource()->GetGPUVirtualAddress(), (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress()});
 
 	uint32_t sbtSize = m_SbtHelper.ComputeSBTSize();
 
@@ -1355,6 +1339,19 @@ void Renderer::CreateCameraBuffer()
 
 void Renderer::UpdateCameraBuffer()
 {
+	// Convert Spherical to Cartesian coordinates.
+	m_EyePos.x = m_Radius * sinf(m_Phi) * cosf(m_Theta);
+	m_EyePos.z = m_Radius * sinf(m_Phi) * sinf(m_Theta);
+	m_EyePos.y = m_Radius * cosf(m_Phi);
+
+	// Build the view matrix.
+	XMVECTOR pos = XMVectorSet(m_EyePos.x, m_EyePos.y, m_EyePos.z, 1.0f);
+	XMVECTOR target = XMVectorZero();
+	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+	XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
+	XMStoreFloat4x4(&m_View, view);
+
 	std::vector<XMMATRIX> matrices(4);
 
 	XMVECTOR Eye = XMVectorSet(0.0f, 1.0f, -7.5f, 1.0f);
@@ -1386,4 +1383,33 @@ void Renderer::UpdateCameraBuffer()
 	ThrowIfFailed(m_CameraBuffer->Map(0, nullptr, (void**)&pData));
 	memcpy(pData, matrices.data(), m_CameraBufferSize);
 	m_CameraBuffer->Unmap(0, nullptr);
+}
+
+void Renderer::CreateGlobalConstantBuffer()
+{
+	XMVECTOR bufferData[] = {
+		// A
+		XMVECTOR{1.0f, 0.0f, 0.0f, 1.0f},
+		XMVECTOR{0.7f, 0.4f, 0.0f, 1.0f},
+		XMVECTOR{0.4f, 0.7f, 0.0f, 1.0f},
+
+		// B
+		XMVECTOR{0.0f, 1.0f, 0.0f, 1.0f},
+		XMVECTOR{0.0f, 0.7f, 0.4f, 1.0f},
+		XMVECTOR{0.0f, 0.4f, 0.7f, 1.0f},
+
+		// C
+		XMVECTOR{0.0f, 0.0f, 1.0f, 1.0f},
+		XMVECTOR{0.4f, 0.0f, 0.7f, 1.0f},
+		XMVECTOR{0.7f, 0.0f, 0.4f, 1.0f},
+	};
+
+	m_GlobalConstantBuffer = nv_helpers_dx12::CreateBuffer(
+		m_Device.Get(), sizeof(bufferData), D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+
+	uint8_t* pData;
+	ThrowIfFailed(m_GlobalConstantBuffer->Map(0, nullptr, (void**)&pData));
+	memcpy(pData, bufferData, sizeof(bufferData));
+	m_GlobalConstantBuffer->Unmap(0, nullptr);
 }

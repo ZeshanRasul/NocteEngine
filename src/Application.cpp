@@ -16,6 +16,8 @@ Application::Application()
 	m_Hwnd = m_Window->GetWindowHandle();
 
 	m_Renderer = std::unique_ptr<Renderer>(new Renderer(m_Hwnd, m_Window->GetWidth(), m_Window->GetHeight()));
+
+	m_GameTimer.Start();
 };
 
 Application::~Application()
@@ -33,11 +35,12 @@ int Application::Run()
 {
 	while (m_Running)
 	{
+		m_GameTimer.Tick();
 		if (const auto ecode = Window::ProcessMessages())
 		{
 			return *ecode;
 		}
-		m_Renderer->Update(m_Window->mTheta, m_Window->mPhi, m_Window->mRadius, m_Window->mLastMousePosX, m_Window->mLastMousePosY);
+		m_Renderer->Update(m_GameTimer.DeltaTime(), m_Window->mTheta, m_Window->mPhi, m_Window->mRadius, m_Window->mLastMousePosX, m_Window->mLastMousePosY);
 		m_Renderer->Draw(m_Window->m_Raster);
 	}
 

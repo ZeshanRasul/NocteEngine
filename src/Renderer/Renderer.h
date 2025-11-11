@@ -18,7 +18,7 @@ public:
 
 	bool InitializeD3D12(HWND& windowHandle);
 	bool Shutdown();
-	void Update(float m_Theta, float m_Phi, float m_Radius, float m_LastMousePosX, float m_LastMousePosY);
+	void Update(float dt, float m_Theta, float m_Phi, float m_Radius, float m_LastMousePosX, float m_LastMousePosY);
 	void Draw(bool useRaster);
 
 private:
@@ -221,5 +221,8 @@ private:
 
 	void OnMouseMove(WPARAM btnState, int x, int y);
 	float m_LastMousePosX, m_LastMousePosY;
+
+	void CreateGlobalConstantBuffer();
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_GlobalConstantBuffer;
 
 };

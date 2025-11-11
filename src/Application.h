@@ -7,6 +7,7 @@
 #include "Events/MouseEvent.h"
 #include "Window.h"
 #include "Renderer/Renderer.h"
+#include "Utils/GameTimer.h"
 
 class Application
 {
@@ -33,4 +34,5 @@ private:
 
 	std::unique_ptr<Renderer> m_Renderer;
 	static Application* s_Instance;
+	GameTimer m_GameTimer;
 };

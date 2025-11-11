@@ -40,6 +40,13 @@ cbuffer cbPass : register(b0)
     Light gLights[MaxLights];
 };
 
+cbuffer Colors : register(b1)
+{
+    float3 A[3];
+    float3 B[3];
+    float3 C[3];
+}
+
 float3 SchlickFresnel(float3 R0, float3 normal, float3 lightVec)
 {
     float cosIncidentAngle = saturate(dot(normal, lightVec));
@@ -100,7 +107,16 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 
     // Simple single directional light (use your own L)
     Light L = gLights[0]; // assume world-space direction/strength
-    float3 lit = ComputeDirectionalLight(L, nW, toEye);
+    
+    float4 modulationFactor = gAmbientLight;
+    
+    if (InstanceID() < 3)
+    {
+        float3 hitColor = A[InstanceID()] * bary.x + B[InstanceID()] * bary.y + C[InstanceID()] * bary.z;
+        modulationFactor = float4(hitColor.xyz, 1.0f);
+    };
+    
+    float3 lit = ComputeDirectionalLight(L, nW, toEye) + modulationFactor.xyz;
 
     payload.colorAndDistance = float4(lit, RayTCurrent());
 }
