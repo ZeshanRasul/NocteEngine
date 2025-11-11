@@ -1,4 +1,10 @@
 #include "Common.hlsl"
+
+struct ShadowHitInfo
+{
+    bool isHit;
+};
+
 #define MaxLights 16
 struct Light
 {
@@ -18,6 +24,9 @@ struct STriVertex
 
 StructuredBuffer<STriVertex> BTriVertex : register(t0);
 StructuredBuffer<int> indices : register(t1);
+
+// Raytracing acceleration structure, accessed as a SRV
+RaytracingAccelerationStructure SceneBVH : register(t2);
 
 cbuffer cbPass : register(b0)
 {
@@ -105,8 +114,7 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
     // To-eye vector (world)
     float3 toEye = normalize(gEyePosW - pW);
 
-    // Simple single directional light (use your own L)
-    Light L = gLights[0]; // assume world-space direction/strength
+    Light L = gLights[0];
     
     float4 modulationFactor = gAmbientLight;
     
@@ -126,8 +134,36 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
 {
     float3 bary = float3(1.0f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
     
-    float3 hitColor = float3(1.0f, 0.1f, 0.1f);
+    Light L = gLights[0];
+    float3 lightPos = float3(2, 2, -2);
     
-    payload.colorAndDistance = float4(hitColor.xyz, 1.0f);
+    float3 worldOrigin = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
+    
+    float3 lightDir = normalize(lightPos - worldOrigin);
+    
+    RayDesc ray;
+    ray.Origin = worldOrigin;
+    ray.Direction = lightDir;
+    ray.TMin = 0.01;
+    ray.TMax = 100000;
+    bool hit = true;
+    ShadowHitInfo shadowPayload;
+    shadowPayload.isHit = false;
+    
+    TraceRay(
+        SceneBVH,
+        RAY_FLAG_NONE,
+        0xFF,
+        1,
+        0, 
+        1,
+        ray,
+        shadowPayload);
+    
+    float factor = shadowPayload.isHit ? 0.3 : 1.0;
+    
+    float4 hitColor = float4(float3(0.7, 0.3, 0.4) * factor, RayTCurrent());
+    
+    payload.colorAndDistance = float4(hitColor);
 
 }
