@@ -1320,17 +1320,18 @@ void Renderer::CreateAccelerationStructures()
 	ThrowIfFailed(m_CommandList->Reset(m_CommandAllocator.Get(), m_PipelineStateObjects["opaque"].Get()));
 
 	m_BottomLevelAS = bottomLevelBuffers.pResult;
+	m_PlaneBottomLevelAS = planeBottomLevelBuffers.pResult;
 }
 
 void Renderer::CreatePlaneVB()
 {
 	Vertex planeVertices[] = {
-		 {{-1.5f, -.8f, 01.5f}, { 0.0f, 0.0f, 0.0f },}, // 0
-		 {{-1.5f, -.8f, -1.5f}, { 0.0f, 0.0f, 0.0f },}, // 1
-		 {{01.5f, -.8f, 01.5f}, { 0.0f, 0.0f, 0.0f },}, // 2
-		 {{01.5f, -.8f, 01.5f}, { 0.0f, 0.0f, 0.0f },}, // 2
-		 {{-1.5f, -.8f, -1.5f}, { 0.0f, 0.0f, 0.0f },}, // 1
-		 {{01.5f, -.8f, -1.5f}, { 0.0f, 0.0f, 0.0f } }  // 4
+		 {{01.5f, -.8f, 01.5f}, { 0.0f, 0.0f, 0.0f }}, // 2
+		 {{-1.5f, -.8f, -1.5f}, { 0.0f, 0.0f, 0.0f }}, // 1
+		 {{-1.5f, -.8f, 01.5f}, { 0.0f, 0.0f, 0.0f }}, // 0
+		 {{01.5f, -.8f, -1.5f}, { 0.0f, 0.0f, 0.0f }},  // 4
+		 {{-1.5f, -.8f, -1.5f}, { 0.0f, 0.0f, 0.0f }}, // 1
+		 {{01.5f, -.8f, 01.5f}, { 0.0f, 0.0f, 0.0f }} // 2
 	};
 
 	const UINT planeBufferSize = sizeof(planeVertices);
@@ -1350,7 +1351,7 @@ void Renderer::CreatePlaneVB()
 	m_PlaneBuffer->Unmap(0, nullptr);
 
 	m_PlaneBufferView.BufferLocation = m_PlaneBuffer->GetGPUVirtualAddress();
-	m_PlaneBufferView.StrideInBytes = 3 * sizeof(float);
+	m_PlaneBufferView.StrideInBytes = sizeof(Vertex);
 	m_PlaneBufferView.SizeInBytes = planeBufferSize;
 }
 

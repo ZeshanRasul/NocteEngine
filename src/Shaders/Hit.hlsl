@@ -153,15 +153,15 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
         SceneBVH,
         RAY_FLAG_NONE,
         0xFF,
-        1,
         0,
-        1,
+        0,
+        0,
         ray,
         shadowPayload);
     
-    float factor = shadowPayload.isHit ? 0.3 : 1.0;
+    float factor = shadowPayload.isHit ? 0.1 : 1.0;
     
-    float4 hitColor = float4(float3(0.7, 0.70, 0.7) * factor, RayTCurrent());
+    float4 hitColor = float4(float3(0.7, 0.10, 0.1) * factor, RayTCurrent());
     
     payload.colorAndDistance = float4(hitColor.xyz, RayTCurrent());
 

@@ -164,6 +164,7 @@ private:
 	};
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_BottomLevelAS;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_PlaneBottomLevelAS;
 
 	nv_helpers_dx12::TopLevelASGenerator m_topLevelASGenerator;
 	AccelerationStructureBuffers m_topLevelASBuffers;
