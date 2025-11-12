@@ -143,26 +143,27 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
     RayDesc ray;
     ray.Origin = worldOrigin;
     ray.Direction = lightDir;
-    ray.TMin = 1.01f;
-    ray.TMax = 100000.0f;
-    //bool hit = true;
+    ray.TMin = 0.01;
+    ray.TMax = 100000;
+    bool hit = true;
     ShadowHitInfo shadowPayload;
-    shadowPayload.isHit = true;
+    shadowPayload.isHit = false;
     
     TraceRay(
         SceneBVH,
         RAY_FLAG_NONE,
         0xFF,
-        0,
-        0,
-        0,
+        1,
+        2,
+        1,
         ray,
         shadowPayload);
     
-    float factor = shadowPayload.isHit ? 0.1 : 1.0;
+    float factor = shadowPayload.isHit ? 0.3 : 1.0;
     
-    float4 hitColor = float4(float3(0.7, 0.10, 0.1) * factor, RayTCurrent());
+   // float4 hitColor = shadowPayload.isHit ? float4(float3(0.0, 1.0, 0.0), RayTCurrent()) : float4(float3(0.0, 0.0, 1.0), RayTCurrent());
+    float4 hitColor = float4(float3(0.7, 0.3, 0.4) * factor, RayTCurrent());
     
-    payload.colorAndDistance = float4(hitColor.xyz, RayTCurrent());
+    payload.colorAndDistance = float4(hitColor.xyz, 1.0);
 
 }
