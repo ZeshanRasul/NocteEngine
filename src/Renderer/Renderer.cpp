@@ -1031,7 +1031,7 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.cbPerObjectPad2 = 0.5f;
 	m_MainPassCB.cbPerObjectPad3 = 0.5f;
 	m_MainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
-	m_MainPassCB.Lights[0].Direction = { 0.0f, -1.0f, 0.0f };
+	m_MainPassCB.Lights[0].Direction = { 0.0f, -20.0f, 0.0f };
 	m_MainPassCB.Lights[0].Strength = { 0.6f, 0.6f, 0.6f };
 	m_MainPassCB.Lights[1].Direction = { -0.57735f, -0.57735f, 0.57735f };
 
@@ -1271,7 +1271,7 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<Microsoft::WRL::ComPtr<ID3
 		{
 			hitGroupIndex = 1;
 		}
-		m_topLevelASGenerator.AddInstance(instances[i].first.Get(), instances[i].second, static_cast<UINT>(i), static_cast<UINT>(0));
+		m_topLevelASGenerator.AddInstance(instances[i].first.Get(), instances[i].second, static_cast<UINT>(i), static_cast<UINT>(hitGroupIndex));
 	}
 
 	UINT64 scratchSizeInBytes = 0;

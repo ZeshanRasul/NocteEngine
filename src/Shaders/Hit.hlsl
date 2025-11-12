@@ -135,8 +135,8 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
     float3 bary = float3(1.0f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
     Light L = gLights[0];
 
-    float3 lightPos = float3(0.0f, -20.0f, 0.0f);
-  //  float3 lightPos = L.Direction;
+  //  float3 lightPos = float3(0.0f, 20.0f, 0.0f);
+    float3 lightPos = L.Direction;
     
     float3 worldOrigin = WorldRayOrigin() + (RayTCurrent()) * WorldRayDirection();
     
@@ -184,7 +184,7 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
     
     TraceRay(
         SceneBVH,
-        RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
+        RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
         0xFF,
         1,
         2,
@@ -194,7 +194,7 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
     
     float factor = shadowPayload.isHit ? 0.3 : 1.0;
 
-    float4 hitColor = shadowPayload.isHit ? float4(float3(0.0, 1.0, 0.0), 1.0f) : float4(float3(0.0, 0.0, 1.0), 1.0f );
+    float4 hitColor = shadowPayload.isHit ? float4(float3(0.0, 1.0, 0.0), RayTCurrent()) : float4(float3(0.0, 0.0, 1.0), RayTCurrent());
   //  float4 hitColor = float4(lit * factor, RayTCurrent());
     
     payload.colorAndDistance = float4(hitColor);
