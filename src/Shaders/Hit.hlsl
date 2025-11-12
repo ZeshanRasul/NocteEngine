@@ -140,21 +140,21 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
     
     float3 worldOrigin = WorldRayOrigin() + (RayTCurrent() - 0.1) * WorldRayDirection();
     
-   // float3 lightDir = normalize(lightPos - worldOrigin);
-    float3 lightDir = normalize(lightPos);
+    float3 lightDir = normalize(lightPos - worldOrigin);
+  //  float3 lightDir = normalize(lightPos);
     
 
     
-       // Triangle index in this geometry
+      // Triangle index in this geometry
     const uint triIndex = PrimitiveIndex();
     const uint vbase = triIndex * 3;
 
     // Fetch the triangle’s vertices (object space)
-    STriVertex v0 = BTriVertex[vbase + 2];
+    STriVertex v0 = BTriVertex[indices[vbase + 0]];
 
-    STriVertex v1 = BTriVertex[vbase + 1];
+    STriVertex v1 = BTriVertex[indices[vbase + 1]];
 
-    STriVertex v2 = BTriVertex[vbase + 0];
+    STriVertex v2 = BTriVertex[indices[vbase + 2]];
     
     
     // Interpolate vertex normal in object space
@@ -180,7 +180,7 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
     ray.TMax = 100000.0f;
     bool hit = true;
     ShadowHitInfo shadowPayload;
-    shadowPayload.isHit = false;
+    shadowPayload.isHit = true;
     
     TraceRay(
         SceneBVH,

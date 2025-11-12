@@ -178,8 +178,8 @@ void Renderer::Draw(bool useRaster)
 
 		DrawRenderItems(m_CommandList.Get(), m_OpaqueRenderItems);
 
-		m_CommandList->IASetVertexBuffers(0, 1, &m_PlaneBufferView);
-		m_CommandList->DrawInstanced(6, 1, 0, 0);
+	//	m_CommandList->IASetVertexBuffers(0, 1, &m_PlaneBufferView);
+	//	m_CommandList->DrawInstanced(6, 1, 0, 0);
 
 	}
 	else
@@ -1031,7 +1031,7 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.cbPerObjectPad2 = 0.5f;
 	m_MainPassCB.cbPerObjectPad3 = 0.5f;
 	m_MainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
-	m_MainPassCB.Lights[0].Direction = { 0.57735f, -0.57735f, 0.57735f };
+	m_MainPassCB.Lights[0].Direction = { 0.0f, -100.0f, 0.0f };
 	m_MainPassCB.Lights[0].Strength = { 0.6f, 0.6f, 0.6f };
 	m_MainPassCB.Lights[1].Direction = { -0.57735f, -0.57735f, 0.57735f };
 
@@ -1216,7 +1216,7 @@ void Renderer::CreateShaderBindingTable()
 	m_SbtHelper.AddHitGroup(L"HitGroup", {(void*)m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress(), (void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(), 
 		(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(), (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress()});
 
-	m_SbtHelper.AddHitGroup(L"PlaneHitGroup", { (void*)m_PlaneBuffer->GetGPUVirtualAddress(),(void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(), 
+	m_SbtHelper.AddHitGroup(L"PlaneHitGroup", { (void*)m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress(),(void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(),
 		(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(), heapPointer});
 
 	m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
@@ -1293,9 +1293,9 @@ void Renderer::CreateAccelerationStructures()
 {
 	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} }, { {m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount }
 		});
-	AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { m_PlaneBuffer.Get(), 6 } }, {});
+	AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount } }, { { m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount} });
 
-	m_Instances = { {planeBottomLevelBuffers.pResult, XMMatrixScaling(10.f, 1.0f, 10.0f)}, { bottomLevelBuffers.pResult, XMMatrixIdentity() }, {bottomLevelBuffers.pResult, XMMatrixTranslation(-6.0f, 0.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(6.0f, 0.0f, 0.0f)}, };
+	m_Instances = { {planeBottomLevelBuffers.pResult, XMMatrixScaling(10.f, 1.0f, 10.0f) * XMMatrixTranslation(0.0f, -10.0f, 0.0f)}, { bottomLevelBuffers.pResult, XMMatrixIdentity() }, {bottomLevelBuffers.pResult, XMMatrixTranslation(-6.0f, 0.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(6.0f, 0.0f, 0.0f)}, };
 	CreateTopLevelAS(m_Instances);
 
 	m_CommandList->Close();
