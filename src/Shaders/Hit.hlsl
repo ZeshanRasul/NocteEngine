@@ -133,13 +133,46 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
 {
     float3 bary = float3(1.0f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
-    
-    float3 lightPos = float3(0.0f, 200.0f, 0.0f);
+    Light L = gLights[0];
+
+    //float3 lightPos = float3(0.0f, 200.0f, 0.0f);
+    float3 lightPos = L.Direction;
     
     float3 worldOrigin = WorldRayOrigin() + (RayTCurrent() - 0.1) * WorldRayDirection();
     
-    float3 lightDir = normalize(lightPos - worldOrigin);
+   // float3 lightDir = normalize(lightPos - worldOrigin);
+    float3 lightDir = normalize(lightPos);
     
+
+    
+       // Triangle index in this geometry
+    const uint triIndex = PrimitiveIndex();
+    const uint vbase = triIndex * 3;
+
+    // Fetch the triangle’s vertices (object space)
+    STriVertex v0 = BTriVertex[vbase + 2];
+
+    STriVertex v1 = BTriVertex[vbase + 1];
+
+    STriVertex v2 = BTriVertex[vbase + 0];
+    
+    
+    // Interpolate vertex normal in object space
+    float3 nObj = normalize(v0.Normal * bary.x + v1.Normal * bary.y + v2.Normal * bary.z);
+
+    // Transform normal to world space with inverse-transpose of Object->World
+    float3x3 w2o = (float3x3) WorldToObject3x4(); // 3x3
+    float3x3 o2w = (float3x3) ObjectToWorld3x4(); // 3x3
+    float3 nW = normalize(mul(nObj, transpose(w2o))); // inverse-transpose
+
+    // Hit position in world space (from the ray)
+    float3 pW = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
+
+    // To-eye vector (world)
+    float3 toEye = normalize(gEyePosW - pW);
+
+    float3 lit = ComputeDirectionalLight(L, nW, toEye);
+
     RayDesc ray;
     ray.Origin = worldOrigin;
     ray.Direction = lightDir;
@@ -159,39 +192,11 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
         ray,
         shadowPayload);
     
-       // Triangle index in this geometry
-    const uint triIndex = PrimitiveIndex();
-    const uint vbase = triIndex * 3;
-
-    // Fetch the triangle’s vertices (object space)
-    STriVertex v0 = BTriVertex[vbase + 2];
-
-    STriVertex v1 = BTriVertex[vbase + 1];
-
-    STriVertex v2 = BTriVertex[vbase + 0];
-    
-    float factor = shadowPayload.isHit ? 0.3 : 1.0;
-    
-    // Interpolate vertex normal in object space
-    float3 nObj = normalize(v0.Normal * bary.x + v1.Normal * bary.y + v2.Normal * bary.z);
-
-    // Transform normal to world space with inverse-transpose of Object->World
-    float3x3 w2o = (float3x3) WorldToObject3x4(); // 3x3
-    float3x3 o2w = (float3x3) ObjectToWorld3x4(); // 3x3
-    float3 nW = normalize(mul(nObj, transpose(w2o))); // inverse-transpose
-
-    // Hit position in world space (from the ray)
-    float3 pW = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
-
-    // To-eye vector (world)
-    float3 toEye = normalize(gEyePosW - pW);
-
-    Light L = gLights[0];
-    float3 lit = ComputeDirectionalLight(L, nW, toEye);
+    float factor = shadowPayload.isHit ? 0.0 : 1.0;
 
    // float4 hitColor = shadowPayload.isHit ? float4(float3(0.0, 1.0, 0.0), RayTCurrent()) : float4(float3(0.0, 0.0, 1.0), RayTCurrent());
     float4 hitColor = float4(lit * factor, RayTCurrent());
     
-    payload.colorAndDistance = float4(v0.Normal, 1.0);
+    payload.colorAndDistance = float4(hitColor);
 
 }

@@ -1216,7 +1216,8 @@ void Renderer::CreateShaderBindingTable()
 	m_SbtHelper.AddHitGroup(L"HitGroup", {(void*)m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress(), (void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(), 
 		(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(), (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress()});
 
-	m_SbtHelper.AddHitGroup(L"PlaneHitGroup", { (void*)m_PlaneBuffer->GetGPUVirtualAddress(), (void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(), heapPointer});
+	m_SbtHelper.AddHitGroup(L"PlaneHitGroup", { (void*)m_PlaneBuffer->GetGPUVirtualAddress(),(void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(), 
+		(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(), heapPointer});
 
 	m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
 
@@ -1270,7 +1271,7 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<Microsoft::WRL::ComPtr<ID3
 		{
 			hitGroupIndex = 1;
 		}
-		m_topLevelASGenerator.AddInstance(instances[i].first.Get(), instances[i].second, static_cast<UINT>(i), static_cast<UINT>(hitGroupIndex));
+		m_topLevelASGenerator.AddInstance(instances[i].first.Get(), instances[i].second, static_cast<UINT>(0), static_cast<UINT>(hitGroupIndex));
 	}
 
 	UINT64 scratchSizeInBytes = 0;
