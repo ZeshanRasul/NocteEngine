@@ -1271,7 +1271,7 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<Microsoft::WRL::ComPtr<ID3
 		{
 			hitGroupIndex = 1;
 		}
-		m_topLevelASGenerator.AddInstance(instances[i].first.Get(), instances[i].second, static_cast<UINT>(i), static_cast<UINT>(hitGroupIndex));
+		m_topLevelASGenerator.AddInstance(instances[i].first.Get(), instances[i].second, static_cast<UINT>(i), static_cast<UINT>(1));
 	}
 
 	UINT64 scratchSizeInBytes = 0;
