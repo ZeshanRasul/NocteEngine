@@ -140,7 +140,7 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
         modulationFactor = float4(hitColor.xyz, 1.0f);
     };
     
-    float3 lit = ComputeDirectionalLight(L, nObj, toEye, materials[materialIndex - 4]);
+    float3 lit = ComputeDirectionalLight(L, nObj, toEye, materials[materialIndex]);
 
     payload.colorAndDistance = float4(lit, RayTCurrent());
     
@@ -184,7 +184,7 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
     float3 toEye = normalize(gEyePosW - pW);
 
     // Normal Blinn-Phong lighting from your directional light
-    float3 lit = ComputeDirectionalLight(L, nObj, toEye, materials[materialIndex - 4]);
+    float3 lit = ComputeDirectionalLight(L, nObj, toEye, materials[materialIndex]);
 
     // Directional light: L.Direction is the direction the light shines.
     // Vector from surface toward the light is -L.Direction.
