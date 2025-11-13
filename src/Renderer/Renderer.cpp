@@ -74,9 +74,9 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * MathHelper::Pi, (float)(m_ClientWidth / m_ClientHeight), 0.1f, 1000.0f);
 	XMStoreFloat4x4(&m_Proj, P);
 
-	CreatePerInstanceBuffers();
 	CreateAccelerationStructures();
 	CreateRaytracingPipeline();
+	CreatePerInstanceBuffers();
 	CreateGlobalConstantBuffer();
 	CreateRaytracingOutputBuffer();
 	CreateShaderResourceHeap();
@@ -126,10 +126,10 @@ void Renderer::Update(float dt, float mTheta, float mPhi, float mRadius, float m
 		CloseHandle(eventHandle);
 	}
 
-	//m_AnimationCounter++;
-	//m_Instances[0].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / 500.0f);
-	//m_Instances[1].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -500.0f) * XMMatrixTranslation(10.0f, -10.0f, 0.0f);;
-	//m_Instances[2].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -500.0f) * XMMatrixTranslation(-10.0f, -10.0f, 0.0f);;
+	m_AnimationCounter++;
+	m_Instances[0].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / 500.0f);
+	m_Instances[1].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -500.0f) * XMMatrixTranslation(10.0f, -10.0f, 0.0f);;
+	m_Instances[2].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -500.0f) * XMMatrixTranslation(-10.0f, -10.0f, 0.0f);;
 
 	UpdateCameraBuffer();
 	UpdateObjectCBs();
@@ -559,7 +559,7 @@ void Renderer::BuildMaterials()
 	bricks0->DiffuseSrvHeapIndex = 0;
 	bricks0->DiffuseAlbedo = XMFLOAT4(Colors::ForestGreen);
 	bricks0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	bricks0->Roughness = 0.1f;
+	bricks0->Roughness = 0.8f;
 
 	auto stone0 = std::make_unique<Material>();
 	stone0->Name = "stone0";
@@ -567,15 +567,15 @@ void Renderer::BuildMaterials()
 	stone0->DiffuseSrvHeapIndex = 1;
 	stone0->DiffuseAlbedo = XMFLOAT4(Colors::Crimson);
 	stone0->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
-	stone0->Roughness = 0.3f;
+	stone0->Roughness = 0.7f;
 
 	auto tile0 = std::make_unique<Material>();
 	tile0->Name = "tile0";
 	tile0->MatCBIndex = 2;
 	tile0->DiffuseSrvHeapIndex = 2;
-	tile0->DiffuseAlbedo = XMFLOAT4(Colors::LightGray);
+	tile0->DiffuseAlbedo = XMFLOAT4(Colors::Aquamarine);
 	tile0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	tile0->Roughness = 0.2f;
+	tile0->Roughness = 0.8f;
 
 	auto skullMat = std::make_unique<Material>();
 	skullMat->Name = "skullMat";
@@ -583,7 +583,7 @@ void Renderer::BuildMaterials()
 	skullMat->DiffuseSrvHeapIndex = 3;
 	skullMat->DiffuseAlbedo = XMFLOAT4(Colors::BlanchedAlmond);
 	skullMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05);
-	skullMat->Roughness = 0.3f;
+	skullMat->Roughness = 0.7f;
 
 	m_Materials["bricks0"] = std::move(bricks0);
 	m_Materials["stone0"] = std::move(stone0);
@@ -1039,7 +1039,7 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.cbPerObjectPad2 = 0.5f;
 	m_MainPassCB.cbPerObjectPad3 = 0.5f;
 	m_MainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
-	m_MainPassCB.Lights[0].Strength = { 0.6f, 0.6f, 0.6f };
+	m_MainPassCB.Lights[0].Strength = { 0.2f, 0.2f, 0.2f };
 	m_MainPassCB.Lights[0].Direction = { 0.3f, -1.0f, 0.2f };
 	m_MainPassCB.Lights[1].Direction = { -0.57735f, -0.57735f, 0.57735f };
 
@@ -1105,7 +1105,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 0);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 1);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 2);
-	rsc.AddHeapRangesParameter({ { 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3} });
+	rsc.AddHeapRangesParameter({ { 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2} });
 
 	return rsc.Generate(m_Device.Get(), true);
 }
@@ -1488,7 +1488,6 @@ void Renderer::CreateGlobalConstantBuffer()
 
 void Renderer::CreatePerInstanceBuffers()
 {
-	UINT materialIndex;
 
 	m_PerInstanceCBs.resize(m_PerInstanceCBCount);
 
@@ -1507,16 +1506,16 @@ void Renderer::CreatePerInstanceBuffers()
 		++i;
 	}
 
-	m_MaterialsGPU.resize(m_Materials.size());
+	m_MaterialsGPU.reserve(m_Materials.size());
 	for (auto& m : m_Materials)
 	{
 		MaterialDataGPU matGpu{};
 		Material* mat = m.second.get();
 		matGpu.DiffuseAlbedo = mat->DiffuseAlbedo;
 		matGpu.FresnelR0 = mat->FresnelR0;
-		matGpu.Shininess = 1.0f / mat->Roughness;
+		matGpu.Shininess = 1.0 - mat->Roughness;
 
-		m_MaterialsGPU.push_back(matGpu);
+		m_MaterialsGPU.push_back(std::move(matGpu));
 	}
 
 	const uint32_t bufferSize = m_MaterialsGPU.size() * sizeof(MaterialDataGPU);
