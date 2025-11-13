@@ -1039,7 +1039,7 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.cbPerObjectPad2 = 0.5f;
 	m_MainPassCB.cbPerObjectPad3 = 0.5f;
 	m_MainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
-	m_MainPassCB.Lights[0].Strength = { 0.2f, 0.2f, 0.2f };
+	m_MainPassCB.Lights[0].Strength = { 0.4f, 0.4f, 0.4f };
 	m_MainPassCB.Lights[0].Direction = { 0.3f, -1.0f, 0.2f };
 	m_MainPassCB.Lights[1].Direction = { -0.57735f, -0.57735f, 0.57735f };
 
