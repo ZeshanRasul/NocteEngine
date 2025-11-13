@@ -1491,7 +1491,7 @@ void Renderer::CreatePerInstanceBuffers()
 		++i;
 	}
 
-	const uint32_t bufferSize = 4 * sizeof(MaterialConstants);
+	const uint32_t bufferSize = 4 * sizeof(Material);
 
 	m_UploadCBuffer = nv_helpers_dx12::CreateBuffer(m_Device.Get(), bufferSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
 
