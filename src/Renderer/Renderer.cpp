@@ -1089,7 +1089,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
 	rsc.AddHeapRangesParameter(
 		{ { 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0 },
 		{ 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1},
-		{ 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 2},
+		{ 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 3},
 		}
 	);
 
@@ -1102,10 +1102,10 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 0);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 1);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 2);
-	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 3);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 0);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 1);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 2);
+	rsc.AddHeapRangesParameter({ { 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3} });
 
 	return rsc.Generate(m_Device.Get(), true);
 }
@@ -1198,6 +1198,20 @@ void Renderer::CreateShaderResourceHeap()
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 
+	srvDesc = {};
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+	srvDesc.Buffer.FirstElement = 0;
+	srvDesc.Buffer.NumElements = static_cast<UINT>(m_MaterialsGPU.size());
+	srvDesc.Buffer.StructureByteStride = sizeof(MaterialDataGPU);
+	srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+
+	m_Device->CreateShaderResourceView(m_UploadCBuffer.Get(), &srvDesc, srvHandle);
+
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+
 	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
 	cbvDesc.BufferLocation = m_FrameResources[m_CurrentFrameResourceIndex]->PassCB->Resource()->GetGPUVirtualAddress();
 	cbvDesc.SizeInBytes = Align(sizeof(PassConstants), 256);
@@ -1209,6 +1223,10 @@ void Renderer::CreateShaderResourceHeap()
 	cbvDesc.BufferLocation = m_CameraBuffer->GetGPUVirtualAddress();
 	cbvDesc.SizeInBytes = m_CameraBufferSize;
 	m_Device->CreateConstantBufferView(&cbvDesc, srvHandle);
+
+
+
+
 }
 
 void Renderer::CreateShaderBindingTable()
@@ -1226,14 +1244,12 @@ void Renderer::CreateShaderBindingTable()
 	for (int i = 0; i < m_PerInstanceCBCount - 1; i++)
 	{
 		m_SbtHelper.AddHitGroup(L"HitGroup", { (void*)m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress(), (void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(), (void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
-			(void*)m_UploadCBuffer->GetGPUVirtualAddress(),
-			(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(), (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(), (void*)m_PerInstanceCBs[i]->GetGPUVirtualAddress() });
+			(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(), (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(), (void*)m_PerInstanceCBs[i]->GetGPUVirtualAddress(), heapPointer });
 	}
 
 
 	m_SbtHelper.AddHitGroup(L"PlaneHitGroup", { (void*)m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress(),(void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(), (void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
-		(void*)m_UploadCBuffer->GetGPUVirtualAddress(),
-		(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),  (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(), (void*)m_PerInstanceCBs[m_PerInstanceCBs.size() - 1]->GetGPUVirtualAddress() });
+		(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),  (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(), (void*)m_PerInstanceCBs[m_PerInstanceCBs.size() - 1]->GetGPUVirtualAddress(), heapPointer });
 
 	m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
 
@@ -1491,16 +1507,25 @@ void Renderer::CreatePerInstanceBuffers()
 		++i;
 	}
 
-	const uint32_t bufferSize = 4 * sizeof(Material);
+	m_MaterialsGPU.resize(m_Materials.size());
+	for (auto& m : m_Materials)
+	{
+		MaterialDataGPU matGpu{};
+		Material* mat = m.second.get();
+		matGpu.DiffuseAlbedo = mat->DiffuseAlbedo;
+		matGpu.FresnelR0 = mat->FresnelR0;
+		matGpu.Shininess = 1.0f / mat->Roughness;
+
+		m_MaterialsGPU.push_back(matGpu);
+	}
+
+	const uint32_t bufferSize = m_MaterialsGPU.size() * sizeof(MaterialDataGPU);
 
 	m_UploadCBuffer = nv_helpers_dx12::CreateBuffer(m_Device.Get(), bufferSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
 
 	uint8_t* pData;
 	ThrowIfFailed(m_UploadCBuffer->Map(0, nullptr, (void**)&pData));
-	memcpy(pData, &m_Materials, bufferSize);
+	memcpy(pData, m_MaterialsGPU.data(), bufferSize);
 	m_UploadCBuffer->Unmap(0, nullptr);
-	//++i;
-	for (int i = 0; i < 4; i++)
-	{
-	}
+
 }
