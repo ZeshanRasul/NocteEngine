@@ -191,6 +191,7 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_MissSignature;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_ShadowSignature;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_ReflectionSignature;
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_SphereSignature;
 
 	Microsoft::WRL::ComPtr<ID3D12StateObject> m_RtStateObject;
 	Microsoft::WRL::ComPtr<ID3D12StateObjectProperties> m_RtStateObjectProps;
@@ -239,6 +240,8 @@ private:
 	void CreatePerInstanceBuffers();
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_PerInstanceCBs;
 	UINT m_PerInstanceCBCount = 6;
+	UINT m_SkullCount = 4;
+	UINT m_SphereCount = 1;
 	
 	std::vector<MaterialDataGPU> m_MaterialsGPU;
 
