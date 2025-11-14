@@ -1130,13 +1130,13 @@ void Renderer::CreateRaytracingPipeline()
 	m_MissLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Shaders\\Miss.hlsl");
 	m_HitLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Shaders\\Hit.hlsl");
 
-	m_ShadowLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Shaders\\ShadowRay.hlsl");
-	pipeline.AddLibrary(m_ShadowLibrary.Get(), { L"ShadowMiss" });
-	m_ShadowSignature = CreateMissSignature();
+	// = nv_helpers_dx12::CompileShaderLibrary(L"Shaders\\ShadowRay.hlsl");
+	//pipeline.AddLibrary(m_ShadowLibrary.Get(), { L"ShadowMiss" });
+	//m_ShadowSignature = CreateMissSignature();
 
 	pipeline.AddLibrary(m_RayGenLibrary.Get(), { L"RayGen" });
 	pipeline.AddLibrary(m_MissLibrary.Get(), { L"Miss" });
-	pipeline.AddLibrary(m_HitLibrary.Get(), { L"ClosestHit", L"PlaneClosestHit", L"ReflectionClosestHit"});
+	pipeline.AddLibrary(m_HitLibrary.Get(), { L"ClosestHit", L"ReflectionClosestHit" });
 
 	m_RayGenSignature = CreateRayGenSignature();
 	m_MissSignature = CreateMissSignature();
@@ -1144,17 +1144,17 @@ void Renderer::CreateRaytracingPipeline()
 	m_ReflectionSignature = CreateHitSignature();
 
 	pipeline.AddHitGroup(L"HitGroup", L"ClosestHit");
-	pipeline.AddHitGroup(L"PlaneHitGroup", L"PlaneClosestHit");
-	pipeline.AddHitGroup(L"ShadowHitGroup", L"");
+	//pipeline.AddHitGroup(L"PlaneHitGroup", L"PlaneClosestHit");
+//	pipeline.AddHitGroup(L"ShadowHitGroup", L"");
 	pipeline.AddHitGroup(L"ReflectionHitGroup", L"ReflectionClosestHit");
 
 	pipeline.AddRootSignatureAssociation(m_RayGenSignature.Get(), { L"RayGen" });
 	pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"Miss" });
 	pipeline.AddRootSignatureAssociation(m_HitSignature.Get(), { L"HitGroup" });
 
-	pipeline.AddRootSignatureAssociation(m_ShadowSignature.Get(), { L"ShadowHitGroup" });
-	pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"Miss", L"ShadowMiss" });
-	pipeline.AddRootSignatureAssociation(m_HitSignature.Get(), { L"HitGroup",  L"PlaneHitGroup" });
+	//pipeline.AddRootSignatureAssociation(m_ShadowSignature.Get(), { L"ShadowHitGroup" });
+	//pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"Miss", L"ShadowMiss" });
+	//pipeline.AddRootSignatureAssociation(m_HitSignature.Get(), { L"HitGroup",  L"PlaneHitGroup" });
 
 	pipeline.AddRootSignatureAssociation(m_ReflectionSignature.Get(), { L"ReflectionHitGroup" });
 	pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"Miss" });
@@ -1252,7 +1252,7 @@ void Renderer::CreateShaderBindingTable()
 	m_SbtHelper.AddRayGenerationProgram(L"RayGen", { heapPointer });
 
 	m_SbtHelper.AddMissProgram(L"Miss", {});
-	m_SbtHelper.AddMissProgram(L"ShadowMiss", {});
+	//	m_SbtHelper.AddMissProgram(L"ShadowMiss", {});
 
 	for (int i = 0; i < m_PerInstanceCBCount - 1; i++)
 	{
@@ -1261,12 +1261,22 @@ void Renderer::CreateShaderBindingTable()
 	}
 
 
-	m_SbtHelper.AddHitGroup(L"PlaneHitGroup", { (void*)m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress(),(void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(), (void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
-		(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),  (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(), (void*)m_PerInstanceCBs[m_PerInstanceCBs.size() - 1]->GetGPUVirtualAddress(), heapPointer });
+	//m_SbtHelper.AddHitGroup(L"PlaneHitGroup", { (void*)m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress(),(void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(), (void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
+	//	(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),  (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(), (void*)m_PerInstanceCBs[m_PerInstanceCBs.size() - 1]->GetGPUVirtualAddress(), heapPointer });
 
-	m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
+	//m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
+	//for (int i = 0; i < m_PerInstanceCBCount; i++)
+	{
+
+	}
 	m_SbtHelper.AddHitGroup(L"ReflectionHitGroup", { (void*)m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress(),(void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(), (void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
-		(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),  (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(), (void*)m_PerInstanceCBs[m_PerInstanceCBs.size() - 1]->GetGPUVirtualAddress(), heapPointer });
+		(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),  (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(), (void*)m_PerInstanceCBs[m_PerInstanceCBCount - 1]->GetGPUVirtualAddress(), heapPointer });
+
+	for (int i = 0; i < m_PerInstanceCBCount - 1; i++)
+	{
+		m_SbtHelper.AddHitGroup(L"HitGroup", { (void*)m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress(), (void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(), (void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
+			(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(), (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(), (void*)m_PerInstanceCBs[i]->GetGPUVirtualAddress(), heapPointer });
+	}
 
 	uint32_t sbtSize = m_SbtHelper.ComputeSBTSize();
 
@@ -1319,7 +1329,7 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<Microsoft::WRL::ComPtr<ID3
 			{
 				hitGroupIndex = 5;
 			}
-			m_topLevelASGenerator.AddInstance(instances[i].first.Get(), instances[i].second, static_cast<UINT>(i), static_cast<UINT>(hitGroupIndex));
+			m_topLevelASGenerator.AddInstance(instances[i].first.Get(), instances[i].second, static_cast<UINT>(i), static_cast<UINT>(i));
 		}
 
 		UINT64 scratchSizeInBytes = 0;

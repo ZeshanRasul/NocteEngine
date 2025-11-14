@@ -259,7 +259,7 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
         SceneBVH,
         RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
         /*InstanceInclusionMask*/ 0xff, // or 0x1 if you later mask out the plane
-    /*RayContributionToHitGroupIndex*/ 2,
+    /*RayContributionToHitGroupIndex*/ 4,
         /*MultiplierForGeometryContributionToHitGroupIndex*/ 1,
         /*MissShaderIndex*/ 0, 
         reflectionRay,
@@ -268,7 +268,7 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
 
     float3 lit = ComputeDirectionalLight(L, nObj, toEye, materials[materialIndex]);
     
-    float3 finalColor = lit + reflectionPayload.colorAndDistance.xyz;
+    float3 finalColor = reflectionPayload.colorAndDistance.xyz;
 
     payload.colorAndDistance = float4(finalColor, RayTCurrent());
 }
