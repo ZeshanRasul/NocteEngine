@@ -50,7 +50,6 @@ void RayGen()
     float2 pixelCenter = (float2(launchIndex) + 0.5f) / float2(dims);
     float2 d = pixelCenter * 2.0f - 1.0f; // NDC coords
 
-    // In DirectX, Y is inverted relative to NDC
     d.y = -d.y;
 
     // Construct a ray through the pixel in world space

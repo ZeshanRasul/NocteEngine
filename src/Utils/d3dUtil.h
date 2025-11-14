@@ -151,7 +151,22 @@ struct SubmeshGeometry
     UINT IndexCount = 0;
     UINT StartIndexLocation = 0;
     INT BaseVertexLocation = 0;
-    UINT vertexCount;
+    UINT VertexCount = 0;
+
+    // Data about the buffers.
+    UINT VertexByteStride = 0;
+    UINT VertexBufferByteSize = 0;
+    DXGI_FORMAT IndexFormat = DXGI_FORMAT_R16_UINT;
+    UINT IndexBufferByteSize = 0;
+
+    Microsoft::WRL::ComPtr<ID3DBlob> VertexBufferCPU = nullptr;
+    Microsoft::WRL::ComPtr<ID3DBlob> IndexBufferCPU = nullptr;
+
+    Microsoft::WRL::ComPtr<ID3D12Resource> VertexBufferGPU = nullptr;
+    Microsoft::WRL::ComPtr<ID3D12Resource> IndexBufferGPU = nullptr;
+
+    Microsoft::WRL::ComPtr<ID3D12Resource> VertexBufferUploader = nullptr;
+    Microsoft::WRL::ComPtr<ID3D12Resource> IndexBufferUploader = nullptr;
 
     // Bounding box of the geometry defined by this submesh. 
     // This is used in later chapters of the book.
@@ -162,7 +177,6 @@ struct MeshGeometry
 {
     // Give it a name so we can look it up by name.
     std::string Name;
-    UINT vertexCount;
     // System memory copies.  Use Blobs because the vertex/index format can be generic.
     // It is up to the client to cast appropriately.  
     Microsoft::WRL::ComPtr<ID3DBlob> VertexBufferCPU = nullptr;
@@ -179,6 +193,9 @@ struct MeshGeometry
     UINT VertexBufferByteSize = 0;
     DXGI_FORMAT IndexFormat = DXGI_FORMAT_R16_UINT;
     UINT IndexBufferByteSize = 0;
+
+    UINT64 VertexCount;
+    UINT64 IndexCount;
 
     // A MeshGeometry may store multiple geometries in one vertex/index buffer.
     // Use this container to define the Submesh geometries so we can draw

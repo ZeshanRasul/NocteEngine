@@ -37,9 +37,10 @@ struct STriVertex
 
 StructuredBuffer<STriVertex> BTriVertex : register(t0);
 StructuredBuffer<int> indices : register(t1);
-// Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t2);
 StructuredBuffer<Material> materials : register(t3);
+StructuredBuffer<STriVertex> CTriVertex : register(t4);
+StructuredBuffer<int> cIndices : register(t5);
 
 
 cbuffer cbPass : register(b0)
@@ -128,7 +129,6 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
     // Interpolate vertex normal in object space
     float3 nObj = normalize(v0.Normal * bary.x + v1.Normal * bary.y + v2.Normal * bary.z);
 
-    // Transform normal to world space with inverse-transpose of Object->World
 
     // Hit position in world space (from the ray)
     float3 pW = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
@@ -190,13 +190,13 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
     shadowRay.TMax = 1e5f;
 
     ShadowHitInfo shadowPayload;
-    shadowPayload.isHit = true; // assume occluded; miss will clear to false
+    shadowPayload.isHit = true; 
 
     TraceRay(
         SceneBVH,
         RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH |
         RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
-        /*InstanceInclusionMask*/ 0xff, // or 0x1 if you later mask out the plane
+        /*InstanceInclusionMask*/ 0xff, 
         /*RayContributionToHitGroupIndex*/ 1,
         /*MultiplierForGeometryContributionToHitGroupIndex*/ 1,
         /*MissShaderIndex*/ 1, // ShadowMiss (2nd miss in SBT)
@@ -221,19 +221,18 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
     const uint vbase = triIndex * 3;
 
     // Fetch the triangle’s vertices (object space)
-    STriVertex v0 = BTriVertex[indices[vbase + 0]];
+    STriVertex v0 = CTriVertex[cIndices[vbase + 0]];
 
-    STriVertex v1 = BTriVertex[indices[vbase + 1]];
+    STriVertex v1 = CTriVertex[cIndices[vbase + 1]];
 
-    STriVertex v2 = BTriVertex[indices[vbase + 2]];
+    STriVertex v2 = CTriVertex[cIndices[vbase + 2]];
 
     // Full barycentric triple
     float3 bary = float3(1.0f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
 
     // Interpolate vertex normal in object space
     float3 nObj = normalize(v0.Normal * bary.x + v1.Normal * bary.y + v2.Normal * bary.z);
-    float3 nW = normalize(mul((float3x3) ObjectToWorld3x4(), nObj));
-    nObj = float3(0, 1, 0);
+ //   float3 nW = normalize(mul((float3x3) ObjectToWorld3x4(), nObj));
 
     // Hit position in world space (from the ray)
     float3 pW = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
@@ -258,8 +257,8 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
     TraceRay(
         SceneBVH,
         RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
-        /*InstanceInclusionMask*/ 0xff, // or 0x1 if you later mask out the plane
-    /*RayContributionToHitGroupIndex*/ 4,
+        /*InstanceInclusionMask*/ 0xff, 
+    /*RayContributionToHitGroupIndex*/ 5,
         /*MultiplierForGeometryContributionToHitGroupIndex*/ 1,
         /*MissShaderIndex*/ 0, 
         reflectionRay,
@@ -268,7 +267,7 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
 
     float3 lit = ComputeDirectionalLight(L, nObj, toEye, materials[materialIndex]);
     
-    float3 finalColor = reflectionPayload.colorAndDistance.xyz;
+    float3 finalColor = lit + 0.5 * reflectionPayload.colorAndDistance.xyz;
 
     payload.colorAndDistance = float4(finalColor, RayTCurrent());
 }

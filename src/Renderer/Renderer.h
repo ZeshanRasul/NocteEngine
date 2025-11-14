@@ -238,8 +238,9 @@ private:
 
 	void CreatePerInstanceBuffers();
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_PerInstanceCBs;
-	UINT m_PerInstanceCBCount = 4;
+	UINT m_PerInstanceCBCount = 5;
 	
 	std::vector<MaterialDataGPU> m_MaterialsGPU;
 
+	SubmeshGeometry boxSubmesh;
 };
