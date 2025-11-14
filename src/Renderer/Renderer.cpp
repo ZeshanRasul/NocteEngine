@@ -1046,7 +1046,7 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.cbPerObjectPad3 = 0.5f;
 	m_MainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
 	m_MainPassCB.Lights[0].Strength = { 0.4f, 0.4f, 0.4f };
-	m_MainPassCB.Lights[0].Direction = { 0.3f, 0.66f, 0.2f };
+	m_MainPassCB.Lights[0].Direction = { 0.3f, 0.46f, 0.7f };
 	m_MainPassCB.Lights[1].Direction = { -0.57735f, -0.57735f, 0.57735f };
 
 	m_MainPassCB.Lights[1].Strength = { 0.3f, 0.3f, 0.3f };
@@ -1130,13 +1130,13 @@ void Renderer::CreateRaytracingPipeline()
 	m_MissLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Shaders\\Miss.hlsl");
 	m_HitLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Shaders\\Hit.hlsl");
 
-	// = nv_helpers_dx12::CompileShaderLibrary(L"Shaders\\ShadowRay.hlsl");
-	//pipeline.AddLibrary(m_ShadowLibrary.Get(), { L"ShadowMiss" });
-	//m_ShadowSignature = CreateMissSignature();
+	m_ShadowLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Shaders\\ShadowRay.hlsl");
+	pipeline.AddLibrary(m_ShadowLibrary.Get(), { L"ShadowMiss" });
+	m_ShadowSignature = CreateMissSignature();
 
 	pipeline.AddLibrary(m_RayGenLibrary.Get(), { L"RayGen" });
 	pipeline.AddLibrary(m_MissLibrary.Get(), { L"Miss" });
-	pipeline.AddLibrary(m_HitLibrary.Get(), { L"ClosestHit", L"ReflectionClosestHit" });
+	pipeline.AddLibrary(m_HitLibrary.Get(), { L"ClosestHit", L"PlaneClosestHit", L"ReflectionClosestHit"});
 
 	m_RayGenSignature = CreateRayGenSignature();
 	m_MissSignature = CreateMissSignature();
@@ -1144,17 +1144,17 @@ void Renderer::CreateRaytracingPipeline()
 	m_ReflectionSignature = CreateHitSignature();
 
 	pipeline.AddHitGroup(L"HitGroup", L"ClosestHit");
-	//pipeline.AddHitGroup(L"PlaneHitGroup", L"PlaneClosestHit");
-//	pipeline.AddHitGroup(L"ShadowHitGroup", L"");
+	pipeline.AddHitGroup(L"PlaneHitGroup", L"PlaneClosestHit");
+	pipeline.AddHitGroup(L"ShadowHitGroup", L"");
 	pipeline.AddHitGroup(L"ReflectionHitGroup", L"ReflectionClosestHit");
 
 	pipeline.AddRootSignatureAssociation(m_RayGenSignature.Get(), { L"RayGen" });
 	pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"Miss" });
 	pipeline.AddRootSignatureAssociation(m_HitSignature.Get(), { L"HitGroup" });
 
-	//pipeline.AddRootSignatureAssociation(m_ShadowSignature.Get(), { L"ShadowHitGroup" });
-	//pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"Miss", L"ShadowMiss" });
-	//pipeline.AddRootSignatureAssociation(m_HitSignature.Get(), { L"HitGroup",  L"PlaneHitGroup" });
+	pipeline.AddRootSignatureAssociation(m_ShadowSignature.Get(), { L"ShadowHitGroup" });
+	pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"Miss", L"ShadowMiss" });
+	pipeline.AddRootSignatureAssociation(m_HitSignature.Get(), { L"HitGroup",  L"PlaneHitGroup" });
 
 	pipeline.AddRootSignatureAssociation(m_ReflectionSignature.Get(), { L"ReflectionHitGroup" });
 	pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"Miss" });
