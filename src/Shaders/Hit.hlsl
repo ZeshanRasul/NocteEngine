@@ -152,11 +152,14 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
     float3 lit = ComputeDirectionalLight(L, nObj, toEye, materials[materialIndex]);
 
     payload.depth += 1;
-    //if (payload.depth >= 5)
-    //    return psy;
-
     payload.eta = materials[materialIndex].Ior;
-    payload.colorAndDistance = float4(lit, RayTCurrent());
+    if (payload.depth >= 5)
+    {
+        payload.colorAndDistance = float4(lit.xyz, RayTCurrent());
+        return;
+    }
+
+    payload.colorAndDistance = float4(lit.xyz, RayTCurrent());
 }
 
 [shader("closesthit")]
@@ -218,10 +221,13 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
     float3 finalColor = lit * shadowFactor;
 
     payload.depth += 1;
-    //if (payload.depth >= 5)
-    //    return;
-
     payload.eta = materials[materialIndex].Ior;
+    if (payload.depth >= 5)
+    {
+        payload.colorAndDistance = float4(payload.colorAndDistance.xyz, RayTCurrent());
+        return;
+    }
+    
     payload.colorAndDistance = float4(finalColor, RayTCurrent());
     
 }
@@ -272,11 +278,8 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
     HitInfo reflectionPayload = payload;
     
     refrPayload.depth++;
-    //if (refrPayload.depth >= 5)
-    //    return;
-    //reflectionPayload.depth++;
-    //if (reflectionPayload.depth >= 5)
-    //    return;
+    payload.eta = materials[materialIndex].Ior;
+
     
     
     
@@ -288,6 +291,7 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
 
     float3 refractDir;
     bool totalInternalReflection = (sin2ThetaT > 1.0f);
+    totalInternalReflection = false;
 
     if (!totalInternalReflection)
     {
@@ -304,6 +308,20 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
     float3 toEye = normalize(gEyePosW - pW);
 
     Light L = gLights[0];
+    float3 lit = ComputeDirectionalLight(L, nObj, toEye, materials[materialIndex]);
+
+    if (refrPayload.depth >= 5)
+    {
+        payload.colorAndDistance = float4(payload.colorAndDistance.xyz, RayTCurrent());
+        return;
+    }
+    reflectionPayload.depth++;
+    if (reflectionPayload.depth >= 5)
+    {
+        payload.colorAndDistance = float4(lit, RayTCurrent());
+        return;
+    }
+    
     // Shadow ray (world space)
     RayDesc reflectionRay;
     reflectionRay.Origin = pW + reflectionDir * 0.001f; // bias to avoid self-shadowing
@@ -324,20 +342,27 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
     );
     payload.depth += 1;
     payload.eta = materials[materialIndex].Ior;
-    //if (payload.depth >= 5)
-    //    return payload;
+    if (payload.depth >= 5)
+    {
+        payload.colorAndDistance = float4(payload.colorAndDistance.xyz, RayTCurrent());
+        return;
+    }
     
     float tMin = 0.001f;
     float tMax = 1e27f;
 
-    RayDesc refractionRay;
-    refractionRay.Origin = pW + refractDir * 0.01f; // bias to avoid self-shadowing
-    refractionRay.Direction = refractDir;
-    refractionRay.TMin = tMin;
-    refractionRay.TMax = tMax;
+    if (!totalInternalReflection)
+    {
+        
+    
+        RayDesc refractionRay;
+        refractionRay.Origin = pW + refractDir * 0.01f; // bias to avoid self-shadowing
+        refractionRay.Direction = refractDir;
+        refractionRay.TMin = tMin;
+        refractionRay.TMax = tMax;
 
     
-    TraceRay(
+        TraceRay(
             SceneBVH,
             RAY_FLAG_NONE,
             0xff,
@@ -347,14 +372,14 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
     refractionRay,
     refrPayload
         );
+    }
     
-    float3 lit = ComputeDirectionalLight(L, nObj, toEye, materials[materialIndex]);
-    float3 finalColor = reflectionPayload.colorAndDistance.xyz;
+    float3 finalColor = lit + reflectionPayload.colorAndDistance.xyz;
     
     if (refrPayload.colorAndDistance.w < tMax)
     {
     }
-    finalColor += refrPayload.colorAndDistance.xyz;
+        finalColor += refrPayload.colorAndDistance.xyz;
     
     
 

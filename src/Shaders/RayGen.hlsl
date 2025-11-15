@@ -41,7 +41,9 @@ void RayGen()
 {
   // Initialize the ray payload
     HitInfo payload;
-    payload.colorAndDistance = float4(1.0, 0, 0, 0);
+    payload.colorAndDistance = float4(0, 0, 0, 0);
+    payload.depth = 0;
+    payload.eta = 1.0f;
 
     uint2 launchIndex = DispatchRaysIndex().xy;
     uint2 dims = DispatchRaysDimensions().xy;
