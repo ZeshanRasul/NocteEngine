@@ -294,7 +294,6 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
 
     float3 refractDir;
     bool totalInternalReflection = (sin2ThetaT > 1.0f);
-     totalInternalReflection = false;
 
     if (!totalInternalReflection)
     {
