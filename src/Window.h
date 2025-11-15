@@ -78,7 +78,7 @@ private:
 
 public:
 	Input input;
-	bool m_Raster = true;
+	bool m_Raster = false;
 	float mLastMousePosX = 0;
 	float mLastMousePosY = 0;
 	float mTheta = 1.5f * 3.141592f;

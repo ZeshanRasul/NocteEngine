@@ -14,6 +14,9 @@ struct Material
 {
     float4 DiffuseAlbedo;
     float3 FresnelR0;
+    float Ior;
+    float Reflectivity;
+    float3 Absorption;
     float Shininess;
     bool IsReflective;
 };

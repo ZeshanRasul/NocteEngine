@@ -58,7 +58,13 @@ struct MaterialDataGPU
 {
 	DirectX::XMFLOAT4 DiffuseAlbedo;
 	DirectX::XMFLOAT3 FresnelR0;
+	float Ior;
+	float Reflectivity;
+	DirectX::XMFLOAT3 Absorption;
 	float Shininess;
+	float pad;
+	float pad2;
+	float pad3;
 	bool isReflective = false;
 };
 

@@ -1676,6 +1676,9 @@ void Renderer::CreatePerInstanceBuffers()
 		Material* mat = m.second.get();
 		matGpu.DiffuseAlbedo = mat->DiffuseAlbedo;
 		matGpu.FresnelR0 = mat->FresnelR0;
+		matGpu.Ior = mat->Ior;
+		matGpu.Reflectivity = mat->Reflectivity;
+		matGpu.Absorption = mat->Absorption;
 		matGpu.Shininess = 1.0 - mat->Roughness;
 		matGpu.isReflective = mat->IsReflective;
 
