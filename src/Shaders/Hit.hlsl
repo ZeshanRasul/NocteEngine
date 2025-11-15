@@ -152,6 +152,9 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
     float3 lit = ComputeDirectionalLight(L, nObj, toEye, materials[materialIndex]);
 
     payload.depth += 1;
+    //if (payload.depth >= 5)
+    //    return psy;
+
     payload.eta = materials[materialIndex].Ior;
     payload.colorAndDistance = float4(lit, RayTCurrent());
 }
@@ -215,6 +218,9 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
     float3 finalColor = lit * shadowFactor;
 
     payload.depth += 1;
+    //if (payload.depth >= 5)
+    //    return;
+
     payload.eta = materials[materialIndex].Ior;
     payload.colorAndDistance = float4(finalColor, RayTCurrent());
     
@@ -262,8 +268,19 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
     float3 pW = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
 
     float3 incidentRay = WorldRayDirection();
+    HitInfo refrPayload = payload;
+    HitInfo reflectionPayload = payload;
     
-    float3 reflectionDir = incidentRay - (2 * (dot(incidentRay, nObj) * nObj));
+    refrPayload.depth++;
+    //if (refrPayload.depth >= 5)
+    //    return;
+    //reflectionPayload.depth++;
+    //if (reflectionPayload.depth >= 5)
+    //    return;
+    
+    
+    
+    float3 reflectionDir = incidentRay - (2 * (dot(incidentRay, Nf) * Nf));
     
     float cosThetaI = dot(-wo, Nf);
     float sin2ThetaI = max(0.0f, 1.0f - cosThetaI * cosThetaI);
@@ -278,10 +295,6 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
         refractDir = normalize(refractDir);
     }
     
-    HitInfo refrPayload = payload;
-
-    refrPayload.depth++;
-
     // Update medium for refracted ray
     refrPayload.eta = eta_t;
 
@@ -293,12 +306,11 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
     Light L = gLights[0];
     // Shadow ray (world space)
     RayDesc reflectionRay;
-    reflectionRay.Origin = pW + Nf * 0.001f; // bias to avoid self-shadowing
+    reflectionRay.Origin = pW + reflectionDir * 0.001f; // bias to avoid self-shadowing
     reflectionRay.Direction = reflectionDir;
     reflectionRay.TMin = 0.0f;
     reflectionRay.TMax = 1e5f;
 
-    HitInfo reflectionPayload;
 
     TraceRay(
         SceneBVH,
@@ -312,12 +324,14 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
     );
     payload.depth += 1;
     payload.eta = materials[materialIndex].Ior;
- 
+    //if (payload.depth >= 5)
+    //    return payload;
+    
     float tMin = 0.001f;
     float tMax = 1e27f;
 
     RayDesc refractionRay;
-    refractionRay.Origin = wo * 0.001f; // bias to avoid self-shadowing
+    refractionRay.Origin = pW + refractDir * 0.01f; // bias to avoid self-shadowing
     refractionRay.Direction = refractDir;
     refractionRay.TMin = tMin;
     refractionRay.TMax = tMax;
@@ -339,8 +353,8 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
     
     if (refrPayload.colorAndDistance.w < tMax)
     {
-        finalColor += refrPayload.colorAndDistance.xyz;
     }
+    finalColor += refrPayload.colorAndDistance.xyz;
     
     
 

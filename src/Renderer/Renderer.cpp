@@ -1244,7 +1244,7 @@ void Renderer::CreateRaytracingPipeline()
 
 	pipeline.SetMaxPayloadSize(6 * sizeof(float));
 	pipeline.SetMaxAttributeSize(2 * sizeof(float));
-	pipeline.SetMaxRecursionDepth(3);
+	pipeline.SetMaxRecursionDepth(5);
 
 	m_RtStateObject = pipeline.Generate();
 
