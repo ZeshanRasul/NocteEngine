@@ -14,7 +14,7 @@ using namespace DirectX;
 class Renderer {
 public:
 	Renderer(HWND& windowHandle, UINT width, UINT height);
-	~Renderer() { m_Device->Release(); };
+	~Renderer();
 
 	bool InitializeD3D12(HWND& windowHandle);
 	bool Shutdown();
@@ -201,6 +201,7 @@ private:
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_OutputResource;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_SrvUavHeap;
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_ImguiHeap;
 
 	void CreateShaderBindingTable();
 
@@ -247,4 +248,5 @@ private:
 
 	SubmeshGeometry boxSubmesh;
 	SubmeshGeometry sphereSubmesh;
+	bool showWindow = true;
 };

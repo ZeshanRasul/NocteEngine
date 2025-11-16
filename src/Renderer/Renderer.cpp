@@ -7,7 +7,58 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "Renderer.h"
 
+#include "imgui/imgui.h"
+#include "imgui/backends/imgui_impl_win32.h"
+#include "imgui/backends/imgui_impl_dx12.h"
+
 const int gNumFrameResources = 3;
+
+// Simple free list based allocator
+struct ExampleDescriptorHeapAllocator
+{
+	ID3D12DescriptorHeap* Heap = nullptr;
+	D3D12_DESCRIPTOR_HEAP_TYPE  HeapType = D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES;
+	D3D12_CPU_DESCRIPTOR_HANDLE HeapStartCpu;
+	D3D12_GPU_DESCRIPTOR_HANDLE HeapStartGpu;
+	UINT                        HeapHandleIncrement;
+	ImVector<int>               FreeIndices;
+
+	void Create(ID3D12Device* device, ID3D12DescriptorHeap* heap)
+	{
+		IM_ASSERT(Heap == nullptr && FreeIndices.empty());
+		Heap = heap;
+		D3D12_DESCRIPTOR_HEAP_DESC desc = heap->GetDesc();
+		HeapType = desc.Type;
+		HeapStartCpu = Heap->GetCPUDescriptorHandleForHeapStart();
+		HeapStartGpu = Heap->GetGPUDescriptorHandleForHeapStart();
+		HeapHandleIncrement = device->GetDescriptorHandleIncrementSize(HeapType);
+		FreeIndices.reserve((int)desc.NumDescriptors);
+		for (int n = desc.NumDescriptors; n > 0; n--)
+			FreeIndices.push_back(n - 1);
+	}
+	void Destroy()
+	{
+		Heap = nullptr;
+		FreeIndices.clear();
+	}
+	void Alloc(D3D12_CPU_DESCRIPTOR_HANDLE* out_cpu_desc_handle, D3D12_GPU_DESCRIPTOR_HANDLE* out_gpu_desc_handle)
+	{
+		IM_ASSERT(FreeIndices.Size > 0);
+		int idx = FreeIndices.back();
+		FreeIndices.pop_back();
+		out_cpu_desc_handle->ptr = HeapStartCpu.ptr + (idx * HeapHandleIncrement);
+		out_gpu_desc_handle->ptr = HeapStartGpu.ptr + (idx * HeapHandleIncrement);
+	}
+	void Free(D3D12_CPU_DESCRIPTOR_HANDLE out_cpu_desc_handle, D3D12_GPU_DESCRIPTOR_HANDLE out_gpu_desc_handle)
+	{
+		int cpu_idx = (int)((out_cpu_desc_handle.ptr - HeapStartCpu.ptr) / HeapHandleIncrement);
+		int gpu_idx = (int)((out_gpu_desc_handle.ptr - HeapStartGpu.ptr) / HeapHandleIncrement);
+		IM_ASSERT(cpu_idx == gpu_idx);
+		FreeIndices.push_back(cpu_idx);
+	}
+};
+
+static ExampleDescriptorHeapAllocator g_pd3dSrvDescHeapAlloc;
 
 Renderer::Renderer(HWND& windowHandle, UINT width, UINT height)
 	:m_Hwnd(windowHandle),
@@ -16,6 +67,14 @@ Renderer::Renderer(HWND& windowHandle, UINT width, UINT height)
 {
 	m_Hwnd = windowHandle;
 	InitializeD3D12(m_Hwnd);
+}
+
+Renderer::~Renderer()
+{
+	m_Device->Release();
+	ImGui_ImplDX12_Shutdown();
+	ImGui_ImplWin32_Shutdown();
+	ImGui::DestroyContext();
 }
 
 bool Renderer::InitializeD3D12(HWND& windowHandle)
@@ -89,6 +148,38 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateShaderResourceHeap();
 	CreateShaderBindingTable();
 
+	// Setup Dear ImGui context
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+	//	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // IF using Docking Branch
+
+		// Setup Platform/Renderer backends
+	ImGui_ImplDX12_InitInfo init_info = {};
+	init_info.Device = m_Device.Get();
+	init_info.CommandQueue = m_CommandQueue.Get();
+	init_info.NumFramesInFlight = 1;
+	init_info.RTVFormat = m_BackBufferFormat; // Or your render target format.
+
+	// Allocating SRV descriptors (for textures) is up to the application, so we provide callbacks.
+	// The example_win32_directx12/main.cpp application include a simple free-list based allocator.
+	g_pd3dSrvDescHeapAlloc.Create(m_Device.Get(), m_SrvUavHeap.Get());
+	init_info.SrvDescriptorHeap = m_SrvUavHeap.Get();
+	init_info.SrvDescriptorAllocFn = [](ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE* out_cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE* out_gpu_handle) { return g_pd3dSrvDescHeapAlloc.Alloc(out_cpu_handle, out_gpu_handle); };
+	init_info.SrvDescriptorFreeFn = [](ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle) { return g_pd3dSrvDescHeapAlloc.Free(cpu_handle, gpu_handle);  };
+
+	ImGui_ImplDX12_Init(&init_info);
+
+	ImGui::StyleColorsDark();
+	//ImGui::StyleColorsLight();
+
+	// Setup scaling
+
+
+	ImGui_ImplWin32_Init(m_Hwnd);
+
 	ThrowIfFailed(m_CommandList->Close());
 	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
 	m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
@@ -146,6 +237,15 @@ void Renderer::Update(float dt, float mTheta, float mPhi, float mRadius, float m
 
 void Renderer::Draw(bool useRaster)
 {
+
+	ImGui_ImplDX12_NewFrame();
+	ImGui_ImplWin32_NewFrame();
+	ImGui::NewFrame();
+
+	showWindow = true;
+	ImGui::ShowDemoWindow(&showWindow);
+	ImGui::Render();
+
 	auto cmdListAlloc = m_CurrentFrameResource->CmdListAlloc;
 
 	ThrowIfFailed(cmdListAlloc->Reset());
@@ -169,8 +269,10 @@ void Renderer::Draw(bool useRaster)
 
 	m_CommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
 
-	if (useRaster)
+	if (true)
 	{
+		std::vector<ID3D12DescriptorHeap*> heaps = { m_SrvUavHeap.Get() };
+		m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
 
 		m_CommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 		m_CommandList->ClearRenderTargetView(CurrentBackBufferView(), DirectX::Colors::LightSteelBlue, 0, nullptr);
@@ -181,10 +283,10 @@ void Renderer::Draw(bool useRaster)
 		m_CommandList->SetGraphicsRootConstantBufferView(3, m_CameraBuffer->GetGPUVirtualAddress());
 
 		DrawRenderItems(m_CommandList.Get(), m_OpaqueRenderItems);
+		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_CommandList.Get());
 
 		//	m_CommandList->IASetVertexBuffers(0, 1, &m_PlaneBufferView);
 		//	m_CommandList->DrawInstanced(6, 1, 0, 0);
-
 	}
 	else
 	{
@@ -231,12 +333,15 @@ void Renderer::Draw(bool useRaster)
 		transition = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET);
 		m_CommandList->ResourceBarrier(1, &transition);
 
+
+
 	}
+
 
 	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 
-	ThrowIfFailed(m_CommandList->Close());
 
+	ThrowIfFailed(m_CommandList->Close());
 	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
 	m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
@@ -1352,28 +1457,28 @@ void Renderer::CreateShaderBindingTable()
 			(void*)boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress() });
 
 	};
-		m_SbtHelper.AddHitGroup(L"ReflectionHitGroup", { (void*)m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress(),(void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(), (void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
-		(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),  (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(), (void*)m_PerInstanceCBs[5]->GetGPUVirtualAddress(), heapPointer,
-		(void*)boxSubmesh.VertexBufferGPU->GetGPUVirtualAddress(),
-		(void*)boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress() });
+	m_SbtHelper.AddHitGroup(L"ReflectionHitGroup", { (void*)m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress(),(void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(), (void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
+	(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),  (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(), (void*)m_PerInstanceCBs[5]->GetGPUVirtualAddress(), heapPointer,
+	(void*)boxSubmesh.VertexBufferGPU->GetGPUVirtualAddress(),
+	(void*)boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress() });
 
-		for (int i = 0; i < m_SkullCount; i++)
-		{
-			m_SbtHelper.AddHitGroup(L"HitGroup", { (void*)m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress(), (void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(), (void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
-				(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(), (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(), (void*)m_PerInstanceCBs[i]->GetGPUVirtualAddress(), heapPointer,
-				(void*)boxSubmesh.VertexBufferGPU->GetGPUVirtualAddress(),
-				(void*)boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress() });
+	for (int i = 0; i < m_SkullCount; i++)
+	{
+		m_SbtHelper.AddHitGroup(L"HitGroup", { (void*)m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress(), (void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(), (void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
+			(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(), (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(), (void*)m_PerInstanceCBs[i]->GetGPUVirtualAddress(), heapPointer,
+			(void*)boxSubmesh.VertexBufferGPU->GetGPUVirtualAddress(),
+			(void*)boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress() });
 
-		};
+	};
 
-		for (int i = 0; i < m_SphereCount; i++)
-		{
-			m_SbtHelper.AddHitGroup(L"HitGroup", { (void*)sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress(), (void*)sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress(), (void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
-				(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(), (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(), (void*)m_PerInstanceCBs[4]->GetGPUVirtualAddress(), heapPointer,
-				(void*)boxSubmesh.VertexBufferGPU->GetGPUVirtualAddress(),
-				(void*)boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress() });
+	for (int i = 0; i < m_SphereCount; i++)
+	{
+		m_SbtHelper.AddHitGroup(L"HitGroup", { (void*)sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress(), (void*)sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress(), (void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
+			(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(), (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(), (void*)m_PerInstanceCBs[4]->GetGPUVirtualAddress(), heapPointer,
+			(void*)boxSubmesh.VertexBufferGPU->GetGPUVirtualAddress(),
+			(void*)boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress() });
 
-		};
+	};
 	//m_SbtHelper.AddHitGroup(L"PlaneHitGroup", { (void*)m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress(),(void*)m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress(), (void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
 	//	(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),  (void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(), (void*)m_PerInstanceCBs[m_PerInstanceCBs.size() - 1]->GetGPUVirtualAddress(), heapPointer });
 
