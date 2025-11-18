@@ -1,6 +1,7 @@
 struct ShadowHitInfo
 {
     bool isHit;
+    uint depth;
 };
 
 struct Attributes

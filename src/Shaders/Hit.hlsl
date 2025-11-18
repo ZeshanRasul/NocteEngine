@@ -46,8 +46,6 @@ StructuredBuffer<STriVertex> BTriVertex : register(t0);
 StructuredBuffer<int> indices : register(t1);
 RaytracingAccelerationStructure SceneBVH : register(t2);
 StructuredBuffer<Material> materials : register(t3);
-StructuredBuffer<STriVertex> CTriVertex : register(t4);
-StructuredBuffer<int> cIndices : register(t5);
 
 
 cbuffer cbPass : register(b0)
@@ -158,7 +156,7 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
     payload.depth += 1;
     
     payload.eta = materials[materialIndex].Ior;
-    if (payload.depth >= 5)
+    if (payload.depth >= 4)
     {
         payload.colorAndDistance = float4(lit.xyz, RayTCurrent());
         return;
@@ -215,7 +213,7 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
         RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
         /*InstanceInclusionMask*/ 0xff,
         /*RayContributionToHitGroupIndex*/ 1,
-        /*MultiplierForGeometryContributionToHitGroupIndex*/ 2,
+        /*MultiplierForGeometryContributionToHitGroupIndex*/ 3,
         /*MissShaderIndex*/ 1, // ShadowMiss (2nd miss in SBT)
         shadowRay,
         shadowPayload
@@ -228,7 +226,7 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
 
     payload.depth++;
     payload.eta = materials[materialIndex].Ior;
-    if (shadowPayload.depth >= 5 || payload.depth >= 5)
+    if (shadowPayload.depth >= 4 || payload.depth >= 4)
     {
         payload.colorAndDistance = float4(payload.colorAndDistance.xyz, RayTCurrent());
         return;
@@ -246,11 +244,11 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
     const uint vbase = triIndex * 3;
 
     // Fetch the triangle’s vertices (object space)
-    STriVertex v0 = CTriVertex[cIndices[vbase + 0]];
+    STriVertex v0 = BTriVertex[indices[vbase + 0]];
 
-    STriVertex v1 = CTriVertex[cIndices[vbase + 1]];
+    STriVertex v1 = BTriVertex[indices[vbase + 1]];
 
-    STriVertex v2 = CTriVertex[cIndices[vbase + 2]];
+    STriVertex v2 = BTriVertex[indices[vbase + 2]];
 
     // Full barycentric triple
     float3 bary = float3(1.0f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
@@ -317,13 +315,13 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
     payload.depth += 1;
     payload.eta = materials[materialIndex].Ior;
 
-    if (payload.depth >= 5)
+    if (payload.depth >= 4)
     {
         payload.colorAndDistance = float4(payload.colorAndDistance.xyz, RayTCurrent());
         return;
     }
     reflectionPayload.depth++;
-    if (reflectionPayload.depth >= 5)
+    if (reflectionPayload.depth >= 4)
     {
         payload.colorAndDistance = float4(lit, RayTCurrent());
         return;
@@ -341,13 +339,13 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
         SceneBVH,
         RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
         /*InstanceInclusionMask*/ 0xff,
-    /*RayContributionToHitGroupIndex*/ 5,
-        /*MultiplierForGeometryContributionToHitGroupIndex*/ 1,
+    /*RayContributionToHitGroupIndex*/ 2,
+        /*MultiplierForGeometryContributionToHitGroupIndex*/ 3,
         /*MissShaderIndex*/ 0,
         reflectionRay,
         reflectionPayload
     );
-    if (payload.depth >= 5)
+    if (reflectionPayload.depth >= 4)
     {
         payload.colorAndDistance = float4(payload.colorAndDistance.xyz, RayTCurrent());
         return;
@@ -372,7 +370,7 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
             RAY_FLAG_NONE,
             0xff,
             0,
-            1,
+            3,
             0,
     refractionRay,
     refrPayload
