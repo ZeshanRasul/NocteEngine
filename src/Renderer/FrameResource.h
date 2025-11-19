@@ -62,6 +62,18 @@ struct PostProcessData
 	float pad;
 };
 
+struct AreaLight
+{
+	XMFLOAT3 Position;
+	float Pad;
+	XMFLOAT3 U;
+	float Pad2;
+	XMFLOAT3 V;
+	float Pad3;
+	XMFLOAT3 Radiance;
+	float Area;
+};
+
 struct MaterialDataGPU
 {
 	DirectX::XMFLOAT4 DiffuseAlbedo;

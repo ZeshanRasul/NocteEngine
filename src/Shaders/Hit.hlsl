@@ -14,6 +14,18 @@ struct ReflectionHitInfo
     float4 colorAndDistance;
 };
 
+struct AreaLight
+{
+    float3 Position;
+    float Pad;
+    float3 U;
+    float Pad2;
+    float3 V;
+    float Pad3;
+    float3 Radiance;
+    float Area;
+};
+
 struct Material
 {
     float4 DiffuseAlbedo;
@@ -81,6 +93,12 @@ cbuffer PostProcess : register(b3)
     float pad;
 }
 
+cbuffer AreaLights : register(b4)
+{
+    AreaLight gAreaLights[8];
+    uint gAreaLightCount;
+}
+
 float3 LinearToSRGB(float3 x)
 {
     const float a = 0.055f;
@@ -134,6 +152,41 @@ float3 PostProcess(float3 hdrColor)
     color = LinearToSRGB(color);
 
     return color;
+}
+
+// Van der Corput radical inverse in base 2
+float RadicalInverse_VdC(uint bits)
+{
+    bits = (bits << 16) | (bits >> 16);
+    bits = ((bits & 0x55555555u) << 1) | ((bits & 0xAAAAAAAAu) >> 1);
+    bits = ((bits & 0x33333333u) << 2) | ((bits & 0xCCCCCCCCu) >> 2);
+    bits = ((bits & 0x0F0F0F0Fu) << 4) | ((bits & 0xF0F0F0F0u) >> 4);
+    bits = ((bits & 0x00FF00FFu) << 8) | ((bits & 0xFF00FF00u) >> 8);
+    return float(bits) * 2.3283064365386963e-10f; // 1 / 2^32
+}
+
+float2 Hammersley2D(uint i, uint N)
+{
+    float u = (float) i / (float) N;
+    float v = RadicalInverse_VdC(i);
+    return float2(u, v);
+}
+
+float2 SampleHammersley(uint sampleIdx, uint numSamples, uint pixelSeed, uint frameIndex)
+{
+    uint index = sampleIdx + pixelSeed * 1315423911u + frameIndex * 2654435761u;
+    index %= numSamples;
+
+    return Hammersley2D(index, numSamples);
+}
+
+float3 SampleAreaLight(uint index, float2 xi)
+{
+    AreaLight L = gAreaLights[index];
+    
+    float3 p = L.Position + (2.0f * xi.x - 1.0f) * L.U + (2.0f * xi.y - 1.0f) * L.V;
+    return p;
+
 }
 
 bool BuildLightSample(
@@ -396,43 +449,82 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
     float3 radiance = 0.0;
     radiance += Lo;
 
-    radiance = PostProcess(radiance);
+//    radiance = PostProcess(radiance);
     
-    // Shadow ray (world space)
-    RayDesc shadowRay;
-    shadowRay.Origin = pW + nObj * 0.001f; // bias to avoid self-shadowing
-    shadowRay.Direction = toLight;
-    shadowRay.TMin = 0.0f;
-    shadowRay.TMax = 1e5f;
+    float3 areaLightContribution = float3(0, 0, 0);
+    uint samples = 8;
 
-    ShadowHitInfo shadowPayload;
-    shadowPayload.isHit = true;
-    shadowPayload.depth = payload.depth;
+    
+    for (uint s = 0; s < samples; s++)
+    {
+        uint pixelSeed = (DispatchRaysIndex().x * 73856093u) ^
+                 (DispatchRaysIndex().y * 19349663u);
+        
+        float2 xi = SampleHammersley(s, samples, pixelSeed, 2);
 
-    TraceRay(
+        float3 lightPoint = SampleAreaLight(s, xi);
+        float3 toLight = lightPoint - pW;
+        float dist = length(toLight);
+        float3 dir = toLight / dist;
+
+        RayDesc shadowRay;
+        shadowRay.Origin = pW + nObj * 0.001f; // bias to avoid self-shadowing
+        shadowRay.Direction = dir;
+        shadowRay.TMin = 0.01f;
+        shadowRay.TMax = dist;
+        
+
+        payload.depth++;
+        payload.eta = materials[materialIndex].Ior;
+        
+        ShadowHitInfo shadowPayload;
+        shadowPayload.isHit = true;
+        shadowPayload.depth = payload.depth;
+
+        //if (shadowPayload.depth >= 5 || payload.depth >= 5)
+        //{
+        //    payload.colorAndDistance = float4(payload.colorAndDistance.xyz, RayTCurrent());
+        //    return;
+        //}
+        
+        TraceRay(
         SceneBVH,
-        RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH |
-        RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
-        /*InstanceInclusionMask*/ 0xff,
-        /*RayContributionToHitGroupIndex*/ 1,
-        /*MultiplierForGeometryContributionToHitGroupIndex*/ 3,
-        /*MissShaderIndex*/ 1, // ShadowMiss (2nd miss in SBT)
+        RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
+        0xFF,
+        1, 3, 1,
         shadowRay,
         shadowPayload
-    );
+        );
 
-    // If we hit something between the plane and the light, we are in shadow
-    float shadowFactor = shadowPayload.isHit ? 0.3f : 1.0f;
-
-    float3 finalColor = radiance * shadowFactor;
-
-    payload.depth++;
-    payload.eta = materials[materialIndex].Ior;
-    if (shadowPayload.depth >= 5 || payload.depth >= 5)
-    {
-        payload.colorAndDistance = float4(payload.colorAndDistance.xyz, RayTCurrent());
-        return;
+        if (!shadowPayload.isHit)
+        {
+            float NdotL = saturate(dot(N, dir));
+            areaLightContribution += gAreaLights[0].Radiance * NdotL;
+        }
     }
+
+    areaLightContribution /= samples;
+
+    
+
+    //TraceRay(
+    //    SceneBVH,
+    //    RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH |
+    //    RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
+    //    /*InstanceInclusionMask*/ 0xff,
+    //    /*RayContributionToHitGroupIndex*/ 1,
+    //    /*MultiplierForGeometryContributionToHitGroupIndex*/ 3,
+    //    /*MissShaderIndex*/ 1, // ShadowMiss (2nd miss in SBT)
+    //    shadowRay,
+    //    shadowPayload
+    //);
+
+    //// If we hit something between the plane and the light, we are in shadow
+    //float shadowFactor = shadowPayload.isHit ? 0.3f : 1.0f;
+
+    float3 finalColor = (radiance + areaLightContribution);
+
+    finalColor = PostProcess(finalColor);
     
     payload.colorAndDistance = float4(finalColor, RayTCurrent());
     

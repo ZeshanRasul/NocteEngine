@@ -137,6 +137,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreatePerInstanceBuffers();
 	CreateGlobalConstantBuffer();
 	CreatePostProcessConstantBuffer();
+	CreateAreaLightConstantBuffer();
 	CreateRaytracingOutputBuffer();
 	CreateShaderResourceHeap();
 	CreateShaderBindingTable();
@@ -1300,6 +1301,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 1);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 2);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 3);
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 4);
 	rsc.AddHeapRangesParameter({ { 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2} });
 
 	return rsc.Generate(m_Device.Get(), true);
@@ -1477,6 +1479,7 @@ void Renderer::CreateShaderBindingTable()
 				(void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(),
 				(void*)perInstanceCB,
 				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
+				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
 				heapPointer
 				});
 
@@ -1488,6 +1491,7 @@ void Renderer::CreateShaderBindingTable()
 				(void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(),
 				(void*)perInstanceCB,
 				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
+				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
 				heapPointer
 				});
 		}
@@ -1499,6 +1503,7 @@ void Renderer::CreateShaderBindingTable()
 				(void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(),
 				(void*)perInstanceCB,
 				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
+				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
 				heapPointer
 				});
 
@@ -1510,6 +1515,7 @@ void Renderer::CreateShaderBindingTable()
 				(void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(),
 				(void*)perInstanceCB,
 				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
+				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
 				heapPointer
 				});
 
@@ -1771,7 +1777,7 @@ void Renderer::CreateGlobalConstantBuffer()
 void Renderer::CreatePostProcessConstantBuffer()
 {
 	m_PostProcessData.Exposure = 0.0f;
-	m_PostProcessData.ToneMapMode = 1;
+	m_PostProcessData.ToneMapMode = 2;
 	m_PostProcessData.DebugMode = 0;
 	m_PostProcessData.pad = 1.0f;
 
@@ -1783,6 +1789,33 @@ void Renderer::CreatePostProcessConstantBuffer()
 	ThrowIfFailed(m_PostProcessConstantBuffer->Map(0, nullptr, (void**)&pData));
 	memcpy(pData, (void*)&m_PostProcessData, sizeof(m_PostProcessData));
 	m_PostProcessConstantBuffer->Unmap(0, nullptr);
+
+}
+
+void Renderer::CreateAreaLightConstantBuffer()
+{
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 40.0f, -25.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(1.0f, 1.0f, 1.0f);
+	m_AreaLightData.U = XMFLOAT3(5.0f, 0.0f, 0.0f);
+	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 5.0f);
+
+	float lenU = sqrtf(m_AreaLightData.U.x * m_AreaLightData.U.x +
+		m_AreaLightData.U.y * m_AreaLightData.U.y +
+		m_AreaLightData.U.z * m_AreaLightData.U.z);
+	float lenV = sqrtf(m_AreaLightData.V.x * m_AreaLightData.V.x +
+		m_AreaLightData.V.y * m_AreaLightData.V.y +
+		m_AreaLightData.V.z * m_AreaLightData.V.z);
+
+	m_AreaLightData.Area = 4.0f * lenU * lenV;
+
+	m_AreaLightConstantBuffer = nv_helpers_dx12::CreateBuffer(
+		m_Device.Get(), sizeof(m_AreaLightData), D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+
+	uint8_t* pData;
+	ThrowIfFailed(m_AreaLightConstantBuffer->Map(0, nullptr, (void**)&pData));
+	memcpy(pData, (void*)&m_AreaLightData, sizeof(m_AreaLightData));
+	m_AreaLightConstantBuffer->Unmap(0, nullptr);
 
 }
 

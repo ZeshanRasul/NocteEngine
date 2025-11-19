@@ -240,6 +240,10 @@ private:
 	PostProcessData m_PostProcessData;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_PostProcessConstantBuffer;
 
+	void CreateAreaLightConstantBuffer();
+	AreaLight m_AreaLightData;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_AreaLightConstantBuffer;
+
 	uint32_t m_AnimationCounter = 0;
 
 	void CreatePerInstanceBuffers();
