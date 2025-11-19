@@ -452,7 +452,7 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
 //    radiance = PostProcess(radiance);
     
     float3 areaLightContribution = float3(0, 0, 0);
-    uint samples = 8;
+    uint samples = 32;
 
     
     for (uint s = 0; s < samples; s++)
@@ -460,9 +460,9 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
         uint pixelSeed = (DispatchRaysIndex().x * 73856093u) ^
                  (DispatchRaysIndex().y * 19349663u);
         
-        float2 xi = SampleHammersley(s, samples, pixelSeed, 2);
+        float2 xi = SampleHammersley(s, samples, pixelSeed, 3);
 
-        float3 lightPoint = SampleAreaLight(s, xi);
+        float3 lightPoint = SampleAreaLight(0, xi);
         float3 toLight = lightPoint - pW;
         float dist = length(toLight);
         float3 dir = toLight / dist;
@@ -489,7 +489,7 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
         
         TraceRay(
         SceneBVH,
-        RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
+        RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
         0xFF,
         1, 3, 1,
         shadowRay,
@@ -499,7 +499,18 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
         if (!shadowPayload.isHit)
         {
             float NdotL = saturate(dot(N, dir));
-            areaLightContribution += gAreaLights[0].Radiance * NdotL;
+            if (NdotL > 0.0f)
+            {
+                float3 lightNormal = normalize(cross(gAreaLights[0].U, gAreaLights[0].V));
+                float LnDotL = saturate(dot(-dir, lightNormal));
+                float dist2 = dist * dist;
+
+                float pdf = 1.0f / gAreaLights[0].Area;
+
+                float3 Li = gAreaLights[0].Radiance * (LnDotL / dist2);
+
+                areaLightContribution += Li * NdotL / pdf;
+            }
         }
     }
 

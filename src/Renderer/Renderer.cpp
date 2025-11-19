@@ -1794,8 +1794,8 @@ void Renderer::CreatePostProcessConstantBuffer()
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 40.0f, -25.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(1.0f, 1.0f, 1.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 50.0f, -25.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(15.0f, 15.0f, 15.0f);
 	m_AreaLightData.U = XMFLOAT3(5.0f, 0.0f, 0.0f);
 	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 5.0f);
 
@@ -1809,7 +1809,7 @@ void Renderer::CreateAreaLightConstantBuffer()
 	m_AreaLightData.Area = 4.0f * lenU * lenV;
 
 	m_AreaLightConstantBuffer = nv_helpers_dx12::CreateBuffer(
-		m_Device.Get(), sizeof(m_AreaLightData), D3D12_RESOURCE_FLAG_NONE,
+		m_Device.Get(), sizeof(AreaLight), D3D12_RESOURCE_FLAG_NONE,
 		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
 
 	uint8_t* pData;
