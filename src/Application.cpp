@@ -10,14 +10,14 @@ Application::Application()
 	assert(!s_Instance);
 	s_Instance = this;
 
-	m_Window = std::unique_ptr<Window>(new Window());
+	m_GameTimer.Start();
+	m_Window = std::unique_ptr<Window>(new Window(m_Camera, m_GameTimer));
 	m_Window->SetEventCallback(BIND_EVENT_FN(Application::OnEvent));
 	
 	m_Hwnd = m_Window->GetWindowHandle();
 
 	m_Renderer = std::unique_ptr<Renderer>(new Renderer(m_Hwnd, m_Window->GetWidth(), m_Window->GetHeight()));
 
-	m_GameTimer.Start();
 };
 
 Application::~Application()
@@ -36,11 +36,12 @@ int Application::Run()
 	while (m_Running)
 	{
 		m_GameTimer.Tick();
+		m_Window->OnKeyboardInput(m_GameTimer);
 		if (const auto ecode = Window::ProcessMessages())
 		{
 			return *ecode;
 		}
-		m_Renderer->Update(m_GameTimer.DeltaTime(), m_Window->mTheta, m_Window->mPhi, m_Window->mRadius, m_Window->mLastMousePosX, m_Window->mLastMousePosY, m_Window->isLButton, m_Window->isRButton);
+		m_Renderer->Update(m_GameTimer.DeltaTime(), m_Window->GetCamera());
 		m_Renderer->Draw(m_Window->m_Raster);
 	}
 

@@ -86,7 +86,6 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 #if defined(DEBUG) || defined(_DEBUG)
 //	CreateDebugController();
 #endif
-
 	ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&m_DxgiFactory)));
 
 	CreateDevice();
@@ -132,14 +131,14 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 	BuildPSOs();
 	CreateCameraBuffer();
-	XMVECTOR pos = XMVectorSet(0.0f, 1.0f, -27.0f, 1.0f);
-	XMVECTOR target = XMVectorZero();
-	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-	XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
-	XMStoreFloat4x4(&m_View, view);
-
-	XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * MathHelper::Pi, (float)(m_ClientWidth / m_ClientHeight), 0.1f, 1000.0f);
-	XMStoreFloat4x4(&m_Proj, P);
+	//XMVECTOR pos = XMVectorSet(0.0f, 1.0f, -27.0f, 1.0f);
+	//XMVECTOR target = XMVectorZero();
+	//XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	//XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
+	//XMStoreFloat4x4(&m_View, view);
+	//
+	//XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * MathHelper::Pi, (float)(m_ClientWidth / m_ClientHeight), 0.1f, 1000.0f);
+	//XMStoreFloat4x4(&m_Proj, P);
 
 	CreateAccelerationStructures();
 	CreateRaytracingPipeline();
@@ -196,30 +195,16 @@ static inline UINT64 Align(UINT64 v, UINT64 alignment) {
 	return (v + (alignment - 1)) & ~(alignment - 1);
 }
 
-void Renderer::Update(float dt, float mTheta, float mPhi, float mRadius, float mLastMousePosX, float mLastMousePosY, bool left, bool right)
+void Renderer::Update(float dt, Camera& cam)
 {
-	if (left)
-	{
-		float dx = XMConvertToRadians(0.25f * static_cast<float>(mLastMousePosX - m_LastMousePosX));
-		float dy = XMConvertToRadians(0.25f * static_cast<float>(mLastMousePosY - m_LastMousePosY));
-		m_Theta += dx;
-		m_Phi += dy;
+	m_EyePos = cam.GetPosition3f();
+//	cam.LookAt(m_EyePos, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f });
+	cam.UpdateViewMatrix();
+	XMStoreFloat4x4(&m_View, cam.GetView());
+	XMStoreFloat4x4(&m_Proj, cam.GetProj());
 
-		m_Phi = MathHelper::Clamp(m_Phi, 0.1f, MathHelper::Pi - 0.1f);
-	}
-	else if (right)
-	{
-		float dx = 0.05f * static_cast<float>(mLastMousePosX - m_LastMousePosX);
-		float dy = 0.05f * static_cast<float>(mLastMousePosY - m_LastMousePosY);
-
-		m_Radius += (dx - dy);
-		m_Radius = MathHelper::Clamp(m_Radius, 5.0f, 150.0f);
-	}
-	m_LastMousePosX = mLastMousePosX;
-	m_LastMousePosY = mLastMousePosY;
-
-	m_CurrentFrameResourceIndex = (m_CurrentFrameResourceIndex + 1) % gNumFrameResources;
-	m_CurrentFrameResource = m_FrameResources[m_CurrentFrameResourceIndex].get();
+	XMVECTOR At = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
+	XMVECTOR Up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
 	if (m_CurrentFrameResource->Fence != 0 && m_Fence->GetCompletedValue() < m_CurrentFrameResource->Fence)
 	{
@@ -234,7 +219,7 @@ void Renderer::Update(float dt, float mTheta, float mPhi, float mRadius, float m
 	m_Instances[2].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -500.0f) * XMMatrixTranslation(10.0f, -10.0f, 0.0f);;
 	m_Instances[3].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -500.0f) * XMMatrixTranslation(-10.0f, -10.0f, 0.0f);;
 
-	UpdateCameraBuffer();
+//	UpdateCameraBuffer();
 	UpdateObjectCBs();
 	UpdateMainPassCB();
 	UpdateMaterialCBs();
@@ -1801,11 +1786,6 @@ void Renderer::CreateCameraBuffer()
 
 void Renderer::UpdateCameraBuffer()
 {
-	// Convert Spherical to Cartesian coordinates.
-	m_EyePos.x = m_Radius * sinf(m_Phi) * cosf(m_Theta);
-	m_EyePos.z = m_Radius * sinf(m_Phi) * sinf(m_Theta);
-	m_EyePos.y = m_Radius * cosf(m_Phi);
-
 	// Build the view matrix.
 	XMVECTOR pos = XMVectorSet(m_EyePos.x, m_EyePos.y, m_EyePos.z, 1.0f);
 	XMVECTOR target = XMVectorZero();

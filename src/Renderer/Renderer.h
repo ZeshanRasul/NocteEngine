@@ -5,6 +5,7 @@
 #include "../Utils/GeometryGenerator.h"
 #include "UploadBuffer.h"
 #include "FrameResource.h"
+#include "../Camera.h"
 #include "nv_helpers_dx12/TopLevelASGenerator.h"
 #include "nv_helpers_dx12/ShaderBindingTableGenerator.h"
 #include <dxcapi.h>
@@ -18,7 +19,7 @@ public:
 
 	bool InitializeD3D12(HWND& windowHandle);
 	bool Shutdown();
-	void Update(float dt, float m_Theta, float m_Phi, float m_Radius, float m_LastMousePosX, float m_LastMousePosY, bool left, bool right);
+	void Update(float dt, Camera& cam);
 	void Draw(bool useRaster);
 
 private:
@@ -231,7 +232,6 @@ private:
 	float m_AspectRatio;
 
 	void OnMouseMove(WPARAM btnState, int x, int y);
-	float m_LastMousePosX, m_LastMousePosY;
 
 	void CreateGlobalConstantBuffer();
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_GlobalConstantBuffer;

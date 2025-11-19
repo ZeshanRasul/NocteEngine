@@ -50,8 +50,10 @@ HINSTANCE Window::WindowClass::GetInstance()
 	return wndClass.hInstance;
 }
 
-Window::Window(const WindowProps& props)
+Window::Window(Camera& cam, GameTimer& gt, const WindowProps& props)
 {
+	m_Camera = cam;
+	m_GameTimer = gt;
 	Init(props);
 }
 
@@ -62,6 +64,8 @@ Window::~Window()
 
 void Window::Init(const WindowProps& props)
 {
+	m_Camera.SetPosition(0.0f, 2.0f, -15.0f);
+
 	m_Data.Title = props.Title;
 	m_Data.Width = props.Width;
 	m_Data.Height = props.Height;
@@ -167,52 +171,12 @@ LRESULT Window::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
 		return true;
 
-	if ((wParam & MK_LBUTTON) != 0)
-	{
-		// Make each pixel correspond to a quarter of a degree.
-		float dx = XMConvertToRadians(0.25f * static_cast<float>(GET_X_LPARAM(lParam) - mLastMousePosX));
-		float dy = XMConvertToRadians(0.25f * static_cast<float>(GET_Y_LPARAM(lParam) - mLastMousePosY));
-
-		// Update angles based on input to orbit camera around box.
-		mTheta += dx;
-		mPhi += dy;
-
-		// Restrict the angle mPhi.
-		mPhi = MathHelper::Clamp(mPhi, 0.1f, MathHelper::Pi - 0.1f);
-		isLButton = true;
-		isRButton = false;
-
-		mLastMousePosX = GET_X_LPARAM(lParam);
-		mLastMousePosY = GET_Y_LPARAM(lParam);
-
-	}
-	else if ((wParam & MK_RBUTTON) != 0)
-	{
-		// Make each pixel correspond to 0.2 unit in the scene.
-		float dx = 0.05f * static_cast<float>(GET_X_LPARAM(lParam) - mLastMousePosX);
-		float dy = 0.05f * static_cast<float>(GET_Y_LPARAM(lParam) - mLastMousePosY);
-
-		// Update the camera radius based on input.
-		mRadius += dx - dy;
-
-		// Restrict the radius.
-		mRadius = MathHelper::Clamp(mRadius, 5.0f, 150.0f);
-		mLastMousePosX = GET_X_LPARAM(lParam);
-		mLastMousePosY = GET_Y_LPARAM(lParam);
-
-		isRButton = true;
-		isLButton = false;
-	}
-	else
-	{
-		isRButton = false;
-		isLButton = false;
-	}
-
-	
+	const float dt = m_GameTimer.DeltaTime();
 
 	switch (msg)
 	{
+
+
 	case WM_CLOSE:
 	{
 		Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
@@ -238,6 +202,7 @@ LRESULT Window::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	///////////////////////
 
 	case WM_KEYDOWN:
+	{
 		switch (wParam)
 		{
 
@@ -251,41 +216,43 @@ LRESULT Window::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			PostQuitMessage(0);
 			break;
 		}
-		
-		}
-	case WM_SYSKEYDOWN:
-	{
-		if (!(lParam & 0x40000000) || input.IsAutorepeatEnabled())
-		{
-			input.OnKeyPressed(static_cast<unsigned char>(wParam));
-		}
 
-		Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-		WindowData& data = p_Wnd->m_Data;
 
-		KeyPressedEvent event((int)wParam, 0);
-		if (data.EventCallback != nullptr)
-		{
-			data.EventCallback(event);
-		}
 		break;
-	}
+		}
+		//case WM_SYSKEYDOWN:
+		//{
+		//	if (!(lParam & 0x40000000) || input.IsAutorepeatEnabled())
+		//	{
+		//		input.OnKeyPressed(static_cast<unsigned char>(wParam));
+		//	}
+
+		//	Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+		//	WindowData& data = p_Wnd->m_Data;
+
+		//	KeyPressedEvent event((int)wParam, 0);
+		//	if (data.EventCallback != nullptr)
+		//	{
+		//		data.EventCallback(event);
+		//	}
+		//	break;
+		//}
 
 	case WM_KEYUP:
-	case WM_SYSKEYUP:
-	{
-		input.OnKeyReleased(static_cast<unsigned char>(wParam));
+		//case WM_SYSKEYUP:
+		//{
+		//	input.OnKeyReleased(static_cast<unsigned char>(wParam));
 
-		Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-		WindowData& data = p_Wnd->m_Data;
+		//	Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+		//	WindowData& data = p_Wnd->m_Data;
 
-		KeyReleasedEvent event((int)wParam);
-		if (data.EventCallback != nullptr)
-		{
-			data.EventCallback(event);
-		}
-		break;
-	}
+		//	KeyReleasedEvent event((int)wParam);
+		//	if (data.EventCallback != nullptr)
+		//	{
+		//		data.EventCallback(event);
+		//	}
+		//	break;
+		//}
 
 	case WM_CHAR:
 	{
@@ -297,81 +264,22 @@ LRESULT Window::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	///MOUSE MESSAGES//////
 	///////////////////////
 	///////////////////////
-
+	case WM_LBUTTONDOWN:
+	case WM_MBUTTONDOWN:
+	case WM_RBUTTONDOWN:
+		OnMouseDown(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+		return 0;
+	case WM_LBUTTONUP:
+	case WM_MBUTTONUP:
+	case WM_RBUTTONUP:
+		OnMouseUp(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+		return 0;
+	case WM_MOUSEMOVE:
+		OnMouseMove(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+		return 0;
 	case WM_MOVE:
 	{
 
-	}
-
-	case WM_LBUTTONDOWN:
-	{
-		//nv_helpers_dx12::Manipulator::Singleton().setMousePosition(-GET_X_LPARAM(lParam), -GET_Y_LPARAM(lParam));
-
-
-		break;
-	}
-
-	case WM_RBUTTONDOWN:
-	{
-		const POINTS pt = MAKEPOINTS(lParam);
-		input.OnRightPressed();
-
-		Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-		WindowData& data = p_Wnd->m_Data;
-
-		MouseButtonPressedEvent event(1);
-		if (data.EventCallback != nullptr)
-		{
-			data.EventCallback(event);
-		}
-		break;
-	}
-
-	case WM_LBUTTONUP:
-	{
-
-		const POINTS pt = MAKEPOINTS(lParam);
-		input.OnLeftReleased();
-
-		if (pt.x < 0 || pt.x >(int)m_Data.Width || pt.y < 0 || pt.y >(int)m_Data.Height)
-		{
-			ReleaseCapture();
-			input.OnMouseLeave();
-		}
-
-		Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-		WindowData& data = p_Wnd->m_Data;
-
-		MouseButtonReleasedEvent event(0);
-		if (data.EventCallback != nullptr)
-		{
-			data.EventCallback(event);
-		}
-
-		break;
-
-	}
-
-	case WM_RBUTTONUP:
-	{
-		const POINTS pt = MAKEPOINTS(lParam);
-		input.OnRightReleased();
-
-		if (pt.x < 0 || pt.x >(int)m_Data.Width || pt.y < 0 || pt.y >(int)m_Data.Height)
-		{
-			ReleaseCapture();
-			input.OnMouseLeave();
-		}
-
-		Window* const p_Wnd = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-		WindowData& data = p_Wnd->m_Data;
-
-		MouseButtonReleasedEvent event(1);
-		if (data.EventCallback != nullptr)
-		{
-			data.EventCallback(event);
-		}
-		break;
 	}
 
 	case WM_MOUSEWHEEL:
@@ -409,8 +317,62 @@ LRESULT Window::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	}
+
 	}
 
+	}
 	return DefWindowProc(hWnd, msg, wParam, lParam);
+
+	
 }
+	void Window::OnMouseDown(WPARAM btnState, int x, int y)
+	{
+		m_LastMousePos.x = x;
+		m_LastMousePos.y = y;
+
+		SetCapture(m_Hwnd);
+	}
+
+	void Window::OnMouseUp(WPARAM btnState, int x, int y)
+	{
+		ReleaseCapture();
+	}
+
+	void Window::OnMouseMove(WPARAM btnState, int x, int y)
+	{
+		if ((btnState & MK_LBUTTON) != 0)
+		{
+			// Make each pixel correspond to a quarter of a degree.
+			float dx = XMConvertToRadians(0.1f * static_cast<float>(x - m_LastMousePos.x));
+			float dy = XMConvertToRadians(0.1f * static_cast<float>(y - m_LastMousePos.y));
+
+			m_Camera.Pitch(dy);
+			m_Camera.RotateY(dx);
+		//	m_Camera.UpdateViewMatrix();
+		}
+
+		m_LastMousePos.x = x;
+		m_LastMousePos.y = y;
+	}
+
+	void Window::OnKeyboardInput(GameTimer & gt)
+	{
+		const float dt = gt.DeltaTime();
+
+		if (GetAsyncKeyState('W') & 0x8000)
+			m_Camera.Walk(30.0f * dt);
+
+		if (GetAsyncKeyState('S') & 0x8000)
+			m_Camera.Walk(-30.0f * dt);
+
+		if (GetAsyncKeyState('A') & 0x8000)
+			m_Camera.Strafe(-30.0f * dt);
+
+		if (GetAsyncKeyState('D') & 0x8000)
+			m_Camera.Strafe(30.0f * dt);
+
+		m_Camera.UpdateViewMatrix();
+	}
+
+
 

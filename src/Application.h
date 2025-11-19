@@ -8,6 +8,7 @@
 #include "Window.h"
 #include "Renderer/Renderer.h"
 #include "Utils/GameTimer.h"
+#include "Camera.h"
 
 class Application
 {
@@ -35,4 +36,6 @@ private:
 	std::unique_ptr<Renderer> m_Renderer;
 	static Application* s_Instance;
 	GameTimer m_GameTimer;
+
+	Camera m_Camera;
 };
