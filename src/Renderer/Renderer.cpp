@@ -673,6 +673,7 @@ void Renderer::BuildMaterials()
 	boxMat->DiffuseAlbedo = XMFLOAT4(Colors::ForestGreen);
 	boxMat->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	boxMat->Roughness = 0.8f;
+	boxMat->metallic = 0.1f;
 
 	auto bricks0 = std::make_unique<Material>();
 	bricks0->Name = "bricks0";
@@ -681,6 +682,7 @@ void Renderer::BuildMaterials()
 	bricks0->DiffuseAlbedo = XMFLOAT4(Colors::Sienna);
 	bricks0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	bricks0->Roughness = 0.8f;
+	bricks0->metallic = 0.8f;
 
 	auto stone0 = std::make_unique<Material>();
 	stone0->Name = "stone0";
@@ -689,6 +691,7 @@ void Renderer::BuildMaterials()
 	stone0->DiffuseAlbedo = XMFLOAT4(Colors::Crimson);
 	stone0->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
 	stone0->Roughness = 0.7f;
+	stone0->metallic = 0.4f;
 
 	auto skullMat = std::make_unique<Material>();
 	skullMat->Name = "skullMat";
@@ -707,6 +710,7 @@ void Renderer::BuildMaterials()
 	tile0->DiffuseAlbedo = XMFLOAT4(Colors::Aquamarine);
 	tile0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile0->Roughness = 0.8f;
+	tile0->metallic = 0.2f;
 
 
 	auto sphereMat = std::make_unique<Material>();
@@ -1892,7 +1896,7 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.Shininess = 1.0f - mat->Roughness;
 		matGpu.pad = 1.0f;
 		matGpu.pad2 = 1.0f;
-		matGpu.pad3 = 1.0f;
+		matGpu.metallic = mat->metallic;
 		matGpu.isReflective = mat->IsReflective;
 
 		m_MaterialsGPU.push_back(std::move(matGpu));

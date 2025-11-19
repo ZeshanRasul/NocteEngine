@@ -64,7 +64,7 @@ struct MaterialDataGPU
 	float Shininess;
 	float pad;
 	float pad2;
-	float pad3;
+	float metallic;
 	bool isReflective = false;
 };
 

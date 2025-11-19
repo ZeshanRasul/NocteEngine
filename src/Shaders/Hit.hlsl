@@ -1,4 +1,7 @@
 #include "Common.hlsl"
+#include "MicrofacetBRDFUtils.hlsl"
+
+#define NumLights 1
 
 struct ShadowHitInfo
 {
@@ -21,19 +24,8 @@ struct Material
     float Shininess;
     float pad;
     float pad1;
-    float pad2;
+    float metallic;
     bool IsReflective;
-};
-
-#define MaxLights 16
-struct Light
-{
-    float3 Strength;
-    float FalloffStart;
-    float3 Direction;
-    float FalloffEnd;
-    float3 Position;
-    float SpotPower;
 };
 
 struct STriVertex
@@ -81,6 +73,71 @@ cbuffer PerInstance : register(b2)
     int materialIndex;
 }
 
+bool BuildLightSample(
+    int lightIndex,
+    float3 P,
+    float3 N,
+    out float3 L,
+    out float3 Li,
+    out float NdotL)
+{
+    Light light = gLights[lightIndex];
+
+    L = 0;
+    Li = 0;
+    NdotL = 0;
+
+    bool isDirectional = true;
+
+    if (isDirectional)
+    {
+        float3 D = normalize(light.Direction);
+        L = -D;
+
+        NdotL = saturate(dot(N, L));
+        if (NdotL <= 0)
+            return false;
+
+        Li = light.Strength;
+        return true;
+    }
+
+    // Point or spot light:
+    float3 toLight = light.Position - P;
+    float distSq = max(dot(toLight, toLight), 1e-6);
+    float dist = sqrt(distSq);
+
+    L = toLight / dist;
+    NdotL = saturate(dot(N, L));
+    if (NdotL <= 0)
+        return false;
+
+    // Inverse-square attenuation
+    float invSq = 1.0 / distSq;
+
+    float rangeAtt = 1.0;
+    if (light.FalloffEnd > light.FalloffStart)
+    {
+        rangeAtt = saturate((light.FalloffEnd - dist) /
+                            (light.FalloffEnd - light.FalloffStart));
+    }
+
+    Li = light.Strength * invSq * rangeAtt;
+
+    if (light.SpotPower > 0)
+    {
+        float3 spotDir = normalize(-light.Direction);
+        float cosAngle = saturate(dot(L, spotDir));
+        float spotFactor = pow(cosAngle, light.SpotPower);
+        if (spotFactor <= 0)
+            return false;
+        Li *= spotFactor;
+    }
+
+    return true;
+}
+
+
 float3 SchlickFresnel(float3 R0, float3 normal, float3 lightVec)
 {
     float cosIncidentAngle = saturate(dot(normal, lightVec));
@@ -114,6 +171,8 @@ float3 ComputeDirectionalLight(Light L, float3 normal, float3 toEye, Material ma
     return BlinnPhong(lightStrength, lightVec, normal, toEye, mat);
 }
 
+
+
 [shader("closesthit")]
 void ClosestHit(inout HitInfo payload, Attributes attrib)
 {
@@ -139,30 +198,62 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
     float3 pW = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
 
     // To-eye vector (world)
-    float3 toEye = normalize(gEyePosW - pW);
+    float3 V = normalize(gEyePosW - pW);
+    float3 N = normalize(mul((float3x3) ObjectToWorld3x4(), nObj));
 
-    Light L = gLights[0];
     
-    float4 modulationFactor = gAmbientLight;
+    float3 Lo = 0.0;
     
-    if (InstanceID() < 3)
+    for (int i = 0; i < 1; ++i)
     {
-        float3 hitColor = A[InstanceID()] * bary.x + B[InstanceID()] * bary.y + C[InstanceID()] * bary.z;
-        modulationFactor = float4(hitColor.xyz, 1.0f);
-    };
+        float3 L;
+        float3 Li = 0.0;
+        float NdotL = 0.0;
+        
+        if (!BuildLightSample(i, pW, N, L, Li, NdotL))
+            continue;
+        
+        float3 H = normalize(V + L);
+        float NdotV = saturate(dot(N, V));
+        float NdotH = saturate(dot(N, H));
+        float LdotH = saturate(dot(L, H));
+        
+        Material mat = materials[materialIndex];
+        
+        float roughness = 1 - mat.Shininess;
+        
+        float3 Cd;
+        float3 F0;
+        ComputeDisneyMetalWorkflow(mat.DiffuseAlbedo.xyz, mat.metallic, Cd, F0);
+        
+        float3 F = Fresnel_Schlick(F0, LdotH);
+        float D = GGX_D(NdotH, roughness);
+        float G = GGX_G_Smith(NdotV, NdotL, roughness);
+        
+        float denom = max(4.0 * NdotL * NdotV, 1e-4);
+        float3 specBRDF = (D * G * F) / denom;
+        
+        float diffBRDF = DisneyDiffuse(NdotV, NdotL, LdotH, roughness);
+        float3 diffTerm = Cd * diffBRDF;
+
+        float3 f = diffTerm + specBRDF;
+
+        Lo += f * Li * NdotL; 
+    }
     
-    float3 lit = ComputeDirectionalLight(L, nObj, toEye, materials[materialIndex]);
+    float3 radiance = 0.0;
+    radiance += Lo;
 
     payload.depth += 1;
     
     payload.eta = materials[materialIndex].Ior;
     if (payload.depth >= 5)
     {
-        payload.colorAndDistance = float4(lit.xyz, RayTCurrent());
+        payload.colorAndDistance = float4(radiance, RayTCurrent());
         return;
     }
 
-    payload.colorAndDistance = float4(lit.xyz, RayTCurrent());
+    payload.colorAndDistance = float4(radiance, RayTCurrent());
 }
 
 [shader("closesthit")]

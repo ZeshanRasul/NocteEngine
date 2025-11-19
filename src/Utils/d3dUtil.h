@@ -284,6 +284,7 @@ struct Material
     DirectX::XMFLOAT3 Absorption;
     float Roughness = .25f;
     bool IsReflective = false;
+    float metallic = 0.01f;
     DirectX::XMFLOAT4X4 MatTransform = MathHelper::Identity4x4();
 };
 
