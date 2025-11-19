@@ -156,7 +156,7 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
     payload.depth += 1;
     
     payload.eta = materials[materialIndex].Ior;
-    if (payload.depth >= 4)
+    if (payload.depth >= 5)
     {
         payload.colorAndDistance = float4(lit.xyz, RayTCurrent());
         return;
@@ -226,7 +226,7 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
 
     payload.depth++;
     payload.eta = materials[materialIndex].Ior;
-    if (shadowPayload.depth >= 4 || payload.depth >= 4)
+    if (shadowPayload.depth >= 5 || payload.depth >= 5)
     {
         payload.colorAndDistance = float4(payload.colorAndDistance.xyz, RayTCurrent());
         return;
@@ -315,13 +315,13 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
     payload.depth += 1;
     payload.eta = materials[materialIndex].Ior;
 
-    if (payload.depth >= 4)
+    if (payload.depth >= 3)
     {
         payload.colorAndDistance = float4(payload.colorAndDistance.xyz, RayTCurrent());
         return;
     }
     reflectionPayload.depth++;
-    if (reflectionPayload.depth >= 4)
+    if (reflectionPayload.depth >= 3)
     {
         payload.colorAndDistance = float4(lit, RayTCurrent());
         return;
@@ -345,7 +345,12 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
         reflectionRay,
         reflectionPayload
     );
-    if (reflectionPayload.depth >= 4)
+    if (reflectionPayload.depth >= 3)
+    {
+        payload.colorAndDistance = float4(payload.colorAndDistance.xyz, RayTCurrent());
+        return;
+    }
+    if (refrPayload.depth >= 3)
     {
         payload.colorAndDistance = float4(payload.colorAndDistance.xyz, RayTCurrent());
         return;

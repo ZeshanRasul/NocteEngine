@@ -680,14 +680,22 @@ void Renderer::BuildShadersAndInputLayout()
 }
 void Renderer::BuildMaterials()
 {
+
+	auto boxMat = std::make_unique<Material>();
+	boxMat->Name = "box";
+	boxMat->MatCBIndex = 4;
+	boxMat->DiffuseSrvHeapIndex = 4;
+	boxMat->DiffuseAlbedo = XMFLOAT4(Colors::ForestGreen);
+	boxMat->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+	boxMat->Roughness = 0.8f;
+
 	auto bricks0 = std::make_unique<Material>();
 	bricks0->Name = "bricks0";
 	bricks0->MatCBIndex = 0;
 	bricks0->DiffuseSrvHeapIndex = 0;
-	bricks0->DiffuseAlbedo = XMFLOAT4(Colors::ForestGreen);
+	bricks0->DiffuseAlbedo = XMFLOAT4(Colors::Sienna);
 	bricks0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	bricks0->Roughness = 0.8f;
-	bricks0->IsReflective = true;
 
 	auto stone0 = std::make_unique<Material>();
 	stone0->Name = "stone0";
@@ -697,6 +705,16 @@ void Renderer::BuildMaterials()
 	stone0->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
 	stone0->Roughness = 0.7f;
 
+	auto skullMat = std::make_unique<Material>();
+	skullMat->Name = "skullMat";
+	skullMat->MatCBIndex = 3;
+	skullMat->DiffuseSrvHeapIndex = 3;
+	skullMat->DiffuseAlbedo = XMFLOAT4(Colors::BlanchedAlmond);
+	skullMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05);
+	skullMat->Roughness = 0.7f;
+	skullMat->Ior = 1.5f;
+	skullMat->IsReflective = true;
+
 	auto tile0 = std::make_unique<Material>();
 	tile0->Name = "tile0";
 	tile0->MatCBIndex = 2;
@@ -705,14 +723,6 @@ void Renderer::BuildMaterials()
 	tile0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile0->Roughness = 0.8f;
 
-	auto skullMat = std::make_unique<Material>();
-	skullMat->Name = "skullMat";
-	skullMat->MatCBIndex = 3;
-	skullMat->DiffuseSrvHeapIndex = 3;
-	skullMat->DiffuseAlbedo = XMFLOAT4(Colors::BlanchedAlmond);
-	skullMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05);
-	skullMat->Roughness = 0.7f;
-	skullMat->Ior = 0.0f;
 
 	auto sphereMat = std::make_unique<Material>();
 	sphereMat->Name = "sphere";
@@ -722,21 +732,12 @@ void Renderer::BuildMaterials()
 	sphereMat->FresnelR0 = XMFLOAT3(0.06f, 0.06f, 0.06f);
 	sphereMat->Roughness = 0.85f;
 
-	auto boxMat = std::make_unique<Material>();
-	boxMat->Name = "box";
-	boxMat->MatCBIndex = 4;
-	boxMat->DiffuseSrvHeapIndex = 4;
-	boxMat->DiffuseAlbedo = XMFLOAT4(Colors::Sienna);
-	boxMat->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	boxMat->Roughness = 0.8f;
-	boxMat->Ior = 1.5f;
-
+	m_Materials["box"] = std::move(boxMat);
 	m_Materials["bricks0"] = std::move(bricks0);
 	m_Materials["stone0"] = std::move(stone0);
 	m_Materials["tile0"] = std::move(tile0);
 	m_Materials["skullMat"] = std::move(skullMat);
 	m_Materials["sphere"] = std::move(sphereMat);
-	m_Materials["box"] = std::move(boxMat);
 }
 void Renderer::BuildShapeGeometry()
 {
@@ -1457,7 +1458,7 @@ void Renderer::CreateShaderBindingTable()
 	m_SbtHelper.AddMissProgram(L"Miss", {});
 	m_SbtHelper.AddMissProgram(L"ShadowMiss", {});
 
-	for (UINT i = 0; i < m_Instances.size(); ++i)
+	for (UINT i = 0; i < m_Instances.size(); i++)
 	{
 		D3D12_GPU_VIRTUAL_ADDRESS vb = 0;
 		D3D12_GPU_VIRTUAL_ADDRESS ib = 0;
@@ -1481,14 +1482,7 @@ void Renderer::CreateShaderBindingTable()
 
 		}
 
-		m_SbtHelper.AddHitGroup(L"PlaneHitGroup", { (void*)vb,(void*)ib,
-			(void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
-			(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),
-			(void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(),
-			(void*)perInstanceCB,
-			heapPointer
-			});
-		m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
+
 
 		if (m_IsInstanceReflective[i])
 		{
@@ -1499,9 +1493,29 @@ void Renderer::CreateShaderBindingTable()
 				(void*)perInstanceCB,
 				heapPointer
 				});
+
+			m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
+
+			m_SbtHelper.AddHitGroup(L"ReflectionHitGroup", { (void*)vb,(void*)ib,
+				(void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
+				(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),
+				(void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(),
+				(void*)perInstanceCB,
+				heapPointer
+				});
 		}
 		else
 		{
+			m_SbtHelper.AddHitGroup(L"PlaneHitGroup", { (void*)vb,(void*)ib,
+				(void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
+				(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),
+				(void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(),
+				(void*)perInstanceCB,
+				heapPointer
+				});
+
+			m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
+
 			m_SbtHelper.AddHitGroup(L"HitGroup", { (void*)vb,(void*)ib,
 				(void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
 				(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),
@@ -1693,7 +1707,7 @@ void Renderer::CreateAccelerationStructures()
 
 	m_Instances = {
 		{ boxBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 5.0f, 50.0f) * XMMatrixTranslation(0.0f, -50.0f, 0.0f) },
-		{ bottomLevelBuffers.pResult, XMMatrixTranslation(0.0f, 10.0f, 0.0f) }, {bottomLevelBuffers.pResult, XMMatrixTranslation(-16.0f, -10.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(16.0f, -10.0f, 0.0f)},
+		{bottomLevelBuffers.pResult, XMMatrixTranslation(-16.0f, -10.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(16.0f, -10.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(0.0f, 10.0f, 0.0f)},
 
 		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, -20.0f, 0.0f) },
 		{ sphereBottomLevelBuffers.pResult, XMMatrixScaling(5.0f, 5.0f, 5.0f) * XMMatrixTranslation(-10.0f, -10.0f, -10.0f) },
@@ -1703,8 +1717,8 @@ void Renderer::CreateAccelerationStructures()
 		false,
 		false,
 		false,
-		true,
 		false,
+		true,
 		false
 	};
 
