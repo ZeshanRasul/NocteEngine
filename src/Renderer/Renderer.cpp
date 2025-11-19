@@ -672,8 +672,8 @@ void Renderer::BuildMaterials()
 	boxMat->DiffuseSrvHeapIndex = 4;
 	boxMat->DiffuseAlbedo = XMFLOAT4(Colors::ForestGreen);
 	boxMat->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	boxMat->Roughness = 0.8f;
-	boxMat->metallic = 0.1f;
+	boxMat->Roughness = 0.7f;
+	boxMat->metallic = 0.3f;
 
 	auto bricks0 = std::make_unique<Material>();
 	bricks0->Name = "bricks0";
@@ -681,7 +681,7 @@ void Renderer::BuildMaterials()
 	bricks0->DiffuseSrvHeapIndex = 0;
 	bricks0->DiffuseAlbedo = XMFLOAT4(Colors::Sienna);
 	bricks0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	bricks0->Roughness = 0.8f;
+	bricks0->Roughness = 0.1f;
 	bricks0->metallic = 0.8f;
 
 	auto stone0 = std::make_unique<Material>();
@@ -690,7 +690,7 @@ void Renderer::BuildMaterials()
 	stone0->DiffuseSrvHeapIndex = 1;
 	stone0->DiffuseAlbedo = XMFLOAT4(Colors::Crimson);
 	stone0->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
-	stone0->Roughness = 0.7f;
+	stone0->Roughness = 0.6f;
 	stone0->metallic = 0.4f;
 
 	auto skullMat = std::make_unique<Material>();
@@ -709,8 +709,8 @@ void Renderer::BuildMaterials()
 	tile0->DiffuseSrvHeapIndex = 2;
 	tile0->DiffuseAlbedo = XMFLOAT4(Colors::Aquamarine);
 	tile0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	tile0->Roughness = 0.8f;
-	tile0->metallic = 0.2f;
+	tile0->Roughness = 0.3f;
+	tile0->metallic = 0.7f;
 
 
 	auto sphereMat = std::make_unique<Material>();
@@ -1240,7 +1240,7 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.cbPerObjectPad2 = 0.5f;
 	m_MainPassCB.cbPerObjectPad3 = 0.5f;
 	m_MainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
-	m_MainPassCB.Lights[0].Strength = { 0.4f, 0.4f, 0.4f };
+	m_MainPassCB.Lights[0].Strength = { 4.6f, 4.6f, 4.6f };
 	m_MainPassCB.Lights[0].Direction = { 0.3f, -0.46f, 0.7f };
 	m_MainPassCB.Lights[1].Direction = { -0.57735f, -0.57735f, 0.57735f };
 

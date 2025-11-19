@@ -281,12 +281,57 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
     
     float3 pW = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
 
-    float3 toEye = normalize(gEyePosW - pW);
+    float3 V = normalize(gEyePosW - pW);
+    float3 N = normalize(mul((float3x3) ObjectToWorld3x4(), nObj));
 
-    float3 lit = ComputeDirectionalLight(L, nObj, toEye, materials[materialIndex]);
+    //float3 lit = ComputeDirectionalLight(L, nObj, toEye, materials[materialIndex]);
 
     float3 toLight = normalize(-L.Direction);
 
+        
+    float3 Lo = 0.0;
+    
+    for (int i = 0; i < 1; ++i)
+    {
+        float3 L;
+        float3 Li = 0.0;
+        float NdotL = 0.0;
+        
+        if (!BuildLightSample(i, pW, N, L, Li, NdotL))
+            continue;
+        
+        float3 H = normalize(V + L);
+        float NdotV = saturate(dot(N, V));
+        float NdotH = saturate(dot(N, H));
+        float LdotH = saturate(dot(L, H));
+        
+        Material mat = materials[materialIndex];
+        
+        float roughness = 1 - mat.Shininess;
+        
+        float3 Cd;
+        float3 F0;
+        ComputeDisneyMetalWorkflow(mat.DiffuseAlbedo.xyz, mat.metallic, Cd, F0);
+        
+        float3 F = Fresnel_Schlick(F0, LdotH);
+        float D = GGX_D(NdotH, roughness);
+        float G = GGX_G_Smith(NdotV, NdotL, roughness);
+        
+        float denom = max(4.0 * NdotL * NdotV, 1e-4);
+        float3 specBRDF = (D * G * F) / denom;
+        
+        float diffBRDF = DisneyDiffuse(NdotV, NdotL, LdotH, roughness);
+        float3 diffTerm = Cd * diffBRDF;
+
+        float3 f = diffTerm + specBRDF;
+
+        Lo += f * Li * NdotL;
+    }
+    
+    float3 radiance = 0.0;
+    radiance += Lo;
+
+    
     // Shadow ray (world space)
     RayDesc shadowRay;
     shadowRay.Origin = pW + nObj * 0.001f; // bias to avoid self-shadowing
@@ -313,7 +358,7 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
     // If we hit something between the plane and the light, we are in shadow
     float shadowFactor = shadowPayload.isHit ? 0.3f : 1.0f;
 
-    float3 finalColor = lit * shadowFactor;
+    float3 finalColor = radiance * shadowFactor;
 
     payload.depth++;
     payload.eta = materials[materialIndex].Ior;
