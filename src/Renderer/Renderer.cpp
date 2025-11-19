@@ -716,6 +716,8 @@ void Renderer::BuildMaterials()
 	sphereMat->DiffuseAlbedo = XMFLOAT4(Colors::Violet);
 	sphereMat->FresnelR0 = XMFLOAT3(0.06f, 0.06f, 0.06f);
 	sphereMat->Roughness = 0.85f;
+	skullMat->Ior = 1.5f;
+	skullMat->IsReflective = true;
 
 	m_Materials["box"] = std::move(boxMat);
 	m_Materials["bricks0"] = std::move(bricks0);
@@ -1704,7 +1706,7 @@ void Renderer::CreateAccelerationStructures()
 		false,
 		false,
 		true,
-		false
+		true
 	};
 
 	CreateTopLevelAS(m_Instances);
