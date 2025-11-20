@@ -56,7 +56,7 @@ GBuffer PS(PixelIn pIn)
 {   
     GBuffer gBuffer;
 
-    gBuffer.gBufferAlbedoMetal.xyz = DiffuseAlbedo;
+    gBuffer.gBufferAlbedoMetal.xyz = DiffuseAlbedo.xyz;
     gBuffer.gBufferAlbedoMetal.w = metallic;
     
     gBuffer.gBufferNormalRough.xyz = pIn.NormalW;

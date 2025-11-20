@@ -172,7 +172,13 @@ private:
 	};
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_BottomLevelAS;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_BoxBottomLevelAS;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_PlaneBottomLevelAS;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_SphereBottomLevelAS;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_BottomLevelASInst;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_BoxBottomLevelASInst;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_PlaneBottomLevelASInst;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_SphereBottomLevelASInst;
 
 	nv_helpers_dx12::TopLevelASGenerator m_topLevelASGenerator;
 	AccelerationStructureBuffers m_topLevelASBuffers;

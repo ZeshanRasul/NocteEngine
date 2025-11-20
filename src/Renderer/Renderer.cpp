@@ -84,7 +84,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	//nv_helpers_dx12::Manipulator::Singleton().setLookat(glm::vec3(0.0f, 1.0f, -27.0f), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 
 #if defined(DEBUG) || defined(_DEBUG)
-//	CreateDebugController();
+	CreateDebugController();
 #endif
 	ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&m_DxgiFactory)));
 
@@ -209,9 +209,9 @@ void Renderer::Update(float dt, Camera& cam)
 	}
 
 	m_AnimationCounter++;
-	m_Instances[1].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / 1000.0f);
-	m_Instances[2].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(10.0f, -10.0f, 0.0f);;
-	m_Instances[3].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(-10.0f, -10.0f, 0.0f);;
+//	m_Instances[1].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / 1000.0f);
+//	m_Instances[2].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(10.0f, -10.0f, 0.0f);;
+//	m_Instances[3].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(-10.0f, -10.0f, 0.0f);;
 
 	//	UpdateCameraBuffer();
 	UpdateObjectCBs();
@@ -246,8 +246,8 @@ void Renderer::Draw(bool useRaster)
 	}
 
 	D3D12_RESOURCE_BARRIER pBarriers[2] = {};
-	pBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferAlbedoMetal.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
-	pBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferNormalRough.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	pBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferAlbedoMetal.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	pBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferNormalRough.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
 	m_CommandList->ResourceBarrier(2, pBarriers);
 
 	m_CommandList->RSSetViewports(1, &vp);
@@ -289,9 +289,9 @@ void Renderer::Draw(bool useRaster)
 	DrawRenderItems(m_CommandList.Get(), m_OpaqueRenderItems);
 	//	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_CommandList.Get());
 
-	pBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferAlbedoMetal.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
-	pBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferNormalRough.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
-	m_CommandList->ResourceBarrier(2, pBarriers);
+	//pBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferAlbedoMetal.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+	//pBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferNormalRough.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+	//m_CommandList->ResourceBarrier(2, pBarriers);
 
 	ThrowIfFailed(m_CommandList->Close());
 	ID3D12CommandList* cmdLists2[] = { m_CommandList.Get() };
@@ -318,14 +318,14 @@ void Renderer::Draw(bool useRaster)
 	}
 
 
-	pBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferAlbedoMetal.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	pBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferNormalRough.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	pBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferAlbedoMetal.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	pBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferNormalRough.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	m_CommandList->ResourceBarrier(2, pBarriers);
 
 
 
 
-	CreateTopLevelAS(m_Instances, true);
+//	CreateTopLevelAS(m_Instances, true);
 
 	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST));
 
@@ -365,7 +365,7 @@ void Renderer::Draw(bool useRaster)
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(m_OutputResource.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
 	m_CommandList->ResourceBarrier(1, &transition);
 
-	transition = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST);
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);
 	m_CommandList->ResourceBarrier(1, &transition);
 
 	m_CommandList->CopyResource(CurrentBackBuffer(), m_OutputResource.Get());
@@ -373,7 +373,7 @@ void Renderer::Draw(bool useRaster)
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT);
 	m_CommandList->ResourceBarrier(1, &transition);
 
-	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+//	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 
 	pBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferAlbedoMetal.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_PRESENT);
 	pBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferNormalRough.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_PRESENT);
@@ -386,24 +386,7 @@ void Renderer::Draw(bool useRaster)
 	m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
 	HRESULT hr_present = m_SwapChain->Present(0, 0);
-	if (FAILED(hr_present))
-	{
-		if (hr_present == DXGI_ERROR_DEVICE_REMOVED || hr_present == DXGI_ERROR_DEVICE_HUNG)
-		{
-			HRESULT reason_hr = m_Device->GetDeviceRemovedReason();
-			std::string reason_str = GetDeviceRemovedReasonString(reason_hr);
-
-			// Log the reason
-			std::cerr << "DirectX Device Removed/Hung! Reason: " << reason_str << std::endl;
-
-			// You would also typically log this to a file for post-mortem analysis
-			// and then attempt device re-initialization.
-		}
-		else
-		{
-			// Handle other HRESULT errors
-		}
-	}
+	GetDeviceRemovedReasonString(hr_present);
 	m_CurrentBackBuffer = (m_CurrentBackBuffer + 1) % SwapChainBufferCount;
 
 	m_CurrentFrameResource->Fence = ++m_CurrentFence;
@@ -554,7 +537,7 @@ void Renderer::CreateGBufferPassRTVResources()
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&rtvDesc,
-		D3D12_RESOURCE_STATE_PRESENT,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
 		&rtvClearCol,
 		IID_PPV_ARGS(&m_GBufferAlbedoMetal));
 
@@ -562,7 +545,7 @@ void Renderer::CreateGBufferPassRTVResources()
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&rtvDesc,
-		D3D12_RESOURCE_STATE_PRESENT,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
 		&rtvClearCol,
 		IID_PPV_ARGS(&m_GBufferNormalRough));
 }
@@ -1507,7 +1490,7 @@ void Renderer::CreateRaytracingOutputBuffer()
 
 void Renderer::CreateShaderResourceHeap()
 {
-	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 4, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 7, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -1797,6 +1780,12 @@ void Renderer::CreateAccelerationStructures()
 
 	m_BottomLevelAS = bottomLevelBuffers.pResult;
 	m_PlaneBottomLevelAS = planeBottomLevelBuffers.pResult;
+	m_BoxBottomLevelAS = boxBottomLevelBuffers.pResult;
+	m_SphereBottomLevelAS = sphereBottomLevelBuffers.pResult;
+	m_BottomLevelASInst = bottomLevelBuffers.pInstanceDesc;
+	m_PlaneBottomLevelASInst = planeBottomLevelBuffers.pInstanceDesc;
+	m_BoxBottomLevelASInst = boxBottomLevelBuffers.pInstanceDesc;
+	m_SphereBottomLevelASInst = sphereBottomLevelBuffers.pInstanceDesc;
 }
 
 void Renderer::CreatePlaneVB()

@@ -305,16 +305,12 @@ struct Texture
 };
 
 #ifndef ThrowIfFailed
-#define ThrowIfFailed(x) do { \
-    HRESULT hr__ = (x); \
-    if (FAILED(hr__)) { \
-        std::wstring wfn = AnsiToWString(__FILE__); \
-        if (hr__ == DXGI_ERROR_DEVICE_REMOVED || hr__ == DXGI_ERROR_DEVICE_RESET) { \
-            throw DxException(hr__, L#x, wfn, __LINE__); \
-        } \
-        throw DxException(hr__, L#x, wfn, __LINE__); \
-    } \
-} while(0)
+#define ThrowIfFailed(x)                                              \
+{                                                                     \
+    HRESULT hr__ = (x);                                               \
+    std::wstring wfn = AnsiToWString(__FILE__);                       \
+    if(FAILED(hr__)) { throw DxException(hr__, L#x, wfn, __LINE__); } \
+}
 #endif
 
 #ifndef ReleaseCom
