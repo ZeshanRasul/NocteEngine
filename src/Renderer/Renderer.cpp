@@ -1234,7 +1234,7 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.cbPerObjectPad2 = 0.5f;
 	m_MainPassCB.cbPerObjectPad3 = 0.5f;
 	m_MainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
-	m_MainPassCB.Lights[0].Strength = { 40.6f, 40.6f, 40.6f };
+	m_MainPassCB.Lights[0].Strength = { 4.6f, 4.6f, 4.6f };
 	m_MainPassCB.Lights[0].Direction = { 0.3f, -0.46f, 0.7f };
 	m_MainPassCB.Lights[1].Direction = { -0.57735f, -0.57735f, 0.57735f };
 
@@ -1795,9 +1795,9 @@ void Renderer::CreatePostProcessConstantBuffer()
 void Renderer::CreateAreaLightConstantBuffer()
 {
 	m_AreaLightData.Position = XMFLOAT3(0.0f, 50.0f, -25.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(105.0f, 105.0f, 105.0f);
-	m_AreaLightData.U = XMFLOAT3(50.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 50.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(15.0f, 15.0f, 15.0f);
+	m_AreaLightData.U = XMFLOAT3(5.0f, 0.0f, 0.0f);
+	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 5.0f);
 
 	float lenU = sqrtf(m_AreaLightData.U.x * m_AreaLightData.U.x +
 		m_AreaLightData.U.y * m_AreaLightData.U.y +

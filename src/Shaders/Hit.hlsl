@@ -621,7 +621,7 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
     float3 Lid = giHit.colorAndDistance.xyz;
 
     float3 indirectGI = { 0.0, 0.0, 0.0 };
-    indirectGI = (Lid * f * NdotL) / pdf;
+    indirectGI = (Lid * f * NdotL) / max(pdf, 1e-6f);
    // payload.colorAndDistance = float4(indirectGI, RayTCurrent());
    // return;
    
@@ -635,7 +635,7 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
     
     if (giHit.depth >= 6 || payload.depth >= 6)
     {
-     //   payload.colorAndDistance.xyz += PostProcess(finalColor);
+ //       payload.colorAndDistance.xyz += PostProcess(finalColor);
         payload.colorAndDistance = float4(payload.colorAndDistance.xyz, RayTCurrent());
         return;
     }
