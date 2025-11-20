@@ -9,6 +9,7 @@
 #include "nv_helpers_dx12/TopLevelASGenerator.h"
 #include "nv_helpers_dx12/ShaderBindingTableGenerator.h"
 #include <dxcapi.h>
+#include <iostream>
 
 using namespace DirectX;
 
@@ -278,5 +279,24 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_SRVGBufferNormalRough;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_SRVGBufferDepth;
 
-
+	std::string GetDeviceRemovedReasonString(HRESULT hr)
+	{
+		switch (hr)
+		{
+		case S_OK: return "S_OK: Device is not removed.";
+		case DXGI_ERROR_DEVICE_REMOVED: return "DXGI_ERROR_DEVICE_REMOVED: The device was removed.";
+		case DXGI_ERROR_DEVICE_HUNG: return "DXGI_ERROR_DEVICE_HUNG: The device hung (TDR occurred).";
+		case DXGI_ERROR_DEVICE_RESET: return "DXGI_ERROR_DEVICE_RESET: The device was reset due to a serious error.";
+		case DXGI_ERROR_DRIVER_INTERNAL_ERROR: return "DXGI_ERROR_DRIVER_INTERNAL_ERROR: An internal driver error occurred.";
+		case DXGI_ERROR_INVALID_CALL: return "DXGI_ERROR_INVALID_CALL: The method call is invalid.";
+		case DXGI_ERROR_WAS_STILL_DRAWING: return "DXGI_ERROR_WAS_STILL_DRAWING: The previous command is still being executed.";
+			// Add other relevant DXGI HRESULTs as needed
+		default:
+		{
+			return "Unknown";
+			break;
+			// Use std::format (C++23) or string manipulation for generic HRESULT
+		}
+		}
+	}
 };
