@@ -32,6 +32,7 @@ private:
 	void CreateCommandObjects();
 	void CreateSwapChain(HWND& hwnd);
 	void CreateRtvAndDsvDescriptorHeaps();
+	void CreateGBufferPassRTVResources();
 	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView() const;
 	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView() const;
 	void CreateRenderTargetView();
@@ -263,4 +264,19 @@ private:
 	D3D12_CPU_DESCRIPTOR_HANDLE imguiCpuStart;
 	D3D12_GPU_DESCRIPTOR_HANDLE imguiGpuStart;
 	std::vector<bool> m_IsInstanceReflective;
+
+	////////////////
+	/// GBUFFER
+	////////////////
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_GBufferHeap;
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_GBufferAlbedoMetal;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_GBufferNormalRough;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_GBufferDepth;
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_SRVGBufferAlbedoMetal;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_SRVGBufferNormalRough;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_SRVGBufferDepth;
+
+
 };

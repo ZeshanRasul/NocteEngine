@@ -104,7 +104,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateSwapChain(windowHandle);
 
 	CreateRtvAndDsvDescriptorHeaps();
-
+	CreateGBufferPassRTVResources();
 	CreateRenderTargetView();
 
 	CreateDepthStencilView();
@@ -192,7 +192,7 @@ static inline UINT64 Align(UINT64 v, UINT64 alignment) {
 void Renderer::Update(float dt, Camera& cam)
 {
 	m_EyePos = cam.GetPosition3f();
-//	cam.LookAt(m_EyePos, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f });
+	//	cam.LookAt(m_EyePos, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f });
 	cam.UpdateViewMatrix();
 	XMStoreFloat4x4(&m_View, cam.GetView());
 	XMStoreFloat4x4(&m_Proj, cam.GetProj());
@@ -213,7 +213,7 @@ void Renderer::Update(float dt, Camera& cam)
 	m_Instances[2].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(10.0f, -10.0f, 0.0f);;
 	m_Instances[3].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(-10.0f, -10.0f, 0.0f);;
 
-//	UpdateCameraBuffer();
+	//	UpdateCameraBuffer();
 	UpdateObjectCBs();
 	UpdateMainPassCB();
 	UpdateMaterialCBs();
@@ -450,7 +450,7 @@ void Renderer::CreateSwapChain(HWND& windowHandle)
 void Renderer::CreateRtvAndDsvDescriptorHeaps()
 {
 	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc;
-	rtvHeapDesc.NumDescriptors = SwapChainBufferCount;
+	rtvHeapDesc.NumDescriptors = 2;
 	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	rtvHeapDesc.NodeMask = 0;
@@ -464,6 +464,46 @@ void Renderer::CreateRtvAndDsvDescriptorHeaps()
 	dsvHeapDesc.NodeMask = 0;
 
 	ThrowIfFailed(m_Device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(m_DsvHeap.GetAddressOf())));
+}
+
+void Renderer::CreateGBufferPassRTVResources()
+{
+	D3D12_RESOURCE_DESC rtvDesc = {};
+	rtvDesc.Width = m_ClientWidth;
+	rtvDesc.Height = m_ClientHeight;
+	rtvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	rtvDesc.DepthOrArraySize = 1;
+
+	rtvDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
+	rtvDesc.MipLevels = 1;
+	rtvDesc.SampleDesc.Count = 1;
+	rtvDesc.SampleDesc.Quality = 0;
+	rtvDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+
+	FLOAT colour[4] = { 0.22f, 0.33f, 0.44f, 0.f };
+
+	D3D12_CLEAR_VALUE rtvClearCol = {};
+	rtvClearCol.Color[0] = colour[0];
+	rtvClearCol.Color[1] = colour[1];
+	rtvClearCol.Color[2] = colour[2];
+	rtvClearCol.Color[3] = colour[3];
+	rtvClearCol.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+	HRESULT hr = m_Device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		D3D12_HEAP_FLAG_NONE,
+		&rtvDesc,
+		D3D12_RESOURCE_STATE_PRESENT,
+		&rtvClearCol,
+		IID_PPV_ARGS(&m_GBufferAlbedoMetal));
+
+	hr = m_Device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		D3D12_HEAP_FLAG_NONE,
+		&rtvDesc,
+		D3D12_RESOURCE_STATE_PRESENT,
+		&rtvClearCol,
+		IID_PPV_ARGS(&m_GBufferNormalRough));
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE Renderer::CurrentBackBufferView() const
@@ -480,40 +520,44 @@ void Renderer::CreateRenderTargetView()
 {
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHeapHandle(m_RtvHeap->GetCPUDescriptorHandleForHeapStart());
 
-	for (UINT i = 0; i < SwapChainBufferCount; i++)
-	{
-		ThrowIfFailed(m_SwapChain->GetBuffer(i, IID_PPV_ARGS(&m_SwapChainBuffer[i])));
+	m_Device->CreateRenderTargetView(m_GBufferAlbedoMetal.Get(), nullptr, rtvHeapHandle);
 
-		m_Device->CreateRenderTargetView(m_SwapChainBuffer[i].Get(), nullptr, rtvHeapHandle);
-
-		rtvHeapHandle.Offset(m_RtvDescriptorSize);
-	}
+	rtvHeapHandle.Offset(m_RtvDescriptorSize);
+	
+	m_Device->CreateRenderTargetView(m_GBufferNormalRough.Get(), nullptr, rtvHeapHandle);
 }
 
 void Renderer::CreateDepthStencilView()
 {
-	D3D12_RESOURCE_DESC depthStencilDesc;
+	D3D12_RESOURCE_DESC depthStencilDesc = {};
 	depthStencilDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 	depthStencilDesc.Alignment = 0;
 	depthStencilDesc.Width = m_ClientWidth;
 	depthStencilDesc.Height = m_ClientHeight;
 	depthStencilDesc.DepthOrArraySize = 1;
 	depthStencilDesc.MipLevels = 1;
-	depthStencilDesc.Format = m_DepthStencilFormat;
+	depthStencilDesc.Format = DXGI_FORMAT_D32_FLOAT;
 	depthStencilDesc.SampleDesc.Count = 1;
 	depthStencilDesc.SampleDesc.Quality = 0;
 	depthStencilDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	depthStencilDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 
-	D3D12_CLEAR_VALUE optClear;
-	optClear.Format = m_DepthStencilFormat;
+	D3D12_HEAP_PROPERTIES heapProps = {};
+	heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
+	heapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	heapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	heapProps.CreationNodeMask = 0u;
+	heapProps.VisibleNodeMask = 0u;
+
+	D3D12_CLEAR_VALUE optClear = {};
+	optClear.Format = DXGI_FORMAT_D32_FLOAT;
 	optClear.DepthStencil.Depth = 1.0f;
 	optClear.DepthStencil.Stencil = 0;
 
-	ThrowIfFailed(m_Device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE, &depthStencilDesc, D3D12_RESOURCE_STATE_COMMON, &optClear, IID_PPV_ARGS(m_DepthStencilBuffer.GetAddressOf())));
+	ThrowIfFailed(m_Device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &depthStencilDesc, D3D12_RESOURCE_STATE_COMMON, &optClear, IID_PPV_ARGS(&m_DepthStencilBuffer)));
 
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
-	dsvDesc.Format = m_DepthStencilFormat;
+	dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
 	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
 
@@ -1144,11 +1188,12 @@ void Renderer::BuildPSOs()
 	opaquePsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	opaquePsoDesc.SampleMask = UINT_MAX;
 	opaquePsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	opaquePsoDesc.NumRenderTargets = 1;
-	opaquePsoDesc.RTVFormats[0] = m_BackBufferFormat;
+	opaquePsoDesc.NumRenderTargets = 2;
+	opaquePsoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	opaquePsoDesc.RTVFormats[1] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	opaquePsoDesc.SampleDesc.Count = 1;
 	opaquePsoDesc.SampleDesc.Quality = 0;
-	opaquePsoDesc.DSVFormat = m_DepthStencilFormat;
+	opaquePsoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 
 	ThrowIfFailed(m_Device->CreateGraphicsPipelineState(&opaquePsoDesc, IID_PPV_ARGS(&m_PipelineStateObjects["opaque"])));
 
