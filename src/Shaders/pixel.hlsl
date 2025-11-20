@@ -13,10 +13,16 @@ struct PixelIn
 
 cbuffer cbMaterial : register(b1)
 {
-    float4 gDiffuseAlbedo;
-    float3 gFresnelR0;
-    float gRoughness;
-    float4x4 gMatTransform;
+    float4 DiffuseAlbedo;
+    float3 FresnelR0;
+    float Ior;
+    float Reflectivity;
+    float3 Absorption;
+    float Shininess;
+    float pad;
+    float pad1;
+    float metallic;
+    bool IsReflective;
 }
 
 cbuffer cbPass : register(b2)
@@ -40,23 +46,22 @@ cbuffer cbPass : register(b2)
     Light gLights[MaxLights];
 };
 
-float4 PS(PixelIn pIn) : SV_Target
+struct GBuffer
 {
-    pIn.NormalW = normalize(pIn.NormalW);
+    float4 gBufferAlbedoMetal : SV_Target0;
+    float4 gBufferNormalRough : SV_Target1;
+};
+
+GBuffer PS(PixelIn pIn)
+{   
+    GBuffer gBuffer;
+
+    gBuffer.gBufferAlbedoMetal.xyz = DiffuseAlbedo;
+    gBuffer.gBufferAlbedoMetal.w = metallic;
     
-    float3 toEyeW = normalize(gEyePosW - pIn.PosW);
+    gBuffer.gBufferNormalRough.xyz = pIn.NormalW;
+    gBuffer.gBufferNormalRough.w = 1.0 - Shininess;
     
-    float4 ambient = gAmbientLight * gDiffuseAlbedo;
-    
-    const float shininess = 1.0f - gRoughness;
-    Material mat = { gDiffuseAlbedo, gFresnelR0, shininess };
-    float3 shadowFactor = 1.0f;
-    
-    float4 directLight = ComputeLighting(gLights, mat, pIn.PosW, pIn.NormalW, toEyeW, shadowFactor);
-    
-    float4 litColor = ambient + directLight;
-    
-    litColor.a = gDiffuseAlbedo.a;
-    
-    return litColor;
+    return gBuffer;
+
 }

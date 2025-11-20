@@ -50,7 +50,8 @@ StructuredBuffer<STriVertex> BTriVertex : register(t0);
 StructuredBuffer<int> indices : register(t1);
 RaytracingAccelerationStructure SceneBVH : register(t2);
 StructuredBuffer<Material> materials : register(t3);
-
+Texture2D<float4> GBufferAlbedoMetal : register(t4);
+Texture2D<float4> GBufferNormalRough : register(t5);
 
 cbuffer cbPass : register(b0)
 {

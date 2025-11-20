@@ -250,6 +250,11 @@ struct MaterialConstants
     float Reflectivity;
     DirectX::XMFLOAT3 Absorption;
     float Roughness = 0.25f;
+    float Shininess;
+    float pad;
+    float pad1;
+    float metallic;
+    bool IsReflective;
     // Used in texture mapping.
     DirectX::XMFLOAT4X4 MatTransform = MathHelper::Identity4x4();
 };

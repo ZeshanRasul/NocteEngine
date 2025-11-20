@@ -7,10 +7,16 @@ cbuffer cbPerObject : register(b0)
 
 cbuffer cbMaterial : register(b1)
 {
-    float4 gDiffuseAlbedo;
-    float3 gFresnelR0;
-    float gRoughness;
-    float4x4 gMatTransform;
+    float4 DiffuseAlbedo;
+    float3 FresnelR0;
+    float Ior;
+    float Reflectivity;
+    float3 Absorption;
+    float Shininess;
+    float pad;
+    float pad1;
+    float metallic;
+    bool IsReflective;
 }
 
 cbuffer cbPass : register(b2)
@@ -46,23 +52,28 @@ struct VertexIn
     float3 NormalL : NORMAL;
 };
 
-struct VertexOut
+struct VSOutput
 {
     float4 PosH : SV_POSITION;
     float3 PosW : POSITION;
     float3 NormalW : NORMAL;
 };
 
-VertexOut VS(VertexIn vIn)
-{
-    VertexOut vOut;
-    
-    float4 posW = mul(float4(vIn.PosL, 1.0f), gWorld);
-    vOut.PosW = posW.xyz;
-    
-    vOut.NormalW = mul(vIn.NormalL, (float3x3)gWorld);
-    
-    vOut.PosH = mul(posW, gViewProj);
-            
-    return vOut;
+VSOutput VS(VertexIn vIn)
+{  
+    VSOutput vso;
+
+    matrix worldView = mul(gWorld, gView);
+
+    float4 homogPosW = mul(float4(vIn.PosL, 1.0f), gWorld);
+
+    vso.PosW = homogPosW.xyz / homogPosW.w;
+
+    vso.NormalW = vIn.NormalL;
+
+    matrix viewProj = mul(gView, gProj);
+
+    vso.PosH = mul(float4(vso.PosW, 1.0f), gViewProj);
+
+    return vso;
 }
