@@ -16,6 +16,8 @@ RWTexture2D<float4> gOutput : register(u0);
 RaytracingAccelerationStructure SceneBVH : register(t0);
 Texture2D<float4> GBufferAlbedoMetal : register(t4);
 Texture2D<float4> GBufferNormalRough : register(t5);
+Texture2D<float4> GBufferDepth : register(t6);
+
 cbuffer cbPass : register(b0)
 {
     float4x4 gView;

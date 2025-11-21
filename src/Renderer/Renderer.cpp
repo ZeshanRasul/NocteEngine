@@ -250,7 +250,7 @@ void Renderer::Draw(bool useRaster)
 	//	pBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferAlbedoMetal.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	//	pBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferNormalRough.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	//	m_CommandList->ResourceBarrier(2, pBarriers);
-	pBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferAlbedoMetal.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	pBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferAlbedoMetal.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
 	pBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferNormalRough.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
 	m_CommandList->ResourceBarrier(2, pBarriers);
 
@@ -297,7 +297,7 @@ void Renderer::Draw(bool useRaster)
 
 
 
-	pBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferAlbedoMetal.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE);
+	pBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferAlbedoMetal.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	pBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_GBufferNormalRough.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	m_CommandList->ResourceBarrier(2, pBarriers);
 
@@ -310,7 +310,11 @@ void Renderer::Draw(bool useRaster)
 
 			//	m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
 
+
 	CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(m_OutputResource.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	m_CommandList->ResourceBarrier(1, &transition);
+	
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(m_DepthStencilBuffer.Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_DEPTH_READ);
 	m_CommandList->ResourceBarrier(1, &transition);
 
 	heaps = { m_SrvUavHeap.Get() };
@@ -338,7 +342,7 @@ void Renderer::Draw(bool useRaster)
 	desc.Depth = 1;
 
 	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
-//	m_CommandList->DispatchRays(&desc);
+	m_CommandList->DispatchRays(&desc);
 
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(m_OutputResource.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
@@ -347,7 +351,7 @@ void Renderer::Draw(bool useRaster)
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);
 	m_CommandList->ResourceBarrier(1, &transition);
 
-	m_CommandList->CopyResource(CurrentBackBuffer(), m_GBufferAlbedoMetal.Get());
+	m_CommandList->CopyResource(CurrentBackBuffer(), m_OutputResource.Get());
 
 	//	rtvHandle = m_RtvHeap->GetCPUDescriptorHandleForHeapStart();
 	D3D12_CPU_DESCRIPTOR_HANDLE backbufferRtv =
@@ -357,6 +361,11 @@ void Renderer::Draw(bool useRaster)
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT);
 	m_CommandList->ResourceBarrier(1, &transition);
+
+
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(m_DepthStencilBuffer.Get(), D3D12_RESOURCE_STATE_DEPTH_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+	m_CommandList->ResourceBarrier(1, &transition);
+
 
 	//	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 
@@ -585,7 +594,7 @@ void Renderer::CreateDepthStencilView()
 	depthStencilDesc.Height = m_ClientHeight;
 	depthStencilDesc.DepthOrArraySize = 1;
 	depthStencilDesc.MipLevels = 1;
-	depthStencilDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	depthStencilDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
 	depthStencilDesc.SampleDesc.Count = 1;
 	depthStencilDesc.SampleDesc.Quality = 0;
 	depthStencilDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
@@ -1536,6 +1545,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
 		{ 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 3},
 		{ 4, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 5},
 		{ 5, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6},
+		{ 6, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 7},
 		}
 	);
 
@@ -1556,6 +1566,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 	rsc.AddHeapRangesParameter({ { 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2} });
 	rsc.AddHeapRangesParameter({ { 4, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 5} });
 	rsc.AddHeapRangesParameter({ { 5, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6} });
+	rsc.AddHeapRangesParameter({ { 6, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 7} });
 
 	return rsc.Generate(m_Device.Get(), true);
 }
@@ -1634,7 +1645,7 @@ void Renderer::CreateRaytracingOutputBuffer()
 
 void Renderer::CreateShaderResourceHeap()
 {
-	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 7, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 8, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -1715,6 +1726,16 @@ void Renderer::CreateShaderResourceHeap()
 	gBufferNormalRoughDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
 	m_Device->CreateShaderResourceView(m_GBufferNormalRough.Get(), &gBufferNormalRoughDesc, srvHandle);
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC depthBufferSRVDesc = {};
+	depthBufferSRVDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+	depthBufferSRVDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	depthBufferSRVDesc.Texture2D.MipLevels = 1;
+	depthBufferSRVDesc.Texture2D.MostDetailedMip = 0;
+	depthBufferSRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+	m_Device->CreateShaderResourceView(m_DepthStencilBuffer.Get(), &depthBufferSRVDesc, srvHandle);
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 }
