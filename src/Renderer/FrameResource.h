@@ -11,6 +11,7 @@ struct ObjectConstants
 	int MatIndex;
 	int InstanceID;
 	int InstanceOffset;
+	int pad;
 };
 
 struct PassConstants

@@ -4,8 +4,9 @@ cbuffer cbPerObject : register(b0)
 {
     float4x4 gWorld;
     int matIndex;
-    int InstanceID;
+    int poInstanceID;
     int InstanceOffset;
+    int pad3;
 }
 
 struct InstanceData
@@ -65,6 +66,7 @@ struct VertexIn
 {
     float3 PosL : POSITION;
     float3 NormalL : NORMAL;
+    uint InstanceID : SV_InstanceID;
 };
 
 struct VSOutput
@@ -78,7 +80,7 @@ VSOutput VS(VertexIn vIn)
 {
     VSOutput vso;
 
-    uint idx = InstanceOffset + InstanceID;
+    uint idx = InstanceOffset + vIn.InstanceID;
     
     InstanceData inst = instancesData[idx];
     
