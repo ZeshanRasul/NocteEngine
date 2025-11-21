@@ -82,7 +82,7 @@ VSOutput VS(VertexIn vIn)
     
     InstanceData inst = instancesData[idx];
     
-    float4 homogPosW = mul(float4(vIn.PosL, 1.0f), inst.instWorld);
+    float4 homogPosW = mul(inst.instWorld, float4(vIn.PosL, 1.0f));
 
     vso.PosW = homogPosW.xyz / homogPosW.w;
 

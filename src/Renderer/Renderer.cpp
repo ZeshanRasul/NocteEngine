@@ -84,7 +84,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	//nv_helpers_dx12::Manipulator::Singleton().setLookat(glm::vec3(0.0f, 1.0f, -27.0f), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 
 #if defined(DEBUG) || defined(_DEBUG)
-	CreateDebugController();
+	//CreateDebugController();
 #endif
 	ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&m_DxgiFactory)));
 
@@ -338,7 +338,7 @@ void Renderer::Draw(bool useRaster)
 	desc.Depth = 1;
 
 	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
-	m_CommandList->DispatchRays(&desc);
+//	m_CommandList->DispatchRays(&desc);
 
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(m_OutputResource.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
@@ -979,7 +979,7 @@ void Renderer::BuildShapeGeometry()
 	boxSubmesh->InstanceOffset = m_InstanceOffset;
 	for (UINT i = 0; i < boxSubmesh->InstanceCount; i++)
 	{
-		InstanceData inst{};
+		InstanceData inst;
 		inst.InstanceID = i;
 		inst.MaterialIndex = boxSubmesh->ObjCBIndex;
 		inst.World = boxSubmesh->World[i];
@@ -1017,7 +1017,7 @@ void Renderer::BuildShapeGeometry()
 
 	for (UINT i = 0; i < sphereSubmesh->InstanceCount; i++)
 	{
-		InstanceData inst{};
+		InstanceData inst;
 		inst.InstanceID = i;
 		inst.MaterialIndex = sphereSubmesh->ObjCBIndex;
 		inst.World = sphereSubmesh->World[i];
@@ -1171,7 +1171,7 @@ void Renderer::BuildSkullGeometry()
 
 	for (UINT i = 0; i < skullSubmesh->InstanceCount; i++)
 	{
-		InstanceData inst{};
+		InstanceData inst;
 		inst.InstanceID = i;
 		inst.MaterialIndex = skullSubmesh->ObjCBIndex;
 		inst.World = skullSubmesh->World[i];
