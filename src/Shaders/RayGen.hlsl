@@ -326,7 +326,6 @@ void RayGen()
     
     float3 Lo = 0.0;
     
-  //  float3 N = normalize(mul((float3x3) transpose(), normal));
     for (int i = 0; i < 1; ++i)
     {
         float3 L;
@@ -401,7 +400,7 @@ void RayGen()
 
     float3 finalColor = radiance + areaLightContribution;
 
-  //  finalColor = PostProcess(finalColor);
+    finalColor = PostProcess(finalColor);
     
     gOutput[launchIndex] = float4(finalColor, 1.0);
 }
