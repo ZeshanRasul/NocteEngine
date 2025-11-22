@@ -84,7 +84,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	//nv_helpers_dx12::Manipulator::Singleton().setLookat(glm::vec3(0.0f, 1.0f, -27.0f), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 
 #if defined(DEBUG) || defined(_DEBUG)
-	CreateDebugController();
+//	CreateDebugController();
 #endif
 	ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&m_DxgiFactory)));
 
@@ -306,18 +306,18 @@ void Renderer::Draw(bool useRaster)
 	m_CommandList->ResourceBarrier(1, &transition);
 
 
-	//	CreateTopLevelAS(m_Instances, true);
+//	CreateTopLevelAS(m_Instances, true);
 
 		//	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST));
 
 			//	m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
 
 
-	transition = CD3DX12_RESOURCE_BARRIER::Transition(m_OutputResource.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(m_OutputResource.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 	m_CommandList->ResourceBarrier(1, &transition);
 
 
-	heaps = { m_SrvUavHeap.Get() };
+	heaps = { m_SrvUavHeap.Get(), m_SamplerHeap.Get()};
 	m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
 
 	D3D12_DISPATCH_RAYS_DESC desc = {};
@@ -345,7 +345,7 @@ void Renderer::Draw(bool useRaster)
 	m_CommandList->DispatchRays(&desc);
 
 
-	transition = CD3DX12_RESOURCE_BARRIER::Transition(m_OutputResource.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(m_OutputResource.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COMMON);
 	m_CommandList->ResourceBarrier(1, &transition);
 
 	transition = CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);
@@ -1542,17 +1542,18 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
 	nv_helpers_dx12::RootSignatureGenerator rsc;
 	rsc.AddHeapRangesParameter(
 		{ { 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0 },
-		{ 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1},
 		{ 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 4},
 		{ 4, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 5},
 		{ 5, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6},
 		{ 6, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 7},
 		}
 	);
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 3);
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 4);
 	rsc.AddHeapRangesParameter({ { 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 0 }
 		});
 
-		return rsc.Generate(m_Device.Get(), true);
+	return rsc.Generate(m_Device.Get(), true);
 }
 
 Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
@@ -1642,7 +1643,7 @@ void Renderer::CreateRaytracingOutputBuffer()
 	resDesc.MipLevels = 1;
 	resDesc.SampleDesc.Count = 1;
 
-	ThrowIfFailed(m_Device->CreateCommittedResource(&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_COPY_SOURCE, nullptr, IID_PPV_ARGS(&m_OutputResource)));
+	ThrowIfFailed(m_Device->CreateCommittedResource(&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&m_OutputResource)));
 }
 
 void Renderer::CreateShaderResourceHeap()
@@ -1756,6 +1757,7 @@ void Renderer::CreateShaderResourceHeap()
 
 	m_Device->CreateSampler(&samplerDesc, samplerHandle);
 
+	samplerHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
 
 }
 
@@ -1768,7 +1770,12 @@ void Renderer::CreateShaderBindingTable()
 	D3D12_GPU_DESCRIPTOR_HANDLE samplerHeapHandle = m_SamplerHeap->GetGPUDescriptorHandleForHeapStart();
 	auto samplerHeapPointer = reinterpret_cast<void*>(samplerHeapHandle.ptr);
 
-	m_SbtHelper.AddRayGenerationProgram(L"RayGen", { heapPointer, samplerHeapPointer });
+	m_SbtHelper.AddRayGenerationProgram(L"RayGen", {
+	heapPointer, 
+		(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),
+	(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
+	(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
+samplerHeapPointer });
 
 	m_SbtHelper.AddMissProgram(L"Miss", {});
 	m_SbtHelper.AddMissProgram(L"ShadowMiss", {});
