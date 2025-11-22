@@ -342,14 +342,7 @@ void Renderer::Draw(bool useRaster)
 	desc.Depth = 1;
 
 	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
-	auto handleGPU = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
-	auto handleCPU = m_SrvUavHeap->GetCPUDescriptorHandleForHeapStart();
-	m_CommandList->ClearUnorderedAccessViewFloat(handleGPU, // GPU handle
-		handleCPU, // CPU handle
-		m_OutputResource.Get(),
-		color,
-		0,
-		nullptr);
+
 	m_CommandList->DispatchRays(&desc);
 
 
