@@ -84,7 +84,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	//nv_helpers_dx12::Manipulator::Singleton().setLookat(glm::vec3(0.0f, 1.0f, -27.0f), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 
 #if defined(DEBUG) || defined(_DEBUG)
-	CreateDebugController();
+	//CreateDebugController();
 #endif
 	ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&m_DxgiFactory)));
 
@@ -1776,7 +1776,6 @@ void Renderer::CreateShaderBindingTable()
 
 	m_SbtHelper.AddRayGenerationProgram(L"RayGen", {
 	heapPointer,
-		(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),
 	(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
 	(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
 samplerHeapPointer });
@@ -2138,27 +2137,37 @@ void Renderer::CreatePostProcessConstantBuffer()
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 20.0f, -5.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(1.0f, 1.0f, 1.0f);
-	m_AreaLightData.U = XMFLOAT3(5.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 5.0f);
+	m_AreaLightDataCollection.reserve(1);
+	m_AreaLightData = new AreaLight();
+	m_AreaLightData->Position = XMFLOAT3(0.0f, 20.0f, -5.0f);
+	m_AreaLightData->Radiance = XMFLOAT3(12.0f, 12.0f, 12.0f);
+	m_AreaLightData->U = XMFLOAT3(15.0f, 0.0f, 0.0f);
+	m_AreaLightData->V = XMFLOAT3(0.0f, 0.0f, 15.0f);
 
-	float lenU = sqrtf(m_AreaLightData.U.x * m_AreaLightData.U.x +
-		m_AreaLightData.U.y * m_AreaLightData.U.y +
-		m_AreaLightData.U.z * m_AreaLightData.U.z);
-	float lenV = sqrtf(m_AreaLightData.V.x * m_AreaLightData.V.x +
-		m_AreaLightData.V.y * m_AreaLightData.V.y +
-		m_AreaLightData.V.z * m_AreaLightData.V.z);
+	float lenU = sqrtf(m_AreaLightData->U.x * m_AreaLightData->U.x +
+		m_AreaLightData->U.y * m_AreaLightData->U.y +
+		m_AreaLightData->U.z * m_AreaLightData->U.z);
+	float lenV = sqrtf(m_AreaLightData->V.x * m_AreaLightData->V.x +
+		m_AreaLightData->V.y * m_AreaLightData->V.y +
+		m_AreaLightData->V.z * m_AreaLightData->V.z);
 
-	m_AreaLightData.Area = 4.0f * lenU * lenV;
+	m_AreaLightData->Area = 4.0f * lenU * lenV;
+
+	m_AreaLightData->Pad = 1.0f;
+	m_AreaLightData->Pad2 = 1.0f;
+	m_AreaLightData->Pad3 = 1.0f;
+
+	m_AreaLightDataCollection.push_back(std::move(*m_AreaLightData));
+
+	const uint32_t bufferSize = sizeof(AreaLight);
 
 	m_AreaLightConstantBuffer = nv_helpers_dx12::CreateBuffer(
-		m_Device.Get(), sizeof(AreaLight), D3D12_RESOURCE_FLAG_NONE,
+		m_Device.Get(), bufferSize, D3D12_RESOURCE_FLAG_NONE,
 		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
 
 	uint8_t* pData;
 	ThrowIfFailed(m_AreaLightConstantBuffer->Map(0, nullptr, (void**)&pData));
-	memcpy(pData, (void*)&m_AreaLightData, sizeof(m_AreaLightData));
+	memcpy(pData, (void*)&m_AreaLightDataCollection[0], bufferSize);
 	m_AreaLightConstantBuffer->Unmap(0, nullptr);
 
 }
@@ -2175,8 +2184,6 @@ void Renderer::CreatePerInstanceBuffers()
 		const uint32_t bufferSize = sizeof(int);
 
 		cb = nv_helpers_dx12::CreateBuffer(m_Device.Get(), bufferSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
-
-
 
 		uint8_t* pData;
 		ThrowIfFailed(cb->Map(0, nullptr, (void**)&pData));

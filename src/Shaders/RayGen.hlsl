@@ -58,8 +58,7 @@ cbuffer PostProcess : register(b3)
 
 cbuffer AreaLights : register(b4)
 {
-    AreaLight gAreaLights[8];
-    uint gAreaLightCount;
+    AreaLight gAreaLight;
 }
 
 float3 LinearToSRGB(float3 x)
@@ -144,7 +143,7 @@ float2 SampleHammersley(uint sampleIdx, uint numSamples, uint pixelSeed, uint fr
 
 float3 SampleAreaLight(uint index, float2 xi)
 {
-    AreaLight L = gAreaLights[index];
+    AreaLight L = gAreaLight;
     
     float3 p = L.Position + (2.0f * xi.x - 1.0f) * L.U + (2.0f * xi.y - 1.0f) * L.V;
     return p;
@@ -336,7 +335,7 @@ void RayGen()
     
     float3 Lo = 0.0;
     
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 1; ++i)
     {
         float3 L;
         float3 Li = 0.0;
@@ -392,13 +391,13 @@ void RayGen()
         float NdotL = saturate(dot(normal, dir));
         if (NdotL > 0.0f)
         {
-            float3 lightNormal = normalize(cross(gAreaLights[0].U, gAreaLights[0].V));
+            float3 lightNormal = normalize(cross(gAreaLight.U, gAreaLight.V));
             float LnDotL = saturate(dot(-dir, lightNormal));
             float dist2 = dist * dist;
         
-            float pdf = 1.0f / gAreaLights[0].Area;
+            float pdf = 1.0f / gAreaLight.Area;
         
-            float3 Li = gAreaLights[0].Radiance * (LnDotL / dist2);
+            float3 Li = gAreaLight.Radiance * (LnDotL / dist2);
         
             areaLightContribution += Li * NdotL / pdf;
         }

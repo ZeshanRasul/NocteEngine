@@ -260,7 +260,9 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_PostProcessConstantBuffer;
 
 	void CreateAreaLightConstantBuffer();
-	AreaLight m_AreaLightData;
+	AreaLight* m_AreaLightData;
+	AreaLight m_AreaLightDataGPU;
+	std::vector<AreaLight> m_AreaLightDataCollection;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_AreaLightConstantBuffer;
 
 	uint32_t m_AnimationCounter = 0;
