@@ -1410,7 +1410,9 @@ void Renderer::UpdateObjectCBs()
 			for (int i = 0; i < e->InstanceData.size(); i++)
 			{
 
-				XMStoreFloat4x4(&objConstants[i].WorldViewProj, XMMatrixTranspose(e->World[i]));
+				XMStoreFloat4x4(&objConstants[i].World, XMMatrixTranspose(e->World[i]));
+				XMStoreFloat4x4(&objConstants[i].InvWorld, MathHelper::InverseTranspose(e->World[i]));
+				
 				objConstants[i].MatIndex = e->InstanceData[i].MaterialIndex;
 				objConstants[i].InstanceOffset = e->InstanceOffset;
 				objConstants[i].InstanceID = i;

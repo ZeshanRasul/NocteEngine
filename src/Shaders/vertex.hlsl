@@ -3,6 +3,7 @@
 cbuffer cbPerObject : register(b0)
 {
     float4x4 gWorld;
+    float4x4 gInvWorld;
     int matIndex;
     int poInstanceID;
     int InstanceOffset;
@@ -88,7 +89,7 @@ VSOutput VS(VertexIn vIn)
 
     vso.PosW = homogPosW.xyz / homogPosW.w;
 
-    vso.NormalW = vIn.NormalL;
+    vso.NormalW = mul((float3x3) gInvWorld, vIn.NormalL);
 
     matrix viewProj = mul(gView, gProj);
 

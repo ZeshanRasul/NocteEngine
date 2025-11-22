@@ -7,7 +7,8 @@ using namespace DirectX;
 
 struct ObjectConstants
 {
-	XMFLOAT4X4 WorldViewProj;
+	XMFLOAT4X4 World;
+	XMFLOAT4X4 InvWorld;
 	int MatIndex;
 	int InstanceID;
 	int InstanceOffset;
