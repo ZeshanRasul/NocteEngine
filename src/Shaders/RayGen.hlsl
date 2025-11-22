@@ -60,6 +60,10 @@ void RayGen()
     d.y = -d.y;
     
     float depth = GBufferDepth.SampleLevel(gLinearClampSampler, pixelCenter, 1).x;
+    float3 albedo = GBufferAlbedoMetal.SampleLevel(gLinearClampSampler, pixelCenter, 1).xyz;
+    float metal = GBufferAlbedoMetal.SampleLevel(gLinearClampSampler, pixelCenter, 1).w;
+    float3 normal = GBufferNormalRough.SampleLevel(gLinearClampSampler, pixelCenter, 1).xyz;
+    float roughness = GBufferNormalRough.SampleLevel(gLinearClampSampler, pixelCenter, 1).w;
 
     float4 clipPos = float4(pixelCenter.x, pixelCenter.y, depth, 1.0);
     
@@ -92,5 +96,5 @@ void RayGen()
    // ray,
    // payload);
     
-    gOutput[launchIndex] = float4(worldPosH);
+    gOutput[launchIndex] = float4(albedo, metal);
 }
