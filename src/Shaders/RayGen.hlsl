@@ -63,9 +63,8 @@ void RayGen()
 
     float4 clipPos = float4(pixelCenter.x, pixelCenter.y, depth, 1.0);
     
-    float4 worldPosH = mul(clipPos, gInvProj);
-    float4 worldPos = float4(1.0, 0.0, 0.2, 1.0);
-    worldPos = (worldPosH.xyz / worldPosH.w, 1.0);
+    float4 worldPosH = mul(clipPos, gInvViewProj);
+    float4 worldPos = (worldPosH.xyz / worldPosH.w, 1.0);
     
     
     // Construct a ray through the pixel in world space
@@ -77,21 +76,21 @@ void RayGen()
     float3 targetWS = mul(targetVS, gInvView).xyz;
     float3 dirWS = normalize(targetWS - originWS);
 
-    RayDesc ray;
-    ray.Origin = originWS;
-    ray.Direction = dirWS;
-    ray.TMin = 0.1f;
-    ray.TMax = 1e38f;
+   // RayDesc ray;
+   // ray.Origin = originWS;
+   // ray.Direction = dirWS;
+   // ray.TMin = 0.1f;
+   // ray.TMax = 1e38f;
+   // 
+   // TraceRay(
+   // SceneBVH,
+   // RAY_FLAG_NONE,
+   // 0XFF,
+   // 0,
+   // 3,
+   // 0,
+   // ray,
+   // payload);
     
-    TraceRay(
-    SceneBVH,
-    RAY_FLAG_NONE,
-    0XFF,
-    0,
-    3,
-    0,
-    ray,
-    payload);
-    
-    gOutput[launchIndex] = float4(clipPos);
+    gOutput[launchIndex] = float4(worldPosH);
 }
