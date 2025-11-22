@@ -31,6 +31,28 @@
 
 extern const int gNumFrameResources;
 
+static std::array<const CD3DX12_STATIC_SAMPLER_DESC, 1> GetStaticSamplers()
+{
+    // Linear, clamp-to-edge sampler at s0
+    const CD3DX12_STATIC_SAMPLER_DESC linearClampSampler(
+        0,                                    // shaderRegister (s0)
+        D3D12_FILTER_MIN_MAG_MIP_LINEAR,      // filter
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,     // addressU
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,     // addressV
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,     // addressW
+        0.0f,                                 // mipLODBias
+        16,                                   // maxAnisotropy
+        D3D12_COMPARISON_FUNC_ALWAYS,         // comparisonFunc
+        D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK,
+        0.0f,                                 // minLOD
+        D3D12_FLOAT32_MAX,                    // maxLOD
+        D3D12_SHADER_VISIBILITY_ALL           // visibility
+    );
+
+    return { linearClampSampler };
+}
+
+
 inline void d3dSetDebugName(IDXGIObject* obj, const char* name)
 {
     if (obj)

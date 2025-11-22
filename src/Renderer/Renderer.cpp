@@ -84,7 +84,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	//nv_helpers_dx12::Manipulator::Singleton().setLookat(glm::vec3(0.0f, 1.0f, -27.0f), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 
 #if defined(DEBUG) || defined(_DEBUG)
-	//CreateDebugController();
+	CreateDebugController();
 #endif
 	ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&m_DxgiFactory)));
 
@@ -270,7 +270,7 @@ void Renderer::Draw(bool useRaster)
 		m_GBufferHandles[1]
 	};
 
-	m_CommandList->OMSetRenderTargets(2, gbufferRtvs, true, &DepthStencilView());
+	m_CommandList->OMSetRenderTargets(2, gbufferRtvs, false, &DepthStencilView());
 
 
 
@@ -302,6 +302,8 @@ void Renderer::Draw(bool useRaster)
 	m_CommandList->ResourceBarrier(2, pBarriers);
 
 
+	CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(m_DepthStencilBuffer.Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	m_CommandList->ResourceBarrier(1, &transition);
 
 
 	//	CreateTopLevelAS(m_Instances, true);
@@ -311,11 +313,9 @@ void Renderer::Draw(bool useRaster)
 			//	m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
 
 
-	CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(m_OutputResource.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(m_OutputResource.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 	m_CommandList->ResourceBarrier(1, &transition);
-	
-	transition = CD3DX12_RESOURCE_BARRIER::Transition(m_DepthStencilBuffer.Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_DEPTH_READ);
-	m_CommandList->ResourceBarrier(1, &transition);
+
 
 	heaps = { m_SrvUavHeap.Get() };
 	m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
@@ -363,7 +363,7 @@ void Renderer::Draw(bool useRaster)
 	m_CommandList->ResourceBarrier(1, &transition);
 
 
-	transition = CD3DX12_RESOURCE_BARRIER::Transition(m_DepthStencilBuffer.Get(), D3D12_RESOURCE_STATE_DEPTH_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+	transition = CD3DX12_RESOURCE_BARRIER::Transition(m_DepthStencilBuffer.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_DEPTH_WRITE);
 	m_CommandList->ResourceBarrier(1, &transition);
 
 
@@ -735,7 +735,9 @@ void Renderer::CreateRootSignature()
 	slotRootParameter[4].InitAsShaderResourceView(0);
 	slotRootParameter[5].InitAsShaderResourceView(1);
 
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(6, slotRootParameter, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	auto samplers = GetStaticSamplers();
+
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(6, slotRootParameter, (UINT)samplers.size(), samplers.data(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	Microsoft::WRL::ComPtr<ID3DBlob> serializedRootSig = nullptr;
 	Microsoft::WRL::ComPtr<ID3DBlob> errorBlob = nullptr;
@@ -1333,7 +1335,6 @@ void Renderer::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::ve
 		cmdList->SetGraphicsRootConstantBufferView(1, matCBAddress);
 		cmdList->SetGraphicsRootShaderResourceView(4, matGPUAdrress);
 		cmdList->SetGraphicsRootShaderResourceView(5, instGPUAdrress);
-
 		cmdList->DrawIndexedInstanced(rg->IndexCount, rg->InstanceCount, rg->StartIndexLocation, rg->BaseVertexLocation, 0);
 	}
 	//	CreateVertexBufferView(boxSubmesh);
@@ -1542,14 +1543,16 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
 	rsc.AddHeapRangesParameter(
 		{ { 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0 },
 		{ 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1},
-		{ 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 3},
+		{ 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 2},
 		{ 4, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 5},
 		{ 5, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6},
 		{ 6, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 7},
 		}
 	);
+	rsc.AddHeapRangesParameter({ { 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 0 }
+		});
 
-	return rsc.Generate(m_Device.Get(), true);
+		return rsc.Generate(m_Device.Get(), true);
 }
 
 Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
@@ -1567,7 +1570,6 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 	rsc.AddHeapRangesParameter({ { 4, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 5} });
 	rsc.AddHeapRangesParameter({ { 5, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6} });
 	rsc.AddHeapRangesParameter({ { 6, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 7} });
-
 	return rsc.Generate(m_Device.Get(), true);
 }
 
@@ -1615,10 +1617,10 @@ void Renderer::CreateRaytracingPipeline()
 	pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"Miss" });
 	pipeline.AddRootSignatureAssociation(m_HitSignature.Get(), { L"HitGroup" });
 
-
 	pipeline.SetMaxPayloadSize(8 * sizeof(float));
 	pipeline.SetMaxAttributeSize(2 * sizeof(float));
 	pipeline.SetMaxRecursionDepth(6);
+
 
 	m_RtStateObject = pipeline.Generate();
 
@@ -1738,6 +1740,23 @@ void Renderer::CreateShaderResourceHeap()
 	m_Device->CreateShaderResourceView(m_DepthStencilBuffer.Get(), &depthBufferSRVDesc, srvHandle);
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
+	m_SamplerHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 1, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, true);
+	D3D12_CPU_DESCRIPTOR_HANDLE samplerHandle = m_SamplerHeap->GetCPUDescriptorHandleForHeapStart();
+
+	D3D12_SAMPLER_DESC samplerDesc = {};
+	samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDesc.Filter = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
+	samplerDesc.MinLOD = 0;
+	samplerDesc.MaxLOD = D3D12_FLOAT32_MAX;
+	samplerDesc.MipLODBias = 0.0f;
+	samplerDesc.MaxAnisotropy = 1;
+	samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+
+	m_Device->CreateSampler(&samplerDesc, samplerHandle);
+
+
 }
 
 void Renderer::CreateShaderBindingTable()
@@ -1746,8 +1765,10 @@ void Renderer::CreateShaderBindingTable()
 
 	D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
 	auto heapPointer = reinterpret_cast<void*>(srvUavHeapHandle.ptr);
+	D3D12_GPU_DESCRIPTOR_HANDLE samplerHeapHandle = m_SamplerHeap->GetGPUDescriptorHandleForHeapStart();
+	auto samplerHeapPointer = reinterpret_cast<void*>(samplerHeapHandle.ptr);
 
-	m_SbtHelper.AddRayGenerationProgram(L"RayGen", { heapPointer });
+	m_SbtHelper.AddRayGenerationProgram(L"RayGen", { heapPointer, samplerHeapPointer });
 
 	m_SbtHelper.AddMissProgram(L"Miss", {});
 	m_SbtHelper.AddMissProgram(L"ShadowMiss", {});
@@ -1786,7 +1807,7 @@ void Renderer::CreateShaderBindingTable()
 				(void*)perInstanceCB,
 				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
 				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
-				heapPointer
+				heapPointer,
 				});
 
 			m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
@@ -1798,7 +1819,7 @@ void Renderer::CreateShaderBindingTable()
 				(void*)perInstanceCB,
 				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
 				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
-				heapPointer
+				heapPointer,
 				});
 		}
 		else
@@ -1810,7 +1831,7 @@ void Renderer::CreateShaderBindingTable()
 				(void*)perInstanceCB,
 				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
 				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
-				heapPointer
+				heapPointer,
 				});
 
 			m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
@@ -1822,7 +1843,7 @@ void Renderer::CreateShaderBindingTable()
 				(void*)perInstanceCB,
 				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
 				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
-				heapPointer
+				heapPointer,
 				});
 
 		}

@@ -18,6 +18,8 @@ Texture2D<float4> GBufferAlbedoMetal : register(t4);
 Texture2D<float4> GBufferNormalRough : register(t5);
 Texture2D<float4> GBufferDepth : register(t6);
 
+SamplerState gLinearClampSampler : register(s0);
+
 cbuffer cbPass : register(b0)
 {
     float4x4 gView;
@@ -44,7 +46,7 @@ void RayGen()
 {
   // Initialize the ray payload
     HitInfo payload;
-    payload.colorAndDistance = float4(0, 0, 0, 0);
+    payload.colorAndDistance = float4(0.8, 0.0, 0.2, 1.0);
     payload.depth = 0;
     payload.eta = 1.0f;
 
@@ -56,7 +58,16 @@ void RayGen()
     float2 d = pixelCenter * 2.0f - 1.0f; // NDC coords
 
     d.y = -d.y;
+    
+    float depth = GBufferDepth.SampleLevel(gLinearClampSampler, pixelCenter, 1).x;
 
+    float4 clipPos = float4(pixelCenter.x, pixelCenter.y, depth, 1.0);
+    
+    float4 worldPosH = mul(clipPos, gInvProj);
+    float4 worldPos = float4(1.0, 0.0, 0.2, 1.0);
+    worldPos = (worldPosH.xyz / worldPosH.w, 1.0);
+    
+    
     // Construct a ray through the pixel in world space
     float4 originVS = float4(0, 0, 0, 1);
     float4 targetVS = mul(float4(d.x, d.y, 1.0, 1.0), gInvProj);
@@ -82,5 +93,5 @@ void RayGen()
     ray,
     payload);
     
-    gOutput[launchIndex] = float4(payload.colorAndDistance.rgb, 1.f);
+    gOutput[launchIndex] = float4(clipPos);
 }

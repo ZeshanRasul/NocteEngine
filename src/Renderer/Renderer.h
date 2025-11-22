@@ -220,6 +220,7 @@ private:
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_OutputResource;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_SrvUavHeap;
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_SamplerHeap;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_ImguiHeap;
 
 	void CreateShaderBindingTable();
