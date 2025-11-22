@@ -9,6 +9,7 @@ struct PixelIn
     float4 PosH : SV_POSITION;
     float3 PosW : POSITION;
     float3 NormalW : NORMAL;
+    uint InstanceID : SV_InstanceID;
 };
 
 cbuffer cbPerObject : register(b0)
@@ -69,7 +70,7 @@ GBuffer PS(PixelIn pIn)
 {   
     GBuffer gBuffer;
 
-    Material mat = materials[matIndex];
+    Material mat = materials[matIndex + pIn.InstanceID];
     
     gBuffer.gBufferAlbedoMetal.xyz = mat.DiffuseAlbedo.xyz;
     gBuffer.gBufferAlbedoMetal.w = mat.metallic;

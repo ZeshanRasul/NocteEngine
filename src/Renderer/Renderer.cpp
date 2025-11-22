@@ -833,6 +833,7 @@ void Renderer::BuildMaterials()
 	sphereMat->DiffuseAlbedo = XMFLOAT4(Colors::Violet);
 	sphereMat->FresnelR0 = XMFLOAT3(0.06f, 0.06f, 0.06f);
 	sphereMat->Roughness = 0.85f;
+	sphereMat->metallic = 0.2f;
 	sphereMat->Ior = 1.5f;
 	sphereMat->IsReflective = true;
 
