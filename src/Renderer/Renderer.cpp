@@ -209,14 +209,23 @@ void Renderer::Update(float dt, Camera& cam)
 	}
 
 	m_AnimationCounter++;
-	m_Instances[1].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / 1000.0f) * XMMatrixTranslation(6.0f, 20.0f, 0.0f);
-	m_Instances[2].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(0.0f, 13.0f, 10.0f);
-	m_Instances[3].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(10.0f, 11.0f, 0.0f);;
+	m_Instances[0].second = m_Instances[0].second;
+	m_Instances[1].second = XMMatrixScaling(7.0f, 7.0f, 7.0f) * XMMatrixTranslation(-16.0f, 12.0f, -12.0f);
+	m_Instances[3].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / 1000.0f) * XMMatrixTranslation(-16.0f, 20.0f, 5.0f);
+	m_Instances[2].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / 1000.0f) * XMMatrixTranslation(16.0f, 8.0f, 12.0f);
+	m_Instances[3].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / 1000.0f) * XMMatrixTranslation(-16.0f, 20.0f, 5.0f);
+	m_Instances[4].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(0.0f, 13.0f, -15.0f);
+	m_Instances[5].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(-20.0f, 11.0f, 0.0f);;
 
-	skullSubmesh->World[1] = m_Instances[1].second;
-	skullSubmesh->World[2] = m_Instances[2].second;
-	skullSubmesh->World[3] = m_Instances[3].second;
+	boxSubmesh->World[0] = m_Instances[0].second;
+	sphereSubmesh->World[0] = m_Instances[1].second;
+	skullSubmesh->World[0] = m_Instances[2].second;
+	skullSubmesh->World[1] = m_Instances[3].second;
+	skullSubmesh->World[2] = m_Instances[4].second;
+	skullSubmesh->World[3] = m_Instances[5].second;
 	skullSubmesh->NumFramesDirty = 3;
+	sphereSubmesh->NumFramesDirty = 3;
+	boxSubmesh->NumFramesDirty = 3;
 
 	UpdateObjectCBs();
 	UpdateMainPassCB();
@@ -1984,20 +1993,20 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<Microsoft::WRL::ComPtr<ID3
 
 void Renderer::CreateAccelerationStructures()
 {
+	AccelerationStructureBuffers boxBottomLevelBuffers = CreateBottomLevelAS({ { boxSubmesh->VertexBufferGPU, boxSubmesh->VertexCount} }, { {boxSubmesh->IndexBufferGPU, boxSubmesh->IndexCount} });
+	AccelerationStructureBuffers sphereBottomLevelBuffers = CreateBottomLevelAS({ { sphereSubmesh->VertexBufferGPU, sphereSubmesh->VertexCount} }, { {sphereSubmesh->IndexBufferGPU, sphereSubmesh->IndexCount} });
+	AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { skullSubmesh->VertexBufferGPU, skullSubmesh->VertexCount} }, { {skullSubmesh->IndexBufferGPU, skullSubmesh->IndexCount} });
 	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { skullSubmesh->VertexBufferGPU, skullSubmesh->VertexCount} }, { {skullSubmesh->IndexBufferGPU, skullSubmesh->IndexCount }
 		});
-	AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { skullSubmesh->VertexBufferGPU, skullSubmesh->VertexCount} }, { {skullSubmesh->IndexBufferGPU, skullSubmesh->IndexCount} });
 
-	AccelerationStructureBuffers sphereBottomLevelBuffers = CreateBottomLevelAS({ { sphereSubmesh->VertexBufferGPU, sphereSubmesh->VertexCount} }, { {sphereSubmesh->IndexBufferGPU, sphereSubmesh->IndexCount} });
-	AccelerationStructureBuffers boxBottomLevelBuffers = CreateBottomLevelAS({ { boxSubmesh->VertexBufferGPU, boxSubmesh->VertexCount} }, { {boxSubmesh->IndexBufferGPU, boxSubmesh->IndexCount} });
 
 
 	m_Instances = {
 		{ boxBottomLevelBuffers.pResult, boxSubmesh->World[0]},
+		{ sphereBottomLevelBuffers.pResult, sphereSubmesh->World[0] },
 		{bottomLevelBuffers.pResult, skullSubmesh->World[0]}, {bottomLevelBuffers.pResult, skullSubmesh->World[1]}, {bottomLevelBuffers.pResult, skullSubmesh->World[2]},
 
 		{ planeBottomLevelBuffers.pResult, skullSubmesh->World[3] },
-		{ sphereBottomLevelBuffers.pResult, sphereSubmesh->World[0] },
 	};
 
 	m_IsInstanceReflective = {
