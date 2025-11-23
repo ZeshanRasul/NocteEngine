@@ -93,7 +93,7 @@ VSOutput VS(VertexIn vIn)
 
     vso.NormalW = vIn.NormalL;
 
-    matrix viewProj = mul(gView, gProj);
+    matrix viewProj = mul(gProj, gView);
 
     vso.PosH = mul(float4(vso.PosW, 1.0f), gViewProj);
 

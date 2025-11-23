@@ -324,11 +324,13 @@ void RayGen()
         return;
     }
     
-    float4 clipPos = float4(pixelCenter.x, pixelCenter.y, depth, 1.0);
-    
-    float4 worldPosH = mul(clipPos, gInvViewProj);
-    float4 worldPos = float4(worldPosH.xyz / worldPosH.w, 1.0);
-    
+    float zVS = gNearZ * gFarZ / (gFarZ - depth * (gFarZ - gNearZ));
+    float2 pNDC = float2(pixelCenter * 2.0f - 1.0f);
+    float4 worldPosH = mul(float4(pNDC, 1, 1), gInvProj);
+    worldPosH.xyz /= worldPosH.w;
+    worldPosH *= zVS / worldPosH.z;
+    float3 worldPos = mul(float4(worldPosH.xyz, 1), gInvView).xyz;
+
     float3 V = normalize(gEyePosW - worldPos.xyz);
     
     float3 areaLightContribution = float3(0, 0, 0);
