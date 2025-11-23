@@ -4,7 +4,7 @@ cbuffer cbPerObject : register(b0)
 {
     float4x4 gWorld;
     float4x4 gInvWorld;
-    int matIndex;
+    int materialIndex;
     int poInstanceID;
     int InstanceOffset;
     int pad3;
@@ -96,7 +96,7 @@ VSOutput VS(VertexIn vIn)
     matrix viewProj = mul(gProj, gView);
 
     vso.PosH = mul(float4(vso.PosW, 1.0f), gViewProj);
-
+    
     vso.InstanceID = vIn.InstanceID;
     
     return vso;

@@ -210,9 +210,9 @@ void Renderer::Update(float dt, Camera& cam)
 	}
 
 	m_AnimationCounter++;
-	m_Instances[1].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / 1000.0f);
-	m_Instances[2].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(10.0f, -10.0f, 0.0f);;
-	m_Instances[3].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(-10.0f, -10.0f, 0.0f);;
+	//m_Instances[1].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / 1000.0f);
+	//m_Instances[2].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(10.0f, -10.0f, 0.0f);;
+	//m_Instances[3].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(-10.0f, -10.0f, 0.0f);;
 
 	//	UpdateCameraBuffer();
 	UpdateObjectCBs();
@@ -470,8 +470,8 @@ void Renderer::CreateSwapChain(HWND& windowHandle)
 	m_SwapChain.Reset();
 
 	DXGI_SWAP_CHAIN_DESC swapChainDesc;
-	swapChainDesc.BufferDesc.Width = 1280;
-	swapChainDesc.BufferDesc.Height = 960;
+	swapChainDesc.BufferDesc.Width = m_ClientWidth;
+	swapChainDesc.BufferDesc.Height = m_ClientHeight;
 	swapChainDesc.BufferDesc.RefreshRate.Numerator = 60;
 	swapChainDesc.BufferDesc.RefreshRate.Denominator = 1;
 	swapChainDesc.BufferDesc.Format = m_BackBufferFormat;
@@ -1031,9 +1031,9 @@ void Renderer::BuildShapeGeometry()
 	for (UINT i = 0; i < sphereSubmesh->InstanceCount; i++)
 	{
 		InstanceData inst;
-		inst.InstanceID = i;
-		inst.MaterialIndex = sphereSubmesh->ObjCBIndex;
+		inst.InstanceID = i + m_InstanceOffset;
 		inst.World = sphereSubmesh->World[i];
+		inst.MaterialIndex = sphereSubmesh->ObjCBIndex;
 		sphereSubmesh->InstanceData.push_back(inst);
 
 		m_InstanceData.push_back(inst);
@@ -1185,7 +1185,7 @@ void Renderer::BuildSkullGeometry()
 	for (UINT i = 0; i < skullSubmesh->InstanceCount; i++)
 	{
 		InstanceData inst;
-		inst.InstanceID = i;
+		inst.InstanceID = i + m_InstanceOffset;
 		inst.MaterialIndex = skullSubmesh->ObjCBIndex;
 		inst.World = skullSubmesh->World[i];
 		skullSubmesh->InstanceData.push_back(inst);
@@ -1412,11 +1412,12 @@ void Renderer::UpdateObjectCBs()
 			{
 
 				XMStoreFloat4x4(&objConstants[i].World, XMMatrixTranspose(e->World[i]));
-				XMStoreFloat4x4(&objConstants[i].InvWorld, MathHelper::InverseTranspose(e->World[i]));
+				XMStoreFloat4x4(&objConstants[i].InvWorld, XMMatrixInverse(&XMMatrixDeterminant(e->World[i]), e->World[i]));
 				
 				objConstants[i].MatIndex = e->InstanceData[i].MaterialIndex;
 				objConstants[i].InstanceOffset = e->InstanceOffset;
 				objConstants[i].InstanceID = i;
+				objConstants[i].pad = 1;
 
 
 				currObjectCB->CopyData(e->ObjCBIndex, objConstants[i]);
@@ -1546,6 +1547,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
 	nv_helpers_dx12::RootSignatureGenerator rsc;
 	rsc.AddHeapRangesParameter(
 		{ { 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0 },
+		{ 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1},
 		{ 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 4},
 		{ 4, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 5},
 		{ 5, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6},
@@ -1611,8 +1613,7 @@ void Renderer::CreateRaytracingPipeline()
 	pipeline.AddHitGroup(L"ReflectionHitGroup", L"ReflectionClosestHit");
 
 	pipeline.AddRootSignatureAssociation(m_RayGenSignature.Get(), { L"RayGen" });
-	pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"Miss" });
-	pipeline.AddRootSignatureAssociation(m_HitSignature.Get(), { L"HitGroup" });
+	pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"ShadowMiss" });
 
 	pipeline.AddRootSignatureAssociation(m_ShadowSignature.Get(), { L"ShadowHitGroup" });
 	pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"Miss", L"ShadowMiss" });
@@ -2139,7 +2140,7 @@ void Renderer::CreateAreaLightConstantBuffer()
 {
 	m_AreaLightDataCollection.reserve(1);
 	m_AreaLightData = new AreaLight();
-	m_AreaLightData->Position = XMFLOAT3(0.0f, 20.0f, -5.0f);
+	m_AreaLightData->Position = XMFLOAT3(0.0f, 60.0f, -5.0f);
 	m_AreaLightData->Radiance = XMFLOAT3(12.0f, 12.0f, 12.0f);
 	m_AreaLightData->U = XMFLOAT3(15.0f, 0.0f, 0.0f);
 	m_AreaLightData->V = XMFLOAT3(0.0f, 0.0f, 15.0f);

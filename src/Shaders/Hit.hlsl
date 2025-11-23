@@ -3,12 +3,6 @@
 
 #define NumLights 3
 
-struct ShadowHitInfo
-{
-    bool isHit;
-    uint depth;
-};
-
 struct ReflectionHitInfo
 {
     float4 colorAndDistance;

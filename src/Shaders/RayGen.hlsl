@@ -308,7 +308,7 @@ void RayGen()
 
     d.y = -d.y;
     
-    float depth = GBufferDepth.SampleLevel(gLinearClampSampler, pixelCenter, 1).x;
+    float depth = GBufferDepth.SampleLevel(gLinearClampSampler, pixelCenter, 0).x;
     float3 albedo = GBufferAlbedoMetal.SampleLevel(gLinearClampSampler, pixelCenter, 1).xyz;
     float metal = GBufferAlbedoMetal.SampleLevel(gLinearClampSampler, pixelCenter, 1).w;
     float3 normal = GBufferNormalRough.SampleLevel(gLinearClampSampler, pixelCenter, 1).xyz;
@@ -324,12 +324,17 @@ void RayGen()
         return;
     }
     
-    float zVS = gNearZ * gFarZ / (gFarZ - depth * (gFarZ - gNearZ));
     float2 pNDC = float2(pixelCenter * 2.0f - 1.0f);
-    float4 worldPosH = mul(float4(pNDC, 1, 1), gInvProj);
-    worldPosH.xyz /= worldPosH.w;
-    worldPosH *= zVS / worldPosH.z;
-    float3 worldPos = mul(float4(worldPosH.xyz, 1), gInvView).xyz;
+    pNDC.y = -pNDC.y;
+    
+    float4 clipPos = float4(pNDC.x, pNDC.y, depth, 1.0f);
+
+    float4 viewPosH = mul(clipPos, gInvProj);
+    viewPosH /= viewPosH.w;
+   
+    float4 worldPosH = mul(viewPosH, gInvView);
+    float3 worldPos = worldPosH.xyz / worldPosH.w;
+
 
     float3 V = normalize(gEyePosW - worldPos.xyz);
     
@@ -388,20 +393,56 @@ void RayGen()
         float dist = length(toLight);
         float3 dir = toLight / dist;
 
-      
+  
+        RayDesc shadowRay;
+
+        shadowRay.Origin = worldPos.xyz + normal * 0.001f; // bias to avoid self-shadowing
+        shadowRay.Direction = dir;
+        shadowRay.TMin = 0.01f;
+        shadowRay.TMax = dist;
         
-        float NdotL = saturate(dot(normal, dir));
-        if (NdotL > 0.0f)
+        ShadowHitInfo shadowPayload;
+
+        payload.depth++;
+        payload.eta = 1.0;
+        shadowPayload.isHit = true;
+        shadowPayload.depth = 0;
+
+       // if (shadowPayload.depth >= 5)
+       // {
+       //     payload.colorAndDistance += float4(radiance.xyz, RayTCurrent());
+       //     return;
+       // }
+        
+        TraceRay(
+        SceneBVH,
+        RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
+        0xFF,
+        1, 3, 1,
+        shadowRay,
+        shadowPayload
+        );
+        
+        if (shadowPayload.isHit)
         {
-            float3 lightNormal = normalize(cross(gAreaLight.U, gAreaLight.V));
-            float LnDotL = saturate(dot(-dir, lightNormal));
-            float dist2 = dist * dist;
+            gOutput[launchIndex] = float4(1, 0, 0, 1); // pure red where occluded
+            return;
+        }
+        if (!shadowPayload.isHit)
+        {
+            float NdotL = saturate(dot(normal, dir));
+            if (NdotL > 0.0f)
+            {
+                float3 lightNormal = normalize(cross(gAreaLight.U, gAreaLight.V));
+                float LnDotL = saturate(dot(-dir, lightNormal));
+                float dist2 = dist * dist;
         
-            float pdf = 1.0f / gAreaLight.Area;
+                float pdf = 1.0f / gAreaLight.Area;
         
-            float3 Li = gAreaLight.Radiance * (LnDotL / dist2);
+                float3 Li = gAreaLight.Radiance * (LnDotL / dist2);
         
-            areaLightContribution += Li * NdotL / pdf;
+                areaLightContribution += Li * NdotL / pdf;
+            }
         }
         
     }

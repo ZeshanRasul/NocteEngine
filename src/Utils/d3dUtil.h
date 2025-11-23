@@ -291,7 +291,7 @@ struct MaterialConstants
     DirectX::XMFLOAT3 FresnelR0 = { 0.01f, 0.01f, 0.01f };
     float Ior;
     float Reflectivity;
-    DirectX::XMFLOAT3 Absorption;
+    DirectX::XMFLOAT3 Absorption = { 0.0f, 0.0f, 0.0f };
     float Roughness = 0.25f;
     float Shininess;
     float pad;
@@ -328,7 +328,7 @@ struct Material
     DirectX::XMFLOAT4 DiffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
     DirectX::XMFLOAT3 FresnelR0 = { 0.01f, 0.01f, 0.01f };
     float Ior = 1.0f;
-    float Reflectivity;
+    float Reflectivity = 0.0f;
     DirectX::XMFLOAT3 Absorption;
     float Roughness = .25f;
     bool IsReflective = false;

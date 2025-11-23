@@ -17,3 +17,9 @@ struct Attributes
 {
   float2 bary;
 };
+
+struct ShadowHitInfo
+{
+    bool isHit;
+    uint depth;
+};
