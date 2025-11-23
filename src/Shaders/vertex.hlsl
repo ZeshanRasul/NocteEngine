@@ -90,8 +90,9 @@ VSOutput VS(VertexIn vIn)
     float4 homogPosW = mul(inst.instWorld, float4(vIn.PosL, 1.0f));
 
     vso.PosW = homogPosW.xyz / homogPosW.w;
-
-    vso.NormalW = vIn.NormalL;
+  
+    float3 NormalW = mul((float3x3) gWorld, vIn.NormalL);
+    vso.NormalW = normalize(NormalW);
 
     matrix viewProj = mul(gProj, gView);
 

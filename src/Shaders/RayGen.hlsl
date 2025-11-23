@@ -324,10 +324,11 @@ void RayGen()
         return;
     }
     
-    float2 pNDC = float2(pixelCenter * 2.0f - 1.0f);
-    pNDC.y = -pNDC.y;
+    float2 ndc;
+    ndc.x = pixelCenter.x * 2.0f - 1.0f;
+    ndc.y = 1.0f - pixelCenter.y * 2.0f;
     
-    float4 clipPos = float4(pNDC.x, pNDC.y, depth, 1.0f);
+    float4 clipPos = float4(ndc.x, ndc.y, depth, 1.0f);
 
     float4 viewPosH = mul(clipPos, gInvProj);
     viewPosH /= viewPosH.w;

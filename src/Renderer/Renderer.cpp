@@ -2141,7 +2141,7 @@ void Renderer::CreateAreaLightConstantBuffer()
 	m_AreaLightDataCollection.reserve(1);
 	m_AreaLightData = new AreaLight();
 	m_AreaLightData->Position = XMFLOAT3(0.0f, 60.0f, -5.0f);
-	m_AreaLightData->Radiance = XMFLOAT3(12.0f, 12.0f, 12.0f);
+	m_AreaLightData->Radiance = XMFLOAT3(0.5f, 0.5f, 0.5f);
 	m_AreaLightData->U = XMFLOAT3(15.0f, 0.0f, 0.0f);
 	m_AreaLightData->V = XMFLOAT3(0.0f, 0.0f, 15.0f);
 
