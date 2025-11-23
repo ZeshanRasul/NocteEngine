@@ -19,21 +19,7 @@ struct InstanceData
     uint pad2;
 };
 
-cbuffer cbMaterial : register(b1)
-{
-    float4 DiffuseAlbedo;
-    float3 FresnelR0;
-    float Ior;
-    float Reflectivity;
-    float3 Absorption;
-    float Shininess;
-    float pad;
-    float pad1;
-    float metallic;
-    bool IsReflective;
-}
-
-cbuffer cbPass : register(b2)
+cbuffer cbPass : register(b1)
 {
     float4x4 gView;
     float4x4 gInvView;
@@ -53,12 +39,6 @@ cbuffer cbPass : register(b2)
     
     Light gLights[MaxLights];
 };
-
-cbuffer cbCamera : register(b3)
-{
-    float4x4 view;
-    float4x4 projection;
-}
 
 StructuredBuffer<InstanceData> instancesData : register(t1);
 

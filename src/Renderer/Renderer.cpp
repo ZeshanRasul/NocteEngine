@@ -122,7 +122,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	vp.Width = m_ClientWidth;
 	vp.Height = m_ClientHeight;
 	vp.MinDepth = 0.0f;
-	vp.MaxDepth = 0.0f;
+	vp.MaxDepth = 1.0f;
 
 	BuildFrameResources();
 	m_CurrentFrameResource = 0;
@@ -193,7 +193,6 @@ static inline UINT64 Align(UINT64 v, UINT64 alignment) {
 void Renderer::Update(float dt, Camera& cam)
 {
 	m_EyePos = cam.GetPosition3f();
-	//	cam.LookAt(m_EyePos, { 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f });
 	cam.UpdateViewMatrix();
 	XMStoreFloat4x4(&m_View, cam.GetView());
 	XMStoreFloat4x4(&m_Proj, cam.GetProj());
@@ -285,8 +284,7 @@ void Renderer::Draw(bool useRaster)
 	m_CommandList->SetGraphicsRootSignature(m_RootSignature.Get());
 
 	auto passCB = m_CurrentFrameResource->PassCB->Resource();
-	m_CommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
-	m_CommandList->SetGraphicsRootConstantBufferView(3, m_CameraBuffer->GetGPUVirtualAddress());
+	m_CommandList->SetGraphicsRootConstantBufferView(1, passCB->GetGPUVirtualAddress());
 
 	DrawRenderItems(m_CommandList.Get(), m_OpaqueRenderGeometry);
 	//	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_CommandList.Get());
@@ -727,18 +725,16 @@ void Renderer::CreateConstantBufferViews()
 
 void Renderer::CreateRootSignature()
 {
-	CD3DX12_ROOT_PARAMETER slotRootParameter[6];
+	CD3DX12_ROOT_PARAMETER slotRootParameter[4];
 
 	slotRootParameter[0].InitAsConstantBufferView(0);
 	slotRootParameter[1].InitAsConstantBufferView(1);
-	slotRootParameter[2].InitAsConstantBufferView(2);
-	slotRootParameter[3].InitAsConstantBufferView(3);
-	slotRootParameter[4].InitAsShaderResourceView(0);
-	slotRootParameter[5].InitAsShaderResourceView(1);
+	slotRootParameter[2].InitAsShaderResourceView(0);
+	slotRootParameter[3].InitAsShaderResourceView(1);
 
 	auto samplers = GetStaticSamplers();
 
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(6, slotRootParameter, (UINT)samplers.size(), samplers.data(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(4, slotRootParameter, (UINT)samplers.size(), samplers.data(), D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	Microsoft::WRL::ComPtr<ID3DBlob> serializedRootSig = nullptr;
 	Microsoft::WRL::ComPtr<ID3DBlob> errorBlob = nullptr;
@@ -988,7 +984,7 @@ void Renderer::BuildShapeGeometry()
 			//XMStoreMatrix(&newWorld, MathHelper::Identity4x4());
 	boxSubmesh->ObjCBIndex = 0;
 
-	boxSubmesh->World.push_back(XMMatrixScaling(30.0f, 1.0f, 30.0f) * XMMatrixTranslation(0.0f, -15.0f, 0.0f));
+	boxSubmesh->World.push_back(XMMatrixScaling(10.0f, 1.0f, 10.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
 	boxSubmesh->InstanceOffset = m_InstanceOffset;
 	for (UINT i = 0; i < boxSubmesh->InstanceCount; i++)
 	{
@@ -1334,9 +1330,8 @@ void Renderer::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::ve
 		D3D12_GPU_VIRTUAL_ADDRESS instGPUAdrress = instaGPUCB->GetGPUVirtualAddress();
 
 		cmdList->SetGraphicsRootConstantBufferView(0, objCBAddress);
-		cmdList->SetGraphicsRootConstantBufferView(1, matCBAddress);
-		cmdList->SetGraphicsRootShaderResourceView(4, matGPUAdrress);
-		cmdList->SetGraphicsRootShaderResourceView(5, instGPUAdrress);
+		cmdList->SetGraphicsRootShaderResourceView(2, matCBAddress);
+		cmdList->SetGraphicsRootShaderResourceView(3, instGPUAdrress);
 		cmdList->DrawIndexedInstanced(rg->IndexCount, rg->InstanceCount, rg->StartIndexLocation, rg->BaseVertexLocation, 0);
 	}
 	//	CreateVertexBufferView(boxSubmesh);
@@ -1482,12 +1477,12 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.cbPerObjectPad1 = 0.5f;
 	m_MainPassCB.RenderTargetSize = XMFLOAT2((float)m_ClientWidth, (float)m_ClientHeight);
 	m_MainPassCB.InvRenderTargetSize = XMFLOAT2(1.0f / m_ClientWidth, 1.0f / m_ClientHeight);
-	m_MainPassCB.NearZ = 1.0f;
+	m_MainPassCB.NearZ = 0.01f;
 	m_MainPassCB.FarZ = 1000.0f;
 	m_MainPassCB.cbPerObjectPad2 = 0.5f;
 	m_MainPassCB.cbPerObjectPad3 = 0.5f;
 	m_MainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
-	m_MainPassCB.Lights[0].Strength = { 4.6f, 4.6f, 4.6f };
+	m_MainPassCB.Lights[0].Strength = { 3.6f, 3.6f, 4.6f };
 	m_MainPassCB.Lights[0].Direction = { 0.3f, -0.46f, 0.7f };
 	m_MainPassCB.Lights[1].Direction = { -0.57735f, -0.57735f, 0.57735f };
 
@@ -1947,11 +1942,11 @@ void Renderer::CreateAccelerationStructures()
 
 
 	m_Instances = {
-		{ boxBottomLevelBuffers.pResult, boxSubmesh->World[0]},
-		{bottomLevelBuffers.pResult, skullSubmesh->World[0]}, {bottomLevelBuffers.pResult, skullSubmesh->World[1]}, {bottomLevelBuffers.pResult, skullSubmesh->World[2]},
+		{ boxBottomLevelBuffers.pResult, XMMatrixTranspose(boxSubmesh->World[0])},
+		{bottomLevelBuffers.pResult, XMMatrixTranspose(skullSubmesh->World[0])}, {bottomLevelBuffers.pResult, XMMatrixTranspose(skullSubmesh->World[1])}, {bottomLevelBuffers.pResult, XMMatrixTranspose(skullSubmesh->World[2])},
 
-		{ planeBottomLevelBuffers.pResult, skullSubmesh->World[3] },
-		{ sphereBottomLevelBuffers.pResult, sphereSubmesh->World[0] },
+		{ planeBottomLevelBuffers.pResult, XMMatrixTranspose(skullSubmesh->World[3]) },
+		{ sphereBottomLevelBuffers.pResult, XMMatrixTranspose(sphereSubmesh->World[0]) },
 	};
 
 	m_IsInstanceReflective = {
@@ -2140,10 +2135,10 @@ void Renderer::CreateAreaLightConstantBuffer()
 {
 	m_AreaLightDataCollection.reserve(1);
 	m_AreaLightData = new AreaLight();
-	m_AreaLightData->Position = XMFLOAT3(0.0f, 60.0f, -5.0f);
+	m_AreaLightData->Position = XMFLOAT3(0.0f, 70.0f, 0.0f);
 	m_AreaLightData->Radiance = XMFLOAT3(0.5f, 0.5f, 0.5f);
-	m_AreaLightData->U = XMFLOAT3(15.0f, 0.0f, 0.0f);
-	m_AreaLightData->V = XMFLOAT3(0.0f, 0.0f, 15.0f);
+	m_AreaLightData->U = XMFLOAT3(5.0f, 0.0f, 0.0f);
+	m_AreaLightData->V = XMFLOAT3(0.0f, 0.0f, 5.0f);
 
 	float lenU = sqrtf(m_AreaLightData->U.x * m_AreaLightData->U.x +
 		m_AreaLightData->U.y * m_AreaLightData->U.y +

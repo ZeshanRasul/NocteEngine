@@ -387,7 +387,7 @@ void RayGen()
         uint pixelSeed = (DispatchRaysIndex().x * 73856093u) ^
                  (DispatchRaysIndex().y * 19349663u);
         
-        float2 xi = SampleHammersley(s, samples, pixelSeed, 3);
+        float2 xi = SampleHammersley(s, samples, pixelSeed, 0);
 
         float3 lightPoint = SampleAreaLight(0, xi);
         float3 toLight = lightPoint - worldPos.xyz;
@@ -397,7 +397,7 @@ void RayGen()
   
         RayDesc shadowRay;
 
-        shadowRay.Origin = worldPos.xyz + normal * 0.001f; // bias to avoid self-shadowing
+        shadowRay.Origin = worldPos.xyz; // bias to avoid self-shadowing
         shadowRay.Direction = dir;
         shadowRay.TMin = 0.01f;
         shadowRay.TMax = dist;
@@ -424,11 +424,11 @@ void RayGen()
         shadowPayload
         );
         
-        if (shadowPayload.isHit)
-        {
-            gOutput[launchIndex] = float4(1, 0, 0, 1); // pure red where occluded
-            return;
-        }
+        //if (shadowPayload.isHit)
+        //{
+        //    gOutput[launchIndex] = float4(1, 0, 0, 1); // pure red where occluded
+        //    return;
+        //}
         if (!shadowPayload.isHit)
         {
             float NdotL = saturate(dot(normal, dir));
@@ -451,7 +451,7 @@ void RayGen()
     areaLightContribution /= samples;
 
 
-    float3 finalColor = radiance + areaLightContribution;
+    float3 finalColor = areaLightContribution;
 
     finalColor = PostProcess(finalColor);
     
