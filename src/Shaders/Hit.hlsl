@@ -464,25 +464,34 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
     STriVertex v1 = BTriVertex[indices[vbase + 1]];
     STriVertex v2 = BTriVertex[indices[vbase + 2]];
 
-    float3 bary = float3(1.0f - attrib.bary.x - attrib.bary.y,
-                         attrib.bary.x,
-                         attrib.bary.y);
+    float3 bary = float3(
+        1.0f - attrib.bary.x - attrib.bary.y,
+        attrib.bary.x,
+        attrib.bary.y
+    );
 
-    float3 nObj = normalize(v0.Normal * bary.x +
-                            v1.Normal * bary.y +
-                            v2.Normal * bary.z);
+    float3 nObj = normalize(
+        v0.Normal * bary.x +
+        v1.Normal * bary.y +
+        v2.Normal * bary.z
+    );
 
     float3 N = normalize(mul((float3x3) ObjectToWorld3x4(), nObj));
-    float3 wo = -normalize(WorldRayDirection()); // from surface toward ray origin
+
+    // Ensure normal is on the same side as the incoming ray
+    float3 wi = -WorldRayDirection(); // surface -> ray origin
+    if (dot(N, wi) < 0.0f)
+        N = -N;
+
+    float3 wo = wi;
 
     float3 pW = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
 
     Material mat = materials[materialIndex];
 
-    // Map shininess to a [0,1] roughness; clamp aggressively to avoid degenerate GGX
     float roughness = 1.0f - mat.Shininess;
     roughness = saturate(roughness);
-    roughness = max(roughness, 0.02f); // avoid exact 0
+    roughness = max(roughness, 0.02f);
 
     float3 Cd;
     float3 F0;
@@ -490,7 +499,6 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
 
     float3 Lo = 0.0f;
 
-    // Just use the first light for now
     [unroll]
     for (int i = 0; i < 1; ++i)
     {
@@ -506,7 +514,6 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
         float NdotH = saturate(dot(N, H));
         float LdotH = saturate(dot(L, H));
 
-        // Guard against degenerate view/light
         if (NdotL <= 0.0f || NdotV <= 0.0f)
             continue;
 
@@ -527,7 +534,6 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
 
     float3 radiance = Lo;
 
-    payload.eta = materials[materialIndex].Ior;
-    
+    payload.eta = mat.Ior;
     payload.colorAndDistance = float4(radiance, RayTCurrent());
 }

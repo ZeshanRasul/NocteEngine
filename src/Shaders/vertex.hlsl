@@ -75,7 +75,7 @@ VSOutput VS(VertexIn vIn)
     float3x3 instW3x3 = (float3x3) inst.instWorld;
     
     float3x3 invTrans = transpose(instW3x3);
-    vso.NormalW = normalize(mul(vIn.NormalL, invTrans));
+    vso.NormalW = normalize(mul(invTrans, vIn.NormalL));
     
     vso.PosH = mul(float4(vso.PosW, 1.0f), gViewProj);
     

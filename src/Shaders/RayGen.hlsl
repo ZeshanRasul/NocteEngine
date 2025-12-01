@@ -184,7 +184,6 @@ float3x3 BuildTangentFrame(float3 N)
     float3 B = cross(N, T);
     return float3x3(T, B, N);
 }
-
 bool BuildLightSample(
     int lightIndex,
     float3 P,
@@ -199,67 +198,26 @@ bool BuildLightSample(
     Li = 0;
     NdotL = 0;
 
-    bool isDirectional = true;
+    // Directional only for now
+    float3 D = normalize(light.Direction);
+    L = -D;
 
-    if (isDirectional)
-    {
-        float3 D = normalize(light.Direction);
-        L = -D;
-
-        NdotL = saturate(dot(N, L));
-        if (NdotL <= 0)
-            return false;
-
-        Li = light.Strength;
-        return true;
-    }
-
-    // Point or spot light:
-    float3 toLight = light.Position - P;
-    float distSq = max(dot(toLight, toLight), 1e-6);
-    float dist = sqrt(distSq);
-
-    L = toLight / dist;
     NdotL = saturate(dot(N, L));
     if (NdotL <= 0)
         return false;
 
-    // Inverse-square attenuation
-    float invSq = 1.0 / distSq;
-
-    float rangeAtt = 1.0;
-    if (light.FalloffEnd > light.FalloffStart)
-    {
-        rangeAtt = saturate((light.FalloffEnd - dist) /
-                            (light.FalloffEnd - light.FalloffStart));
-    }
-
-    Li = light.Strength * invSq * rangeAtt;
-
-    if (light.SpotPower > 0)
-    {
-        float3 spotDir = normalize(-light.Direction);
-        float cosAngle = saturate(dot(L, spotDir));
-        float spotFactor = pow(cosAngle, light.SpotPower);
-        if (spotFactor <= 0)
-            return false;
-        Li *= spotFactor;
-    }
-
+    Li = light.Strength;
     return true;
 }
 
 float3 SampleGGXVNDF(float3 V, float2 xi, float roughness)
 {
-    // Convert view to hemisphere coords
     float3 Vh = normalize(float3(roughness * V.x, roughness * V.y, V.z));
 
-    // Build orthonormal basis
     float lensq = Vh.x * Vh.x + Vh.y * Vh.y;
     float3 T1 = lensq > 0.0f ? normalize(float3(-Vh.y, Vh.x, 0.0f)) : float3(1.0f, 0.0f, 0.0f);
     float3 T2 = cross(Vh, T1);
 
-    // Sample point with polar coordinates
     float r = sqrt(xi.x);
     float phi = 2.0f * 3.14159265f * xi.y;
     float t1 = r * cos(phi);
@@ -267,12 +225,9 @@ float3 SampleGGXVNDF(float3 V, float2 xi, float roughness)
     float s = 0.5f * (1.0f + Vh.z);
     t2 = (1.0f - s) * sqrt(1.0f - t1 * t1) + s * t2;
 
-    // Compute sampled normal
     float3 Nh = t1 * T1 + t2 * T2 + sqrt(max(0.0f, 1.0f - t1 * t1 - t2 * t2)) * Vh;
 
-    // Transform back
     float3 N = normalize(float3(roughness * Nh.x, roughness * Nh.y, max(0.0f, Nh.z)));
-
     return N;
 }
 
@@ -282,7 +237,7 @@ float GGX_G1(float3 N, float3 V, float alpha)
     float a = alpha;
     float a2 = a * a;
 
-    float lambda = NdotV == 0.0f ? 0.0f :
+    float lambda = (NdotV == 0.0f) ? 0.0f :
         (-1.0f + sqrt(1.0f + (a2 - 1.0f) * (1.0f - NdotV * NdotV) / (NdotV * NdotV))) * 0.5f;
 
     return 1.0f / (1.0f + lambda);
@@ -299,19 +254,16 @@ float GGX_PDF(float3 N, float3 V, float3 L, float roughness)
     float VdotH = saturate(dot(V, H));
     float LdotH = saturate(dot(L, H));
 
-    // Convert from half-vector pdf to direction pdf
     float pdf = (D * G1V * VdotH) / (4.0f * LdotH);
-
     return pdf;
 }
 
+// Octahedral normal decode matching your encoder
 float3 DecodeNormalOct(float2 e)
 {
-    // back to [-1,1]
     e = e * 2.0f - 1.0f;
 
     float3 n = float3(e.x, e.y, 1.0f - abs(e.x) - abs(e.y));
-
     if (n.z < 0.0f)
     {
         float oldX = n.x;
@@ -324,7 +276,9 @@ float3 DecodeNormalOct(float2 e)
     return normalize(n);
 }
 
-
+// ----------------------------------------------------------
+// RAY GENERATION
+// ----------------------------------------------------------
 [shader("raygeneration")]
 void RayGen()
 {
@@ -338,10 +292,14 @@ void RayGen()
 
     float2 pixelCenter = (float2(launchIndex) + 0.5f) / float2(dims);
 
+    // ------------------------------------------------------------------
+    // G-BUFFER FETCH
+    // ------------------------------------------------------------------
     float4 g0 = GBufferAlbedoMetal.SampleLevel(gLinearClampSampler, pixelCenter, 0);
     float4 g1 = GBufferNormalRough.SampleLevel(gLinearClampSampler, pixelCenter, 0);
     float depth = GBufferDepth.SampleLevel(gLinearClampSampler, pixelCenter, 0).x;
 
+    // If we hit the sky, early out
     if (depth >= 1.0f - 1e-5f)
     {
         float3 skyColor = float3(0.1f, 0.3f, 0.7f);
@@ -352,10 +310,15 @@ void RayGen()
     float3 albedo = g0.rgb;
     uint materialID = (uint) round(saturate(g0.a) * 255.0f);
 
-    float3 N = DecodeNormalOct(g1.rg);
+    float3 Ng = DecodeNormalOct(g1.rg); // geometric normal
     float roughness = saturate(g1.b);
     float metallic = saturate(g1.a);
 
+    roughness = max(roughness, 0.02f);
+
+    // ------------------------------------------------------------------
+    // RECONSTRUCT WORLD POSITION
+    // ------------------------------------------------------------------
     float2 ndc;
     ndc.x = pixelCenter.x * 2.0f - 1.0f;
     ndc.y = 1.0f - pixelCenter.y * 2.0f;
@@ -368,14 +331,22 @@ void RayGen()
 
     float3 V = normalize(gEyePosW - worldPos);
 
-    if (dot(N, V) < 0.0f)
-        N = -N;
+    // Separate shading normal (Ns) and geometric normal (Ng)
+    float3 Ns = Ng;
+    if (dot(Ns, V) < 0.0f)
+        Ns = -Ns;
 
+    // ------------------------------------------------------------------
+    // MATERIAL AND F0
+    // ------------------------------------------------------------------
     Material mat = materials[materialID];
     float3 Cd;
     float3 F0;
     ComputeDisneyMetalWorkflow(albedo, metallic, Cd, F0);
 
+    // ------------------------------------------------------------------
+    // DIRECT LIGHTING (directional)
+    // ------------------------------------------------------------------
     float3 Lo = 0.0f;
 
     [unroll]
@@ -384,12 +355,12 @@ void RayGen()
         float3 L;
         float3 Li;
         float NdotL;
-        if (!BuildLightSample(i, worldPos, N, L, Li, NdotL))
+        if (!BuildLightSample(i, worldPos, Ns, L, Li, NdotL))
             continue;
 
         float3 H = normalize(V + L);
-        float NdotV = saturate(dot(N, V));
-        float NdotH = saturate(dot(N, H));
+        float NdotV = saturate(dot(Ns, V));
+        float NdotH = saturate(dot(Ns, H));
         float LdotH = saturate(dot(L, H));
 
         if (NdotL <= 0.0f || NdotV <= 0.0f)
@@ -410,9 +381,12 @@ void RayGen()
         Lo += f * Li * NdotL;
     }
 
+    // ------------------------------------------------------------------
+    // AREA LIGHT WITH SOFT SHADOWS
+    // ------------------------------------------------------------------
     float3 areaLightContribution = 0.0f;
-
     const uint shadowSamples = 8;
+
     for (uint s = 0; s < shadowSamples; ++s)
     {
         float2 xi = SampleHammersley(s, shadowSamples);
@@ -423,7 +397,7 @@ void RayGen()
         float3 dir = toLight / dist;
 
         RayDesc shadowRay;
-        shadowRay.Origin = worldPos + N * 0.001f;
+        shadowRay.Origin = worldPos + Ns * 0.001f;
         shadowRay.Direction = dir;
         shadowRay.TMin = 0.01f;
         shadowRay.TMax = dist - 0.01f;
@@ -445,7 +419,7 @@ void RayGen()
 
         if (!shadowPayload.isHit)
         {
-            float NdotL = saturate(dot(N, dir));
+            float NdotL = saturate(dot(Ns, dir));
             if (NdotL > 0.0f)
             {
                 float3 lightNormal = normalize(cross(gAreaLight.U, gAreaLight.V));
@@ -463,32 +437,23 @@ void RayGen()
 
     areaLightContribution /= shadowSamples;
 
+    // ------------------------------------------------------------------
+    // REFLECTION (one bounce)
+    // ------------------------------------------------------------------
     float3 reflectionColor = 0.0f;
-    float3 Nf = N;
-    float eta_i = 1.0f; // air
-    float eta_t = max(mat.Ior, 1.0f);
-
-    bool entering = dot(V, Nf) > 0.0f;
-    if (!entering)
-    {
-        Nf = -Nf;
-        eta_i = mat.Ior;
-        eta_t = 1.0f;
-    }
-
 
     {
         float2 xi = SampleHammersley(0, 1);
-        float3 Hs = SampleGGXVNDF(V, xi, roughness);
-        float3 R = reflect(-V, Hs);
+        float3 Nm = SampleGGXVNDF(V, xi, roughness);
+        float3 R = reflect(-V, Nm);
 
         HitInfo reflectionPayload;
         reflectionPayload.colorAndDistance = float4(0, 0, 0, 0);
         reflectionPayload.depth = 1;
-        reflectionPayload.eta = eta_t;
+        reflectionPayload.eta = mat.Ior;
 
         RayDesc reflectionRay;
-        reflectionRay.Origin = worldPos + Nf * 0.001f;
+        reflectionRay.Origin = worldPos + Ns * 0.001f;
         reflectionRay.Direction = R;
         reflectionRay.TMin = 0.01f;
         reflectionRay.TMax = 1e38f;
@@ -505,63 +470,80 @@ void RayGen()
         reflectionColor = reflectionPayload.colorAndDistance.xyz;
     }
 
-    float ior = max(mat.Ior, 1.0f);
-    float eta = 1.0f / ior;
-
-    ComputeDisneyMetalWorkflow(albedo, metallic, Cd, F0);
-
-    float cosThetaI = saturate(dot(V, N));
-    float3 F = F0 + (1.0f - F0) * pow(1.0f - cosThetaI, 5.0f);
-
-    float3 I = -V;
-
-    float cosI = dot(I, N);
-    float sin2T = eta * eta * (1.0f - cosI * cosI);
-    bool tir = (sin2T > 1.0f);
-
+    // ------------------------------------------------------------------
+    // REFRACTION (one bounce, air -> material)
+    // ------------------------------------------------------------------
     float3 refractionColor = 0.0f;
 
-    if (!tir)
+    if (mat.Ior > 1.01f && metallic < 0.99f)
     {
-        float3 refractDir = refract(I, N, eta);
-        refractDir = normalize(refractDir);
+        float ior = max(mat.Ior, 1.0f);
+        float eta = 1.0f / ior; // air -> material
 
-        HitInfo refrPayload;
-        refrPayload.colorAndDistance = float4(0, 0, 0, 0);
-        refrPayload.depth = payload.depth + 1;
-        refrPayload.eta = ior;
+        float3 I = -V;
 
-        RayDesc refractionRay;
-        refractionRay.Origin = worldPos + N * 0.001f;
-        refractionRay.Direction = refractDir;
-        refractionRay.TMin = 0.01f;
-        refractionRay.TMax = 1e38f;
+        float cosI = dot(I, Ng);
+        float sin2T = eta * eta * (1.0f - cosI * cosI);
+        bool tir = (sin2T > 1.0f);
 
-        TraceRay(
-        SceneBVH,
-        RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
-        0xFF,
-        2, 3, 0,
-        refractionRay,
-        refrPayload
-    );
+        if (!tir)
+        {
+            float3 refractDir = refract(I, -Ng, eta);
+            refractDir = normalize(refractDir);
 
-        refractionColor = refrPayload.colorAndDistance.xyz;
+            HitInfo refrPayload;
+            refrPayload.colorAndDistance = float4(0, 0, 0, 0);
+            refrPayload.depth = 1;
+            refrPayload.eta = ior;
+
+            RayDesc refractionRay;
+            refractionRay.Origin = worldPos + Ng * 0.001f;
+            refractionRay.Direction = refractDir;
+            refractionRay.TMin = 0.01f;
+            refractionRay.TMax = 1e38f;
+
+            TraceRay(
+                SceneBVH,
+                RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
+                0xFF,
+                2, 3, 0,
+                refractionRay,
+                refrPayload
+            );
+
+            refractionColor = refrPayload.colorAndDistance.xyz;
+        }
+        else
+        {
+            // If we ever hit TIR, all energy goes to reflection.
+            // We handle this in the Fresnel blend below.
+        }
     }
-    else
+
+    // ------------------------------------------------------------------
+    // FRESNEL BLEND reflection vs refraction
+    // ------------------------------------------------------------------
+    float3 F;
     {
+        float cosThetaI = saturate(dot(V, Ns)); // view vs shading normal
+        F = F0 + (1.0f - F0) * pow(1.0f - cosThetaI, 5.0f);
+    }
+
+    // If there is no refraction (or we had TIR), treat as pure reflection.
+    bool hasRefraction = (mat.Ior > 1.01f && metallic < 0.99f);
+    if (!hasRefraction)
+    {
+        refractionColor = 0.0f;
         F = 1.0f.xxx;
     }
-
-
-    if (tir)
-        F = 1.0f.xxx;
 
     float3 surfaceRTColor = lerp(refractionColor, reflectionColor, F);
 
+    // ------------------------------------------------------------------
+    // FINAL COMPOSITE + POST
+    // ------------------------------------------------------------------
     float3 finalColor = Lo + areaLightContribution + surfaceRTColor;
     finalColor = PostProcess(finalColor);
 
     gOutput[launchIndex] = float4(finalColor, 1.0f);
 }
-

@@ -805,8 +805,8 @@ void Renderer::BuildMaterials()
 	sphereMat->DiffuseSrvHeapIndex = 1;
 	sphereMat->DiffuseAlbedo = XMFLOAT4(Colors::Sienna);
 	sphereMat->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	sphereMat->Roughness = 0.2f;
-	sphereMat->metallic = 0.8f;
+	sphereMat->Roughness = 0.01f;
+	sphereMat->metallic = 0.01f;
 	sphereMat->IsReflective = true;
 	sphereMat->Ior = 1.5f;
 
@@ -825,8 +825,8 @@ void Renderer::BuildMaterials()
 	skullMat2->DiffuseSrvHeapIndex = 3;
 	skullMat2->DiffuseAlbedo = XMFLOAT4(Colors::BlanchedAlmond);
 	skullMat2->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05);
-	skullMat2->Roughness = 0.3f;
-	skullMat2->metallic = 0.9f;
+	skullMat2->Roughness = 0.01f;
+	skullMat2->metallic = 0.01f;
 	skullMat2->Ior = 1.5f;
 	skullMat2->IsReflective = true;
 
@@ -846,7 +846,8 @@ void Renderer::BuildMaterials()
 	skullMat4->DiffuseSrvHeapIndex = 5;
 	skullMat4->DiffuseAlbedo = XMFLOAT4(Colors::Violet);
 	skullMat4->FresnelR0 = XMFLOAT3(0.06f, 0.06f, 0.06f);
-	skullMat4->Roughness = 0.85f;
+	skullMat4->Roughness = 0.01f;
+	skullMat4->metallic= 0.01f;
 	skullMat4->Ior = 1.5f;
 	skullMat4->IsReflective = true;
 
