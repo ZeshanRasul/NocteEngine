@@ -48,6 +48,8 @@ Texture2D<float4> GBufferAlbedoMetal : register(t4);
 Texture2D<float4> GBufferNormalRough : register(t5);
 Texture2D<float4> GBufferDepth : register(t6);
 
+SamplerState gLinearClampSampler : register(s0);
+
 cbuffer cbPass : register(b0)
 {
     float4x4 gView;
@@ -438,315 +440,17 @@ float3 ComputeDirectionalLight(Light L, float3 normal, float3 toEye, Material ma
 [shader("closesthit")]
 void ClosestHit(inout HitInfo payload, Attributes attrib)
 {
-      // Triangle index in this geometry
-    const uint triIndex = PrimitiveIndex();
-    const uint vbase = triIndex * 3;
-
-    // Fetch the triangle’s vertices (object space)
-    STriVertex v0 = BTriVertex[indices[vbase + 0]];
-
-    STriVertex v1 = BTriVertex[indices[vbase + 1]];
-
-    STriVertex v2 = BTriVertex[indices[vbase + 2]];
-
-    // Full barycentric triple
-    float3 bary = float3(1.0f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
-
-    // Interpolate vertex normal in object space
-    float3 nObj = normalize(v0.Normal * bary.x + v1.Normal * bary.y + v2.Normal * bary.z);
 
 
-    // Hit position in world space (from the ray)
-    float3 pW = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
-
-    // To-eye vector (world)
-    float3 V = normalize(gEyePosW - pW);
-    float3 N = normalize(mul((float3x3) ObjectToWorld3x4(), nObj));
-
-    
-    float3 Lo = 0.0;
-    
-    for (int i = 0; i < NumLights; ++i)
-    {
-        float3 L;
-        float3 Li = 0.0;
-        float NdotL = 0.0;
-        
-        if (!BuildLightSample(i, pW, N, L, Li, NdotL))
-            continue;
-        
-        float3 H = normalize(V + L);
-        float NdotV = saturate(dot(N, V));
-        float NdotH = saturate(dot(N, H));
-        float LdotH = saturate(dot(L, H));
-        
-        Material mat = materials[materialIndex];
-        
-        float roughness = 1 - mat.Shininess;
-        
-        float3 Cd;
-        float3 F0;
-        ComputeDisneyMetalWorkflow(mat.DiffuseAlbedo.xyz, mat.metallic, Cd, F0);
-        
-        float3 F = Fresnel_Schlick(F0, LdotH);
-        float D = GGX_D(NdotH, roughness);
-        float G = GGX_G_Smith(NdotV, NdotL, roughness);
-        
-        float denom = max(4.0 * NdotL * NdotV, 1e-4);
-        float3 specBRDF = (D * G * F) / denom;
-        
-        float diffBRDF = DisneyDiffuse(NdotV, NdotL, LdotH, roughness);
-        float3 diffTerm = Cd * diffBRDF;
-
-        float3 f = diffTerm + specBRDF;
-
-        Lo += f * Li * NdotL;
-    }
-     
-    float3 radiance = 0.0;
-    radiance += Lo;
-
-    payload.depth += 1;
-    
-   // radiance = PostProcess(radiance);
-    
-    payload.eta = materials[materialIndex].Ior;
- //   payload.isHit = true;
-    if (payload.depth >= 5)
-    {
-        payload.colorAndDistance = float4(payload.colorAndDistance.xyz += radiance, RayTCurrent());
-        return;
-    }
-
-    payload.colorAndDistance = float4(radiance, RayTCurrent());
+    payload.colorAndDistance = float4(0.0, 1.0, 1.0, RayTCurrent());
 }
 
 [shader("closesthit")]
 void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
 {
-    // Full barycentric triple
-    float3 bary = float3(1.0f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
-
-    Light L = gLights[0];
-
-    // Triangle index in this geometry
-    const uint triIndex = PrimitiveIndex();
-    const uint vbase = triIndex * 3;
-
-    // Fetch triangle vertices (object space)
-    STriVertex v0 = BTriVertex[indices[vbase + 0]];
-    STriVertex v1 = BTriVertex[indices[vbase + 1]];
-    STriVertex v2 = BTriVertex[indices[vbase + 2]];
-
-    // Interpolate vertex normal in object space
-    float3 nObj = normalize(v0.Normal * bary.x +
-                            v1.Normal * bary.y +
-                            v2.Normal * bary.z);
 
     
-    float3 pW = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
-
-    float3 V = normalize(gEyePosW - pW);
-    float3 N = normalize(mul((float3x3) ObjectToWorld3x4(), nObj));
-
-    //float3 lit = ComputeDirectionalLight(L, nObj, toEye, materials[materialIndex]);
-
-    float3 toLight = normalize(-L.Direction);
-   // float3 finalColor;
-    
-    float3 LightDir;
-    float pdf;
-
-    uint pixelSeed = (DispatchRaysIndex().x * 73856093u) ^
-                 (DispatchRaysIndex().y * 19349663u);
-        
-    float2 xi = SampleHammersley(0, 8, pixelSeed, 4);
-    
-    // Mix diffuse and glossy sampling
-    
-    float roughness = 1 - materials[materialIndex].Shininess;
-    
-    float specWeight = saturate(materials[materialIndex].metallic);
-    if (xi.x < specWeight)
-    {
-        float3 H = SampleGGXVNDF(V, xi, roughness);
-        LightDir = reflect(-V, H);
-        pdf = GGX_PDF(N, V, LightDir, roughness);
-    }
-    else
-    {
-        float3 Ts = CosineSampleHemisphere(xi);
-        float3x3 frame = BuildTangentFrame(N);
-        LightDir = normalize(mul(Ts, frame));
-        pdf = saturate(dot(N, LightDir)) / 3.14159265f;
-    }
-    
-    float3 H = normalize(V + LightDir);
-   
-    payload.depth++;
-    payload.eta = materials[materialIndex].Ior;
-    HitInfo giHit;
-    giHit.depth = payload.depth;
-  //  giHit.isHit = false;
-    giHit.colorAndDistance = (1.0, 0.0, 1.0, 1.0);
-    RayDesc giRay;
-    giRay.Origin = pW + N * 0.001f; // bias to avoid self-shadowing
-    giRay.Direction = LightDir;
-    giRay.TMin = 0.01f;
-    giRay.TMax = 10000.0f;
-    
-         
-// if (payload.depth <= 5)
-// {
-//     TraceRay(SceneBVH,
-//          RAY_FLAG_NONE,
-//          0xFF,
-//          2, 3, 0,
-//          giRay,
-//          giHit);
-//
-//     
-// }
-
-    float NdotV = saturate(dot(N, V));
-    float NdotL = saturate(dot(N, LightDir));
-    float LdotH = saturate(dot(LightDir, H));
-    
-    float3 f = DisneyDiffuse(NdotV, NdotL, LdotH, roughness);
-    float3 Lid = giHit.colorAndDistance.xyz;
-
-    float3 indirectGI = { 0.0, 0.0, 0.0 };
-    indirectGI = (Lid * f * NdotL) / max(pdf, 1e-6f);
-   // payload.colorAndDistance = float4(indirectGI, RayTCurrent());
-   // return;
-   
- //   if (!giHit.isHit)
- //       indirectGI = 0.0f;
-    
-    if (NdotL <= 0.0f)
-        indirectGI = 0.0f;
-    
-  //  float3 finalColor = indirectGI;
-    
-    if (giHit.depth >= 6 || payload.depth >= 6)
-    {
- //       payload.colorAndDistance.xyz += PostProcess(finalColor);
-        payload.colorAndDistance = float4(payload.colorAndDistance.xyz, RayTCurrent());
-        return;
-    }
-    float3 Lo = 0.0;
-    float3 radiance = 0.0;
-    
-    for (int i = 0; i < 1; i++)
-    {
-        float3 L;
-        float3 Li = 0.0;
-        float NdotL = 0.0;
-        
-        if (!BuildLightSample(i, pW, N, L, Li, NdotL))
-            continue;
-        
-        float3 H = normalize(V + L);
-        float NdotV = saturate(dot(N, V));
-        float NdotH = saturate(dot(N, H));
-        float LdotH = saturate(dot(L, H));
-        
-        Material mat = materials[materialIndex];
-        
-        float roughness = 1 - mat.Shininess;
-        
-        float3 Cd;
-        float3 F0;
-        ComputeDisneyMetalWorkflow(mat.DiffuseAlbedo.xyz, mat.metallic, Cd, F0);
-        
-        float3 F = Fresnel_Schlick(F0, LdotH);
-        float D = GGX_D(NdotH, roughness);
-        float G = GGX_G_Smith(NdotV, NdotL, roughness);
-        
-        float denom = max(4.0 * NdotL * NdotV, 1e-4);
-        float3 specBRDF = (D * G * F) / denom;
-        
-        float diffBRDF = DisneyDiffuse(NdotV, NdotL, LdotH, roughness);
-        float3 diffTerm = Cd * diffBRDF;
-
-        float3 f = diffTerm + specBRDF;
-
-        Lo += f * Li * NdotL;
-    }
-    
-    radiance += Lo;
-
-    
-    float3 areaLightContribution = float3(0, 0, 0);
-    uint samples = 32;
-
-    
-    for (uint s = 0; s < samples; s++)
-    {
-        uint pixelSeed = (DispatchRaysIndex().x * 73856093u) ^
-                 (DispatchRaysIndex().y * 19349663u);
-        
-        float2 xi = SampleHammersley(s, samples, pixelSeed, 3);
-
-        float3 lightPoint = SampleAreaLight(0, xi);
-        float3 toLight = lightPoint - pW;
-        float dist = length(toLight);
-        float3 dir = toLight / dist;
-
-        RayDesc shadowRay;
-        shadowRay.Origin = pW + N * 0.001f; // bias to avoid self-shadowing
-        shadowRay.Direction = dir;
-        shadowRay.TMin = 0.01f;
-        shadowRay.TMax = dist;
-        
-
-        payload.depth++;
-        payload.eta = materials[materialIndex].Ior;
-        ShadowHitInfo shadowPayload;
-        shadowPayload.isHit = true;
-        shadowPayload.depth = payload.depth;
-
-        //if (shadowPayload.depth >= 5)
-        //{
-        //    payload.colorAndDistance += float4(payload.colorAndDistance.xyz, RayTCurrent());
-        //    return;
-        //}
-        
-   //TraceRay(
-   //SceneBVH,
-   //RAY_FLAG_NONE,
-   //0xFF,
-   //1, 3, 1,
-   //shadowRay,
-   //shadowPayload
-   //);
-        
-        if (!shadowPayload.isHit)
-        {
-            float NdotL = saturate(dot(N, dir));
-            if (NdotL > 0.0f)
-            {
-                float3 lightNormal = normalize(cross(gAreaLight.U, gAreaLight.V));
-                float LnDotL = saturate(dot(-dir, lightNormal));
-                float dist2 = dist * dist;
-        
-                float pdf = 1.0f / gAreaLight.Area;
-        
-                float3 Li = gAreaLight.Radiance * (LnDotL / dist2);
-        
-                areaLightContribution += Li * NdotL / pdf;
-            }
-        }
-}
-
-    areaLightContribution /= samples;
-
-
-    float3 finalColor = (radiance + areaLightContribution + indirectGI);
-
-    finalColor = PostProcess(finalColor);
-    
-    payload.colorAndDistance = float4(finalColor, RayTCurrent());
+    payload.colorAndDistance = float4(0.0, 1.0, 0.0, RayTCurrent());
     
 }
 
@@ -772,139 +476,53 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
     float3 N = normalize(mul((float3x3) ObjectToWorld3x4(), nObj));
     float3 wo = -normalize(WorldRayDirection());
     
-    Material mat = materials[materialIndex];
-    
-    float3 Nf = N;
-    
-    float eta_i = payload.eta;
-    float eta_t = mat.Ior;
-    
-    if (dot(wo, N) < 0.0f)
-    {
-        Nf = -N;
-        eta_i = mat.Ior;
-        eta_t = 1.0f;
-    }
-    
-    float eta = eta_i / eta_t;
-    
     // Hit position in world space (from the ray)
     float3 pW = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
   //  payload.isHit = true;
 
-    float3 incidentRay = WorldRayDirection();
-    HitInfo refrPayload = payload;
-    HitInfo reflectionPayload = payload;
+    float3 V = normalize(gEyePosW - pW.xyz);
     
-    refrPayload.depth++;
-    payload.eta = materials[materialIndex].Ior;
-
+    float3 areaLightContribution = float3(0, 0, 0);
     
+    float3 Lo = 0.0;
     
-    
-    float3 reflectionDir = incidentRay - (2 * (dot(incidentRay, Nf) * Nf));
-    
-    float cosThetaI = dot(-wo, Nf);
-    float sin2ThetaI = max(0.0f, 1.0f - cosThetaI * cosThetaI);
-    float sin2ThetaT = eta * eta * sin2ThetaI;
-
-    float3 refractDir;
-    bool totalInternalReflection = (sin2ThetaT > 1.0f);
-
-    if (!totalInternalReflection)
+    for (int i = 0; i < 1; ++i)
     {
-        refractDir = refract(-wo, Nf, eta);
-        refractDir = normalize(refractDir);
+        float3 L;
+        float3 Li = 0.0;
+        float NdotL = 0.0;
+        
+        if (!BuildLightSample(i, pW.xyz, N, L, Li, NdotL))
+            continue;
+        
+        float3 H = normalize(V + L);
+        float NdotV = saturate(dot(N, V));
+        float NdotH = saturate(dot(N, H));
+        float LdotH = saturate(dot(L, H));
+        
+        float3 Cd;
+        float3 F0;
+        ComputeDisneyMetalWorkflow(materials[materialIndex].DiffuseAlbedo.xyz, materials[materialIndex].Shininess, Cd, F0);
+        
+        float3 F = Fresnel_Schlick(F0, LdotH);
+        float D = GGX_D(NdotH, 1 - materials[materialIndex].Shininess);
+        float G = GGX_G_Smith(NdotV, NdotL, 1 - materials[materialIndex].Shininess);
+        
+        float denom = max(4.0 * NdotL * NdotV, 1e-4);
+        float3 specBRDF = (D * G * F) / denom;
+        
+        float diffBRDF = DisneyDiffuse(NdotV, NdotL, LdotH, 1 - materials[materialIndex].Shininess);
+        float3 diffTerm = Cd * diffBRDF;
+
+        float3 f = diffTerm + specBRDF;
+
+        Lo += f * Li * NdotL;
     }
     
-    // Update medium for refracted ray
-    payload.eta = eta_t;
-
-
-    
-    // To-eye vector (world)
-    float3 toEye = normalize(gEyePosW - pW);
-
-    Light L = gLights[0];
-    float3 lit = ComputeDirectionalLight(L, nObj, toEye, materials[materialIndex]);
-    payload.depth += 1;
-    payload.eta = materials[materialIndex].Ior;
-
-    if (payload.depth >= 3)
-    {
-        payload.colorAndDistance = float4(payload.colorAndDistance.xyz, RayTCurrent());
-        return;
-    }
-    reflectionPayload.depth++;
-    if (reflectionPayload.depth >= 3)
-    {
-        payload.colorAndDistance = float4(lit, RayTCurrent());
-        return;
-    }
-    
-    // Shadow ray (world space)
-    RayDesc reflectionRay;
-    reflectionRay.Origin = pW + reflectionDir * 0.001f; // bias to avoid self-shadowing
-    reflectionRay.Direction = reflectionDir;
-    reflectionRay.TMin = 0.0f;
-    reflectionRay.TMax = 1e5f;
-
-
-  // TraceRay(
-  //     SceneBVH,
-  //     RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
-  //     /*InstanceInclusionMask*/ 0xff,
-  // /*RayContributionToHitGroupIndex*/ 2,
-  //     /*MultiplierForGeometryContributionToHitGroupIndex*/ 3,
-  //     /*MissShaderIndex*/ 0,
-  //     reflectionRay,
-  //     reflectionPayload
-  // );
-    if (reflectionPayload.depth >= 3)
-    {
-        payload.colorAndDistance = float4(payload.colorAndDistance.xyz, RayTCurrent());
-        return;
-    }
-    if (refrPayload.depth >= 3)
-    {
-        payload.colorAndDistance = float4(payload.colorAndDistance.xyz, RayTCurrent());
-        return;
-    }
-    
-    float tMin = 0.001f;
-    float tMax = 1e27f;
-
-   // if (!totalInternalReflection)
-   // {
-   //     
-   // 
-   //     RayDesc refractionRay;
-   //     refractionRay.Origin = pW + refractDir * 0.01f; // bias to avoid self-shadowing
-   //     refractionRay.Direction = refractDir;
-   //     refractionRay.TMin = tMin;
-   //     refractionRay.TMax = tMax;
-   //
-   // 
-   //     TraceRay(
-   //         SceneBVH,
-   //         RAY_FLAG_NONE,
-   //         0xff,
-   //         0,
-   //         3,
-   //         0,
-   // refractionRay,
-   // refrPayload
-   //     );
-   // }
-    
-    float3 finalColor = reflectionPayload.colorAndDistance.xyz;
-    
-    if (refrPayload.colorAndDistance.w < tMax)
-    {
-        finalColor += refrPayload.colorAndDistance.xyz;
-    }
+    float3 radiance = 0.0;
+    radiance += Lo;
     
     
 
-    payload.colorAndDistance = float4(finalColor, RayTCurrent());
+    payload.colorAndDistance = float4(radiance, RayTCurrent());
 }

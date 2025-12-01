@@ -312,16 +312,6 @@ void RayGen()
     float metal = GBufferAlbedoMetal.SampleLevel(gLinearClampSampler, pixelCenter, 0).w;
     float3 normal = GBufferNormalRough.SampleLevel(gLinearClampSampler, pixelCenter, 0).xyz;
     float roughness = GBufferNormalRough.SampleLevel(gLinearClampSampler, pixelCenter, 0).w;
-
-    if (depth >= 1.0f - 1e-5f)
-    {
-        float ramp = launchIndex.y / dims.y;
-    
-        float3 skyColor = float3(0.8f, 0.3f, 0.7f - 0.3f * ramp);
-        skyColor = PostProcess(skyColor);
-        gOutput[launchIndex] = float4(skyColor, -1.0f);
-        return;
-    }
     
     float2 ndc;
     ndc.x = pixelCenter.x * 2.0f - 1.0f;
@@ -458,7 +448,7 @@ void RayGen()
         TraceRay(
             SceneBVH,
             RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH
-            | RAY_FLAG_FORCE_OPAQUE,
+            ,
             0xFF,
             2, 3, 0,
             reflectionRay,
@@ -472,6 +462,7 @@ void RayGen()
         reflectionColor = F * reflectionPayload.colorAndDistance.xyz;
     };
 
+    //float3 finalColor = radiance + areaLightContribution + reflectionColor;
     float3 finalColor = radiance + areaLightContribution + reflectionColor;
 
     finalColor = PostProcess(finalColor);

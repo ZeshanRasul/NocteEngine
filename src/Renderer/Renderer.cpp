@@ -814,8 +814,8 @@ void Renderer::BuildMaterials()
 	stone0->DiffuseSrvHeapIndex = 2;
 	stone0->DiffuseAlbedo = XMFLOAT4(Colors::Crimson);
 	stone0->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
-	stone0->Roughness = 0.9f;
-	stone0->metallic = 0.1f;
+	stone0->Roughness = 0.4f;
+	stone0->metallic = 0.67f;
 
 	auto skullMat = std::make_unique<Material>();
 	skullMat->Name = "skullMat";
@@ -823,7 +823,8 @@ void Renderer::BuildMaterials()
 	skullMat->DiffuseSrvHeapIndex = 3;
 	skullMat->DiffuseAlbedo = XMFLOAT4(Colors::BlanchedAlmond);
 	skullMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05);
-	skullMat->Roughness = 0.7f;
+	skullMat->Roughness = 0.2f;
+	skullMat->metallic = 0.8f;
 	skullMat->Ior = 1.5f;
 	skullMat->IsReflective = true;
 
@@ -843,8 +844,8 @@ void Renderer::BuildMaterials()
 	sphereMat->DiffuseSrvHeapIndex = 5;
 	sphereMat->DiffuseAlbedo = XMFLOAT4(Colors::Violet);
 	sphereMat->FresnelR0 = XMFLOAT3(0.06f, 0.06f, 0.06f);
-	sphereMat->Roughness = 0.85f;
-	sphereMat->metallic = 0.2f;
+	sphereMat->Roughness = 0.2f;
+	sphereMat->metallic = 0.8f;
 	sphereMat->Ior = 1.5f;
 	sphereMat->IsReflective = true;
 
@@ -1634,6 +1635,9 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 		{ 5, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6},
 		{ 6, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 7},
 		});
+	rsc.AddHeapRangesParameter({ { 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 0 }
+		});
+
 	return rsc.Generate(m_Device.Get(), true);
 }
 
@@ -1875,6 +1879,7 @@ samplerHeapPointer });
 				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
 				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
 				heapPointer,
+				samplerHeapPointer,
 				});
 
 			m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
@@ -1887,6 +1892,7 @@ samplerHeapPointer });
 				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
 				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
 				heapPointer,
+				samplerHeapPointer,
 				});
 		}
 		else
@@ -1899,6 +1905,7 @@ samplerHeapPointer });
 				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
 				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
 				heapPointer,
+				samplerHeapPointer,
 				});
 
 			m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
@@ -1911,6 +1918,7 @@ samplerHeapPointer });
 				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
 				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
 				heapPointer,
+				samplerHeapPointer,
 				});
 
 		}
