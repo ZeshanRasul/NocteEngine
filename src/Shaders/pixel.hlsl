@@ -52,9 +52,7 @@ float4 PS(PixelIn pIn) : SV_Target
     Material mat = { gDiffuseAlbedo, gFresnelR0, shininess };
     float3 shadowFactor = 1.0f;
     
-    float4 directLight = ComputeLighting(gLights, mat, pIn.PosW, pIn.NormalW, toEyeW, shadowFactor);
-    
-    float4 litColor = ambient + directLight;
+    float4 litColor = ambient;
     
     litColor.a = gDiffuseAlbedo.a;
     

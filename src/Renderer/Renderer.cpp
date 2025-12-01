@@ -84,7 +84,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	//nv_helpers_dx12::Manipulator::Singleton().setLookat(glm::vec3(0.0f, 1.0f, -27.0f), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 
 #if defined(DEBUG) || defined(_DEBUG)
-//	CreateDebugController();
+	CreateDebugController();
 #endif
 	ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&m_DxgiFactory)));
 
@@ -122,7 +122,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	vp.Width = m_ClientWidth;
 	vp.Height = m_ClientHeight;
 	vp.MinDepth = 0.0f;
-	vp.MaxDepth = 0.0f;
+	vp.MaxDepth = 1.0f;
 
 	BuildFrameResources();
 	m_CurrentFrameResource = 0;
@@ -325,10 +325,10 @@ void Renderer::Draw(bool useRaster)
 
 		ID3D12DescriptorHeap* imguiHeaps[] = { m_ImGuiSrvHeap.Get() };
 		m_CommandList->SetDescriptorHeaps(_countof(imguiHeaps), imguiHeaps);
-
-		ImGui::Render();
-
-		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_CommandList.Get());
+		//
+		//ImGui::Render();
+		//
+		//ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_CommandList.Get());
 
 		//	m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
 		//
@@ -654,7 +654,6 @@ void Renderer::BuildShadersAndInputLayout()
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 	};
 
 
@@ -1283,6 +1282,7 @@ ID3D12Resource* Renderer::CurrentBackBuffer() const
 Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
 {
 	nv_helpers_dx12::RootSignatureGenerator rsc;
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 5);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 3);
 	rsc.AddHeapRangesParameter(
 		{ { 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0 },
@@ -1332,7 +1332,7 @@ void Renderer::CreateRaytracingPipeline()
 
 	pipeline.AddLibrary(m_RayGenLibrary.Get(), { L"RayGen" });
 	pipeline.AddLibrary(m_MissLibrary.Get(), { L"Miss" });
-	pipeline.AddLibrary(m_HitLibrary.Get(), { L"ClosestHit", L"PlaneClosestHit", L"ReflectionClosestHit" });
+	pipeline.AddLibrary(m_HitLibrary.Get(), { L"ClosestHit" });
 
 	m_RayGenSignature = CreateRayGenSignature();
 	m_MissSignature = CreateMissSignature();
@@ -1340,24 +1340,13 @@ void Renderer::CreateRaytracingPipeline()
 	m_ReflectionSignature = CreateHitSignature();
 
 	pipeline.AddHitGroup(L"HitGroup", L"ClosestHit");
-	pipeline.AddHitGroup(L"PlaneHitGroup", L"PlaneClosestHit");
 	pipeline.AddHitGroup(L"ShadowHitGroup", L"");
-	pipeline.AddHitGroup(L"ReflectionHitGroup", L"ReflectionClosestHit");
 
 	pipeline.AddRootSignatureAssociation(m_RayGenSignature.Get(), { L"RayGen" });
 	pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"Miss" });
 	pipeline.AddRootSignatureAssociation(m_HitSignature.Get(), { L"HitGroup" });
 
-	pipeline.AddRootSignatureAssociation(m_ShadowSignature.Get(), { L"ShadowHitGroup" });
-	pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"Miss", L"ShadowMiss" });
-	pipeline.AddRootSignatureAssociation(m_HitSignature.Get(), { L"HitGroup",  L"PlaneHitGroup" });
-
-	pipeline.AddRootSignatureAssociation(m_ReflectionSignature.Get(), { L"ReflectionHitGroup" });
-	pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"Miss" });
-	pipeline.AddRootSignatureAssociation(m_HitSignature.Get(), { L"HitGroup" });
-
-
-	pipeline.SetMaxPayloadSize(8 * sizeof(float));
+	pipeline.SetMaxPayloadSize(48 * sizeof(float));
 	pipeline.SetMaxAttributeSize(2 * sizeof(float));
 	pipeline.SetMaxRecursionDepth(6);
 
@@ -1428,10 +1417,10 @@ void Renderer::CreateShaderResourceHeap()
 
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	cbvDesc = {};
-	cbvDesc.BufferLocation = m_CameraBuffer->GetGPUVirtualAddress();
-	cbvDesc.SizeInBytes = m_CameraBufferSize;
-	m_Device->CreateConstantBufferView(&cbvDesc, srvHandle);
+	//cbvDesc = {};
+	//cbvDesc.BufferLocation = m_CameraBuffer->GetGPUVirtualAddress();
+	//cbvDesc.SizeInBytes = m_CameraBufferSize;
+	//m_Device->CreateConstantBufferView(&cbvDesc, srvHandle);
 
 
 
@@ -1447,6 +1436,7 @@ void Renderer::CreateShaderBindingTable()
 
 	m_SbtHelper.AddRayGenerationProgram(L"RayGen", {
 				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
+				(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
 				heapPointer,
 		});
 
@@ -1477,73 +1467,29 @@ void Renderer::CreateShaderBindingTable()
 
 		}
 
+		m_SbtHelper.AddHitGroup(L"HitGroup", { (void*)vb,(void*)ib,
+			(void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
+			(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),
+			(void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(),
+			(void*)perInstanceCB,
+			(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
+			(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
+			(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
+			heapPointer
+			});
 
 
-		if (m_IsInstanceReflective[i])
+		uint32_t sbtSize = m_SbtHelper.ComputeSBTSize();
+
+		m_SbtStorage = nv_helpers_dx12::CreateBuffer(m_Device.Get(), sbtSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+
+		if (!m_SbtStorage)
 		{
-			m_SbtHelper.AddHitGroup(L"ReflectionHitGroup", { (void*)vb,(void*)ib,
-				(void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
-				(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),
-				(void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(),
-				(void*)perInstanceCB,
-				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
-				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
-				(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
-				heapPointer
-				});
-
-			m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
-
-			m_SbtHelper.AddHitGroup(L"ReflectionHitGroup", { (void*)vb,(void*)ib,
-				(void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
-				(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),
-				(void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(),
-				(void*)perInstanceCB,
-				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
-				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
-				(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
-				heapPointer
-				});
+			throw std::logic_error("Could not allocate the shader binding table.");
 		}
-		else
-		{
-			m_SbtHelper.AddHitGroup(L"PlaneHitGroup", { (void*)vb,(void*)ib,
-				(void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
-				(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),
-				(void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(),
-				(void*)perInstanceCB,
-				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
-				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
-				(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
-				heapPointer
-				});
 
-			m_SbtHelper.AddHitGroup(L"ShadowHitGroup", {});
-
-			m_SbtHelper.AddHitGroup(L"HitGroup", { (void*)vb,(void*)ib,
-				(void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
-				(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),
-				(void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(),
-				(void*)perInstanceCB,
-				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
-				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
-				(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
-				heapPointer
-				});
-
-		}
+		m_SbtHelper.Generate(m_SbtStorage.Get(), m_RtStateObjectProps.Get());
 	}
-
-	uint32_t sbtSize = m_SbtHelper.ComputeSBTSize();
-
-	m_SbtStorage = nv_helpers_dx12::CreateBuffer(m_Device.Get(), sbtSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
-
-	if (!m_SbtStorage)
-	{
-		throw std::logic_error("Could not allocate the shader binding table.");
-	}
-
-	m_SbtHelper.Generate(m_SbtStorage.Get(), m_RtStateObjectProps.Get());
 }
 
 Renderer::AccelerationStructureBuffers Renderer::CreateBottomLevelAS(std::vector <std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, uint32_t>> vVertexBuffers, std::vector <std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, uint32_t>> vIndexBuffers)
@@ -1591,7 +1537,7 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<Microsoft::WRL::ComPtr<ID3
 			//	hitGroupIndex = i;
 			//}
 
-			m_topLevelASGenerator.AddInstance(instances[i].first.Get(), instances[i].second, static_cast<UINT>(i), static_cast<UINT>(i * gNumRayTypes));
+			m_topLevelASGenerator.AddInstance(instances[i].first.Get(), instances[i].second, static_cast<UINT>(i), static_cast<UINT>(1));
 		}
 
 		UINT64 scratchSizeInBytes = 0;

@@ -1,12 +1,21 @@
 #include "Common.hlsl"
+#include "PathTracerCommon.hlsl"
+
+float3 SampleEnvironment(float3 dir)
+{
+    float t = 0.5f * (dir.y + 1.0f);
+    float3 skyTop = float3(0.1f, 0.4f, 0.9f);
+    float3 skyBottom = float3(0.3f, 0.8f, 0.7f);
+    return lerp(skyBottom, skyTop, t);
+}
 
 [shader("miss")]
-void Miss(inout HitInfo payload : SV_RayPayload)
+void Miss(inout PathPayload payload)
 {
-    uint2 launchIndex = DispatchRaysIndex().xy;
-    float2 dims = float2(DispatchRaysDimensions().xy);
-    
-    float ramp = launchIndex.y / dims.y;
-    
-    payload.radiance = float4(0.1f, 0.3f, 0.7f - 0.3f * ramp, -1.f);
+    float3 dir = normalize(WorldRayDirection());
+
+    payload.emission = SampleEnvironment(dir);
+    payload.bsdfOverPdf = 0.0f;
+    payload.pdf = 1.0f;
+    payload.done = 1;
 }

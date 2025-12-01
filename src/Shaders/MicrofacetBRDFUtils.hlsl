@@ -1,3 +1,7 @@
+#ifndef MICROFACET_BRDF_UTILS_HLSL
+#define MICROFACET_BRDF_UTILS_HLSL
+
+
 #define MaxLights 16
 
 struct Light
@@ -83,3 +87,5 @@ void ComputeDisneyMetalWorkflow(float3 baseColor, float metallic, out float3 Cd,
 
     Cd = baseColor * (1.0 - metallic);
 }
+
+#endif

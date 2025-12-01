@@ -1,14 +1,8 @@
 #include "Common.hlsl"
+#include "PathTracerCommon.hlsl"
+
 #define MaxLights 16
-struct Light
-{
-    float3 Strength;
-    float FalloffStart;
-    float3 Direction;
-    float FalloffEnd;
-    float3 Position;
-    float SpotPower;
-};
+
 // Raytracing output texture, accessed as a UAV
 RWTexture2D<float4> gOutput : register(u0);
 
@@ -36,150 +30,109 @@ cbuffer cbPass : register(b0)
     Light gLights[MaxLights];
 };
 
-cbuffer PostProcess : register(b3)
+
+
+cbuffer FrameData : register(b5)
 {
-    float Exposure;
-    int ToneMapMode;
-    int DebugMode;
-    float pad;
+    uint frameIndex;
 }
 
-float3 LinearToSRGB(float3 x)
-{
-    const float a = 0.055f;
-    float3 lo = 12.92f * x;
-    float3 hi = (1.0f + a) * pow(x, 1.0f / 2.4f) - a;
-    
-    return select(lo, hi, x > 0.0031308f);
-}
 
-float3 ApplyExposure(float3 color, float exposure)
-{
-    return color * exp2(exposure);
-}
-
-float3 ToneMapReinhard(float3 x)
-{
-    return x / (1.0f + x);
-}
-
-float3 RRTAndODTFit(float3 v)
-{
-    float3 a = v * (v + 0.0245786f) - 0.000090537f;
-    float3 b = v * (0.983729f * v + 0.4329510f) + 0.238081f;
-    return a / b;
-}
-
-float3 ToneMapACES(float3 color)
-{
-    color = RRTAndODTFit(color);
-    return saturate(color);
-
-}
-
-float3 PostProcess(float3 hdrColor)
-{
-    float3 color = ApplyExposure(hdrColor, Exposure);
-
-    if (ToneMapMode == 1)
-    {
-        color = ToneMapReinhard(color);
-    }
-    else if (ToneMapMode == 2)
-    {
-        color = ToneMapACES(color);
-    }
-    else
-    {
-        color = saturate(color);
-    }
-
-    color = LinearToSRGB(color);
-
-    return color;
-}
 
 [shader("raygeneration")]
 void RayGen()
 {
-  // Initialize the ray payload
-    HitInfo payload;
-    payload.radiance = float3(0, 0, 0);
-    payload.throughput = float3(1, 1, 1);
-    payload.depth = 0;
-    payload.done = 0;
-    
-    
-
     uint2 launchIndex = DispatchRaysIndex().xy;
     uint2 dims = DispatchRaysDimensions().xy;
 
-    // Normalized coordinates in NDC (-1..1)
-    float2 pixelCenter = (float2(launchIndex) + 0.5f) / float2(dims);
-    float2 d = pixelCenter * 2.0f - 1.0f; // NDC coords
-
+    // Normalized screen coords
+    float2 pixelCenter = (float2) launchIndex + 0.5f;
+    float2 uv = pixelCenter / float2(dims);
+    float2 d = uv * 2.0f - 1.0f;
     d.y = -d.y;
 
-    // Construct a ray through the pixel in world space
+    // Primary ray (identical to what you had, but simplified)
     float4 originVS = float4(0, 0, 0, 1);
-    float4 targetVS = mul(float4(d.x, d.y, 1.0, 1.0), gInvProj);
+    float4 targetVS = mul(float4(d.x, d.y, 1.0f, 1.0f), gInvProj);
     targetVS /= targetVS.w;
 
     float3 originWS = mul(originVS, gInvView).xyz;
     float3 targetWS = mul(targetVS, gInvView).xyz;
     float3 dirWS = normalize(targetWS - originWS);
 
+    // Initialize payload
+    PathPayload payload;
+    payload.radiance = 0.0f;
+    payload.throughput = 1.0f;
+    payload.depth = 0;
+    payload.done = 0;
+    payload.seed =
+        (launchIndex.x * 73856093u) ^
+        (launchIndex.y * 19349663u) ^
+        (frameIndex * 83492791u);
+
     RayDesc ray;
     ray.Origin = originWS;
     ray.Direction = dirWS;
-    ray.TMin = 0.001f;
+    ray.TMin = 0.1f;
     ray.TMax = 1e38f;
-    
-    float3 finalRadiance = float3(0, 0, 0);
-    
-    for (int bounce = 0; bounce < 8; bounce++)
+
+    float3 finalRadiance = 0.0f;
+
+    const int MaxBounces = 8;
+
+    for (int bounce = 0; bounce < MaxBounces; ++bounce)
     {
         payload.done = 0;
-      
+        payload.emission = 0.0f;
+        payload.bsdfOverPdf = 0.0f;
+        payload.pdf = 1.0f;
+
         TraceRay(
-        SceneBVH,
-        RAY_FLAG_NONE,
-        0XFF,
-        0,
-        3,
-        0,
-        ray,
-        payload);
-        
-        if (payload.done == 1)
-        {
-            break;
-        }
-        
+            SceneBVH,
+            RAY_FLAG_NONE,
+            0xFF,
+            0, // ray contribution index
+            0, // multiplier for geometry contribution
+            0, // miss shader index
+            ray,
+            payload
+        );
+
+        // If the ray missed or we decided to stop, accumulate emission and break
         finalRadiance += payload.throughput * payload.emission;
-        
-        float NdotL = saturate(dot(payload.normal, payload.nextDir));
-        payload.throughput *= payload.albedo * (NdotL / max(payload.pdf, 1e-6));
-        
-        //Russian Roulette
-        if (bounce > 2)
+
+        if (payload.done != 0)
+            break;
+
+        // Update throughput: multiply by f * cos / pdf
+        payload.throughput *= payload.bsdfOverPdf;
+
+        // Russian roulette after a few bounces
+        if (bounce >= 3)
         {
-            float pCont = max(payload.throughput.x, max(payload.throughput.y, payload.throughput.z));
-            
-            if (rand() > pCont)
-            {
+            float pCont = max(payload.throughput.x,
+                           max(payload.throughput.y, payload.throughput.z));
+            pCont = saturate(pCont);
+
+            if (pCont < 1e-3f)
                 break;
-            }
-            
+
+            float r = Rand(payload.seed);
+            if (r > pCont)
+                break;
+
             payload.throughput /= pCont;
         }
-        
-        ray.Origin = payload.hitPos + payload.normal * 0.001;
-        ray.Direction = payload.nextDir;
+
+        // Set up next ray
+        ray.Origin = payload.hitPos + payload.normal * 0.001f;
+        ray.Direction = normalize(payload.wi);
+        ray.TMin = 0.001f;
+        ray.TMax = 1e38f;
     }
-    
-    
-    float3 color = PostProcess(payload.radiance.rgb);
-    
-    gOutput[launchIndex] = float4(color, 1.f);
+
+    float3 finalColor = PostProcessColor(finalRadiance);
+    gOutput[launchIndex] = float4(finalColor, 1.0f);
 }
+
