@@ -460,6 +460,7 @@ void RayGen()
         float3 F = F0 + (1.0f - F0) * pow(1.0f - cosTheta, 5.0f);
 
         reflectionColor = F * reflectionPayload.colorAndDistance.xyz;
+        reflectionColor = reflectionPayload.colorAndDistance.xyz;
     };
 
     //float3 finalColor = radiance + areaLightContribution + reflectionColor;
@@ -467,5 +468,5 @@ void RayGen()
 
     finalColor = PostProcess(finalColor);
     
-    gOutput[launchIndex] = float4(finalColor, 1.0);
+    gOutput[launchIndex] = float4(reflectionColor, 1.0);
 }

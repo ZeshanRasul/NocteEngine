@@ -524,5 +524,5 @@ void ReflectionClosestHit(inout HitInfo payload, Attributes attrib)
     
     
 
-    payload.colorAndDistance = float4(radiance, RayTCurrent());
+    payload.colorAndDistance = float4(materials[materialIndex].DiffuseAlbedo.xyz, RayTCurrent());
 }
