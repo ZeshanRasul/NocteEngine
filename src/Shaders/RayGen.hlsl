@@ -325,116 +325,83 @@ float3 DecodeNormalOct(float2 e)
 }
 
 
-
 [shader("raygeneration")]
 void RayGen()
 {
     HitInfo payload;
-    payload.colorAndDistance = float4(0.8, 0.0, 0.2, 1.0);
+    payload.colorAndDistance = float4(0, 0, 0, 0);
     payload.depth = 0;
     payload.eta = 1.0f;
 
     uint2 launchIndex = DispatchRaysIndex().xy;
     uint2 dims = DispatchRaysDimensions().xy;
 
-    // Normalized coordinates in NDC (-1..1)
     float2 pixelCenter = (float2(launchIndex) + 0.5f) / float2(dims);
-    float2 d = pixelCenter * 2.0f - 1.0f; // NDC coords
 
-    d.y = -d.y;
-    
-    //float3 albedo = GBufferAlbedoMetal.SampleLevel(gLinearClampSampler, pixelCenter, 0).xyz;
-    //float metal = GBufferAlbedoMetal.SampleLevel(gLinearClampSampler, pixelCenter, 0).w;
-    //float3 normal = GBufferNormalRough.SampleLevel(gLinearClampSampler, pixelCenter, 0).xyz;
-    //float roughness = GBufferNormalRough.SampleLevel(gLinearClampSampler, pixelCenter, 0).w;
-    
     float4 g0 = GBufferAlbedoMetal.SampleLevel(gLinearClampSampler, pixelCenter, 0);
     float4 g1 = GBufferNormalRough.SampleLevel(gLinearClampSampler, pixelCenter, 0);
-    
-    float3 albedo = g0.rgb;
-    uint materialID = (uint) round(saturate(g0.a) * 255.0f);
-    
-   
-    Material mat = materials[materialID];
-    float roughness = saturate(g1.b);
-    float metal = g1.a;
-    
     float depth = GBufferDepth.SampleLevel(gLinearClampSampler, pixelCenter, 0).x;
-    
+
     if (depth >= 1.0f - 1e-5f)
     {
         float3 skyColor = float3(0.1f, 0.3f, 0.7f);
-        gOutput[launchIndex] = float4(skyColor, -1.0f);
+        gOutput[launchIndex] = float4(PostProcess(skyColor), 1.0f);
         return;
     }
-    
+
+    float3 albedo = g0.rgb;
+    uint materialID = (uint) round(saturate(g0.a) * 255.0f);
+
+    float3 N = DecodeNormalOct(g1.rg);
+    float roughness = saturate(g1.b);
+    float metallic = saturate(g1.a);
+
     float2 ndc;
     ndc.x = pixelCenter.x * 2.0f - 1.0f;
     ndc.y = 1.0f - pixelCenter.y * 2.0f;
-    
-    float4 clipPos = float4(ndc.x, ndc.y, depth, 1.0f);
 
+    float4 clipPos = float4(ndc.x, ndc.y, depth, 1.0f);
     float4 viewPosH = mul(clipPos, gInvProj);
     viewPosH /= viewPosH.w;
-   
     float4 worldPosH = mul(viewPosH, gInvView);
     float3 worldPos = worldPosH.xyz / worldPosH.w;
 
-    float3 N = DecodeNormalOct(g1.rg);
     float3 V = normalize(gEyePosW - worldPos);
 
     if (dot(N, V) < 0.0f)
         N = -N;
 
-    float3 Nf = N;
+    Material mat = materials[materialID];
+    float3 Cd;
+    float3 F0;
+    ComputeDisneyMetalWorkflow(albedo, metallic, Cd, F0);
 
-    float3 areaLightContribution = float3(0, 0, 0);
-    
-    float3 Lo = 0.0;
-    
-    float eta_i = 1.0f; // air
-    float eta_t = mat.Ior; // material IOR
+    float3 Lo = 0.0f;
 
-// BACKFACE? (ray is *inside* medium)
-    bool entering = dot(V, Nf) > 0.0f;
-
-    if (!entering)
-    {
-    // The ray is *exiting* the material.
-    // Flip normal to maintain hemisphere consistency.
-        Nf = -Nf;
-
-    // Swap indices: now going from material -> air.
-        eta_i = mat.Ior;
-        eta_t = 1.0f;
-    }
-
-    float eta = eta_i / eta_t;
-    for (int i = 0; i < 1; ++i)
+    [unroll]
+    for (int i = 0; i < NumLights; ++i)
     {
         float3 L;
-        float3 Li = 0.0;
-        float NdotL = 0.0;
-        
-        if (!BuildLightSample(i, worldPos.xyz, Nf, L, Li, NdotL))
+        float3 Li;
+        float NdotL;
+        if (!BuildLightSample(i, worldPos, N, L, Li, NdotL))
             continue;
-        
+
         float3 H = normalize(V + L);
-        float NdotV = saturate(dot(Nf, V));
-        float NdotH = saturate(dot(Nf, H));
+        float NdotV = saturate(dot(N, V));
+        float NdotH = saturate(dot(N, H));
         float LdotH = saturate(dot(L, H));
-        
-        float3 Cd;
-        float3 F0;
-        ComputeDisneyMetalWorkflow(albedo, metal, Cd, F0);
-        
+
+        if (NdotL <= 0.0f || NdotV <= 0.0f)
+            continue;
+
         float3 F = Fresnel_Schlick(F0, LdotH);
-        float D = GGX_D(NdotH, roughness);
+        float D = GGX_D(NdotH, RoughnessToAlpha(roughness));
         float G = GGX_G_Smith(NdotV, NdotL, roughness);
-        
-        float denom = max(4.0 * NdotL * NdotV, 1e-4);
+
+        float denom = max(4.0f * NdotL * NdotV, 1e-4f);
         float3 specBRDF = (D * G * F) / denom;
-        
+
         float diffBRDF = DisneyDiffuse(NdotV, NdotL, LdotH, roughness);
         float3 diffTerm = Cd * diffBRDF;
 
@@ -442,96 +409,86 @@ void RayGen()
 
         Lo += f * Li * NdotL;
     }
-    
-    float3 radiance = 0.0;
-    radiance += Lo;
-    
-    uint samples = 8;
 
-    
-    for (uint s = 0; s < samples; s++)
+    float3 areaLightContribution = 0.0f;
+
+    const uint shadowSamples = 8;
+    for (uint s = 0; s < shadowSamples; ++s)
     {
-        uint pixelSeed = (DispatchRaysIndex().x * 73856093u) ^
-                 (DispatchRaysIndex().y * 19349663u);
-        
-        float2 xi = SampleHammersley(s, samples);
+        float2 xi = SampleHammersley(s, shadowSamples);
 
         float3 lightPoint = SampleAreaLight(0, xi);
-        float3 toLight = lightPoint - worldPos.xyz;
+        float3 toLight = lightPoint - worldPos;
         float dist = length(toLight);
         float3 dir = toLight / dist;
 
-  
         RayDesc shadowRay;
-
-        shadowRay.Origin = worldPos.xyz + Nf * 0.001f;
+        shadowRay.Origin = worldPos + N * 0.001f;
         shadowRay.Direction = dir;
         shadowRay.TMin = 0.01f;
-        shadowRay.TMax = dist;
-        
-        ShadowHitInfo shadowPayload;
+        shadowRay.TMax = dist - 0.01f;
 
-        payload.depth++;
-        payload.eta = materials[materialID].Ior;
-        shadowPayload.isHit = true;
+        ShadowHitInfo shadowPayload;
+        shadowPayload.isHit = false;
         shadowPayload.depth = 0;
-      
-        //if (payload.depth >= 5)
-        //{
-        //    gOutput[launchIndex] = float4(radiance + areaLightContribution, 1.0);
-        //    return;
-        //}
-        
+
         TraceRay(
-        SceneBVH,
-        RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH
-        | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_OPAQUE,
-        0xFF,
-        1, 3, 1,
-        shadowRay,
-        shadowPayload
+            SceneBVH,
+            RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH |
+            RAY_FLAG_SKIP_CLOSEST_HIT_SHADER |
+            RAY_FLAG_FORCE_OPAQUE,
+            0xFF,
+            1, 3, 1,
+            shadowRay,
+            shadowPayload
         );
-        
+
         if (!shadowPayload.isHit)
         {
-            float NdotL = saturate(dot(Nf, dir));
+            float NdotL = saturate(dot(N, dir));
             if (NdotL > 0.0f)
             {
                 float3 lightNormal = normalize(cross(gAreaLight.U, gAreaLight.V));
                 float LnDotL = saturate(dot(-dir, lightNormal));
                 float dist2 = dist * dist;
-        
+
                 float pdf = 1.0f / gAreaLight.Area;
-        
+
                 float3 Li = gAreaLight.Radiance * (LnDotL / dist2);
-        
+
                 areaLightContribution += Li * NdotL / pdf;
             }
         }
-        
     }
 
-    areaLightContribution /= samples;
+    areaLightContribution /= shadowSamples;
 
-    
-    payload.depth = payload.depth++;
-    payload.eta = mat.Ior;
+    float3 reflectionColor = 0.0f;
+    float3 Nf = N;
+    float eta_i = 1.0f; // air
+    float eta_t = max(mat.Ior, 1.0f);
 
-    float3 reflectionColor = float3(0, 0, 0);
-    
-    uint rayDepth = 0;
-    HitInfo reflectionPayload;
-    reflectionPayload.colorAndDistance = float4(0, 0, 0, 1);
-    reflectionPayload.depth = payload.depth + 1;
-    reflectionPayload.eta = eta_t;
-    float3 F = 0.0f;
-    if (roughness < 0.99f)
+    bool entering = dot(V, Nf) > 0.0f;
+    if (!entering)
+    {
+        Nf = -Nf;
+        eta_i = mat.Ior;
+        eta_t = 1.0f;
+    }
+
+
     {
         float2 xi = SampleHammersley(0, 1);
-        float3 Nspec = SampleGGXVNDF(V, SampleHammersley(0, 1), roughness);
-        float3 R = reflect(-V, Nspec);
+        float3 Hs = SampleGGXVNDF(V, xi, roughness);
+        float3 R = reflect(-V, Hs);
+
+        HitInfo reflectionPayload;
+        reflectionPayload.colorAndDistance = float4(0, 0, 0, 0);
+        reflectionPayload.depth = 1;
+        reflectionPayload.eta = eta_t;
+
         RayDesc reflectionRay;
-        reflectionRay.Origin = worldPos.xyz + Nf * 0.001f;
+        reflectionRay.Origin = worldPos + Nf * 0.001f;
         reflectionRay.Direction = R;
         reflectionRay.TMin = 0.01f;
         reflectionRay.TMax = 1e38f;
@@ -544,51 +501,40 @@ void RayGen()
             reflectionRay,
             reflectionPayload
         );
-        
-        float3 F0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo, metal);
-        float cosThetaI = saturate(dot(V, Nf));
-        float3 F = F0 + (1.0f - F0) * pow(1.0f - cosThetaI, 5.0f);
 
-      //  reflectionColor = F * reflectionPayload.colorAndDistance.xyz;
-        
-        rayDepth = reflectionPayload.depth;
-    };
-
-    float3 refractDir = 0.0f;
-    bool tir = false;
-
-{
-        float3 I = -V;
-        float cosI = dot(I, Nf);
-        float sin2T = eta * eta * (1.0f - cosI * cosI);
-
-        tir = (sin2T > 1.0f);
-
-        if (!tir)
-        {
-            refractDir = refract(I, Nf, eta);
-            refractDir = normalize(refractDir);
-        }
+        reflectionColor = reflectionPayload.colorAndDistance.xyz;
     }
-    
-    payload.eta = reflectionPayload.eta;
-    
- // if (payload.depth + reflectionPayload.depth >= 5)
- // {
- //     gOutput[launchIndex] = float4(radiance + areaLightContribution + reflectionColor, RayTCurrent());
- //     return;
- // }
 
-    HitInfo refrPayload = payload;
-    refrPayload.depth = payload.depth + 1;
-    refrPayload.eta = eta_t;
+    float ior = max(mat.Ior, 1.0f);
+    float eta = 1.0f / ior;
+
+    ComputeDisneyMetalWorkflow(albedo, metallic, Cd, F0);
+
+    float cosThetaI = saturate(dot(V, N));
+    float3 F = F0 + (1.0f - F0) * pow(1.0f - cosThetaI, 5.0f);
+
+    float3 I = -V;
+
+    float cosI = dot(I, N);
+    float sin2T = eta * eta * (1.0f - cosI * cosI);
+    bool tir = (sin2T > 1.0f);
+
+    float3 refractionColor = 0.0f;
 
     if (!tir)
     {
+        float3 refractDir = refract(I, N, eta);
+        refractDir = normalize(refractDir);
+
+        HitInfo refrPayload;
+        refrPayload.colorAndDistance = float4(0, 0, 0, 0);
+        refrPayload.depth = payload.depth + 1;
+        refrPayload.eta = ior;
+
         RayDesc refractionRay;
-        refractionRay.Origin = worldPos + Nf * 0.001f;
+        refractionRay.Origin = worldPos + N * 0.001f;
         refractionRay.Direction = refractDir;
-        refractionRay.TMin = 0.001f;
+        refractionRay.TMin = 0.01f;
         refractionRay.TMax = 1e38f;
 
         TraceRay(
@@ -599,16 +545,23 @@ void RayGen()
         refractionRay,
         refrPayload
     );
+
+        refractionColor = refrPayload.colorAndDistance.xyz;
     }
-    
-    reflectionColor = reflectionPayload.colorAndDistance.xyz;
-    float3 refractionColor = refrPayload.colorAndDistance.xyz;
+    else
+    {
+        F = 1.0f.xxx;
+    }
 
-// Fresnel blends reflection vs refraction
-    float3 surfaceColor = lerp(refractionColor, reflectionColor, F);
 
-    float3 finalColor = radiance + areaLightContribution + surfaceColor;
+    if (tir)
+        F = 1.0f.xxx;
+
+    float3 surfaceRTColor = lerp(refractionColor, reflectionColor, F);
+
+    float3 finalColor = Lo + areaLightContribution + surfaceRTColor;
     finalColor = PostProcess(finalColor);
 
     gOutput[launchIndex] = float4(finalColor, 1.0f);
 }
+

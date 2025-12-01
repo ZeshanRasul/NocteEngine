@@ -77,8 +77,6 @@ VSOutput VS(VertexIn vIn)
     float3x3 invTrans = transpose(instW3x3);
     vso.NormalW = normalize(mul(vIn.NormalL, invTrans));
     
-    matrix viewProj = mul(gProj, gView);
-
     vso.PosH = mul(float4(vso.PosW, 1.0f), gViewProj);
     
     vso.InstanceID = vIn.InstanceID;
