@@ -305,18 +305,23 @@ float GGX_PDF(float3 N, float3 V, float3 L, float roughness)
     return pdf;
 }
 
-float3 DecodeNormalOct(float2 enc)
+float3 DecodeNormalOct(float2 e)
 {
-    // map back from [0,1] to [-1,1]
-    float2 f = enc * 2.0f - 1.0f;
+    // map back to [-1,1]
+    e = e * 2.0f - 1.0f;
 
-    float3 n = float3(f.x, f.y, 1.0f - abs(f.x) - abs(f.y));
+    float3 n = float3(e.x, e.y, 1.0f - abs(e.x) - abs(e.y));
 
-    float t = saturate(-n.z);
-    n.xy += select(-t, t, n.xy >= 0.0f);
+    if (n.z < 0.0f)
+    {
+        float oldX = n.x;
+        n.x = (1.0f - abs(n.y)) * (oldX >= 0.0f ? 1.0f : -1.0f);
+        n.y = (1.0f - abs(oldX)) * (n.y >= 0.0f ? 1.0f : -1.0f);
+    }
 
     return normalize(n);
 }
+
 
 [shader("raygeneration")]
 void RayGen()

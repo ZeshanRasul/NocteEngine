@@ -75,7 +75,7 @@ GBuffer PS(PixelIn pIn)
     Material mat = materials[matIndex + pIn.InstanceID];
     
     gBuffer.gBufferAlbedoMetal.rgb = mat.DiffuseAlbedo.xyz;
-    gBuffer.gBufferAlbedoMetal.a = pIn.InstanceID / 255.0f;
+    gBuffer.gBufferAlbedoMetal.a = (matIndex) / 255.0f;
     
 
     

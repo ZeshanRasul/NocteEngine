@@ -132,7 +132,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	BuildPSOs();
 	CreateCameraBuffer();
 	UpdateMaterialCBs();
-
+	UpdateCameraBuffer();
 	CreateAccelerationStructures();
 	CreateRaytracingPipeline();
 	CreatePerInstanceBuffers();
@@ -608,7 +608,7 @@ void Renderer::CreateDepthStencilView()
 	depthStencilDesc.Height = m_ClientHeight;
 	depthStencilDesc.DepthOrArraySize = 1;
 	depthStencilDesc.MipLevels = 1;
-	depthStencilDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
+	depthStencilDesc.Format = DXGI_FORMAT_R32_TYPELESS;
 	depthStencilDesc.SampleDesc.Count = 1;
 	depthStencilDesc.SampleDesc.Quality = 0;
 	depthStencilDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
@@ -622,14 +622,14 @@ void Renderer::CreateDepthStencilView()
 	heapProps.VisibleNodeMask = 0u;
 
 	D3D12_CLEAR_VALUE optClear = {};
-	optClear.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	optClear.Format = DXGI_FORMAT_D32_FLOAT;
 	optClear.DepthStencil.Depth = 1.0f;
 	optClear.DepthStencil.Stencil = 0;
 
 	ThrowIfFailed(m_Device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &depthStencilDesc, D3D12_RESOURCE_STATE_COMMON, &optClear, IID_PPV_ARGS(&m_DepthStencilBuffer)));
 
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
-	dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
 	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
 
@@ -1793,7 +1793,7 @@ void Renderer::CreateShaderResourceHeap()
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC depthBufferSRVDesc = {};
-	depthBufferSRVDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+	depthBufferSRVDesc.Format = DXGI_FORMAT_R32_FLOAT;
 	depthBufferSRVDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	depthBufferSRVDesc.Texture2D.MipLevels = 1;
 	depthBufferSRVDesc.Texture2D.MostDetailedMip = 0;
@@ -2128,7 +2128,7 @@ void Renderer::UpdateCameraBuffer()
 	//XMStoreFloat4x4(&m_Proj, P);
 	float fovAngleY = 45.0f * XM_PI / 180.0f;
 	m_AspectRatio = (float)m_ClientWidth / (float)m_ClientHeight;
-	matrices[1] = XMMatrixPerspectiveFovLH(fovAngleY, m_AspectRatio, 0.1f, 1000.0f);
+	matrices[1] = XMMatrixPerspectiveFovLH(fovAngleY, m_AspectRatio, 0.01f, 300.0f);
 
 	XMVECTOR det;
 	matrices[2] = XMMatrixInverse(&det, matrices[0]);
