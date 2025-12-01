@@ -99,6 +99,11 @@ cbuffer AreaLights : register(b4)
     uint gAreaLightCount;
 }
 
+cbuffer FrameData : register(b5)
+{
+    uint frameIndex;
+}
+
 float3 LinearToSRGB(float3 x)
 {
     const float a = 0.055f;
@@ -438,6 +443,26 @@ float3 ComputeDirectionalLight(Light L, float3 normal, float3 toEye, Material ma
     return BlinnPhong(lightStrength, lightVec, normal, toEye, mat);
 }
 
+// Simple integer hash
+uint Hash(uint x)
+{
+    x ^= x >> 17;
+    x *= 0xed5ad4bbu;
+    x ^= x >> 11;
+    x *= 0xac4c1b51u;
+    x ^= x >> 15;
+    x *= 0x31848babu;
+    x ^= x >> 14;
+    return x;
+}
+
+// Advance RNG and return float in [0,1)
+float Rand(inout uint state)
+{
+    state = Hash(state);
+    // convert to float in [0,1)
+    return (state & 0x00FFFFFFu) / 16777216.0f; // 2^24
+}
 
 
 [shader("closesthit")]
@@ -565,8 +590,14 @@ void PlaneClosestHit(inout HitInfo payload, Attributes attrib)
     uint pixelSeed = (DispatchRaysIndex().x * 73856093u) ^
                  (DispatchRaysIndex().y * 19349663u);
         
-    float2 xi = SampleHammersley(0, 8, pixelSeed, 4);
-    
+    uint rngState =
+    pixelSeed ^
+    (frameIndex * 747796405u) ^
+    (payload.depth * 2891336453u);
+
+    float u1 = Rand(rngState);
+    float u2 = Rand(rngState);
+    float2 xi = float2(u1, u2);
     // Mix diffuse and glossy sampling
     
     float roughness = 1 - materials[materialIndex].Shininess;

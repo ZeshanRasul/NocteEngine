@@ -105,6 +105,7 @@ private:
 	UINT m_CbufferElementByteSize = 0;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_UploadCBuffer = nullptr;
 	std::unique_ptr<UploadBuffer<ObjectConstants>> m_ObjectCB = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_RNGUploadCBuffer = nullptr;
 	UINT m_PassCbvOffset;
 
 	UINT m_RtvDescriptorSize = 0;
@@ -251,6 +252,11 @@ private:
 	UINT m_PerInstanceCBCount = 6;
 	UINT m_SkullCount = 4;
 	UINT m_SphereCount = 1;
+
+	void CreateFrameIndexRNGCBuffer();
+	void UpdateFrameIndexRNGCBuffer();
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_FrameIndexCB;
+	UINT m_FrameIndex = 0;
 
 	std::vector<MaterialDataGPU> m_MaterialsGPU;
 

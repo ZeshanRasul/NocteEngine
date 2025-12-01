@@ -131,6 +131,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 	BuildPSOs();
 	CreateCameraBuffer();
+	CreateFrameIndexRNGCBuffer();
 
 	CreateAccelerationStructures();
 	CreateRaytracingPipeline();
@@ -214,6 +215,7 @@ void Renderer::Update(float dt, Camera& cam)
 	m_Instances[3].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(-10.0f, -10.0f, 0.0f);;
 
 //	UpdateCameraBuffer();
+	UpdateFrameIndexRNGCBuffer();
 	UpdateObjectCBs();
 	UpdateMainPassCB();
 	UpdateMaterialCBs();
@@ -1302,6 +1304,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 2);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 3);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 4);
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 5);
 	rsc.AddHeapRangesParameter({ { 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2} });
 
 	return rsc.Generate(m_Device.Get(), true);
@@ -1480,6 +1483,7 @@ void Renderer::CreateShaderBindingTable()
 				(void*)perInstanceCB,
 				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
 				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
+				(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
 				heapPointer
 				});
 
@@ -1492,6 +1496,7 @@ void Renderer::CreateShaderBindingTable()
 				(void*)perInstanceCB,
 				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
 				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
+				(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
 				heapPointer
 				});
 		}
@@ -1504,6 +1509,7 @@ void Renderer::CreateShaderBindingTable()
 				(void*)perInstanceCB,
 				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
 				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
+				(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
 				heapPointer
 				});
 
@@ -1516,6 +1522,7 @@ void Renderer::CreateShaderBindingTable()
 				(void*)perInstanceCB,
 				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
 				(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
+				(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
 				heapPointer
 				});
 
@@ -1868,6 +1875,31 @@ void Renderer::CreatePerInstanceBuffers()
 	memcpy(pData, m_MaterialsGPU.data(), bufferSize);
 	m_UploadCBuffer->Unmap(0, nullptr);
 
+}
+
+void Renderer::CreateFrameIndexRNGCBuffer()
+{
+	const uint32_t bufferSize = sizeof(UINT);
+
+
+	m_RNGUploadCBuffer = nv_helpers_dx12::CreateBuffer(m_Device.Get(), bufferSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+
+	uint8_t* pData;
+	ThrowIfFailed(m_RNGUploadCBuffer->Map(0, nullptr, (void**)&pData));
+	memcpy(pData, &m_FrameIndex, bufferSize);
+	m_RNGUploadCBuffer->Unmap(0, nullptr);
+}
+
+void Renderer::UpdateFrameIndexRNGCBuffer()
+{
+	const uint32_t bufferSize = sizeof(UINT);
+
+	m_FrameIndex++;
+	uint8_t* pData;
+
+	m_RNGUploadCBuffer->Map(0, nullptr, (void**)&pData);
+	memcpy(pData, &m_FrameIndex, bufferSize);
+	m_RNGUploadCBuffer->Unmap(0, nullptr);
 }
 
 void Renderer::CreateImGuiDescriptorHeap()
