@@ -75,95 +75,95 @@ float3 TransformNormalToWorld(float3 nObj)
 // BSDF sampling: Disney diffuse + GGX specular (metal/rough)
 // Returns bsdfOverPdf = f * NdotL / pdf
 //---------------------------------------------------------------------
-void BSDF_Sample(
-    Material mat,
-    float3 N,
-    float3 wo,
-    float2 xi,
-    out float3 wi,
-    out float3 bsdfOverPdf,
-    out float outPdf)
-{
-    bsdfOverPdf = 0.0;
-    outPdf = 1.0;
+//void BSDF_Sample(
+//    Material mat,
+//    float3 N,
+//    float3 wo,
+//    float2 xi,
+//    out float3 wi,
+//    out float3 bsdfOverPdf,
+//    out float outPdf)
+//{
+//    bsdfOverPdf = 0.0;
+//    outPdf = 1.0;
 
-    float3 V = normalize(wo);
+//    float3 V = normalize(wo);
 
-    // Disney metal workflow
-    float3 Cd, F0;
-    ComputeDisneyMetalWorkflow(mat.DiffuseAlbedo.xyz, mat.metallic, Cd, F0);
+//    // Disney metal workflow
+//    float3 Cd, F0;
+//    ComputeDisneyMetalWorkflow(mat.DiffuseAlbedo.xyz, mat.metallic, Cd, F0);
 
-    float roughness = saturate(1.0f - mat.Shininess); // adapt to your data
+//    float roughness = saturate(1.0f - mat.Shininess); // adapt to your data
 
-    // Probability of sampling specular vs diffuse
-    float specProb = saturate(mat.metallic);
-    specProb = clamp(specProb, 0.05f, 0.95f);
+//    // Probability of sampling specular vs diffuse
+//    float specProb = saturate(mat.metallic);
+//    specProb = clamp(specProb, 0.05f, 0.95f);
 
-    float2 xiRemap;
-    float3 H;
-    float pdfSpec = 0.0;
-    float pdfDiff = 0.0;
+//    float2 xiRemap;
+//    float3 H;
+//    float pdfSpec = 0.0;
+//    float pdfDiff = 0.0;
 
-    if (xi.x < specProb)
-    {
-        // Specular branch
-        xiRemap = float2(xi.x / specProb, xi.y);
+//    if (xi.x < specProb)
+//    {
+//        // Specular branch
+//        xiRemap = float2(xi.x / specProb, xi.y);
 
-        H = SampleGGXVNDF(V, xiRemap, roughness);
-        wi = reflect(-V, H);
-        wi = normalize(wi);
+//        H = SampleGGXVNDF(V, xiRemap, roughness);
+//        wi = reflect(-V, H);
+//        wi = normalize(wi);
 
-        float NdotL = saturate(dot(N, wi));
-        float NdotV = saturate(dot(N, V));
-        if (NdotL <= 0.0f || NdotV <= 0.0f)
-        {
-            bsdfOverPdf = 0.0;
-            outPdf = 1.0;
-            return;
-        }
+//        float NdotL = saturate(dot(N, wi));
+//        float NdotV = saturate(dot(N, V));
+//        if (NdotL <= 0.0f || NdotV <= 0.0f)
+//        {
+//            bsdfOverPdf = 0.0;
+//            outPdf = 1.0;
+//            return;
+//        }
 
-        float3 Hn = normalize(V + wi);
-        float NdotH = saturate(dot(N, Hn));
-        float LdotH = saturate(dot(wi, Hn));
+//        float3 Hn = normalize(V + wi);
+//        float NdotH = saturate(dot(N, Hn));
+//        float LdotH = saturate(dot(wi, Hn));
 
-        float3 F = Fresnel_Schlick(F0, LdotH);
-        float D = GGX_D(NdotH, roughness);
-        float G = GGX_G_Smith(NdotV, NdotL, roughness);
+//        float3 F = Fresnel_Schlick(F0, LdotH);
+//        float D = GGX_D(NdotH, roughness);
+//        float G = GGX_G_Smith(NdotV, NdotL, roughness);
 
-        float denom = max(4.0f * NdotL * NdotV, 1e-4f);
-        float3 fSpec = (D * G * F) / denom;
-        pdfSpec = GGX_PDF(N, V, wi, roughness);
-        outPdf = pdfSpec * specProb;
-        bsdfOverPdf = fSpec * NdotL / max(outPdf, 1e-6f);
-    }
-    else
-    {
-        // Diffuse branch
-        xiRemap = float2((xi.x - specProb) / (1.0f - specProb), xi.y);
+//        float denom = max(4.0f * NdotL * NdotV, 1e-4f);
+//        float3 fSpec = (D * G * F) / denom;
+//        pdfSpec = GGX_PDF(N, V, wi, roughness);
+//        outPdf = pdfSpec * specProb;
+//        bsdfOverPdf = fSpec * NdotL / max(outPdf, 1e-6f);
+//    }
+//    else
+//    {
+//        // Diffuse branch
+//        xiRemap = float2((xi.x - specProb) / (1.0f - specProb), xi.y);
 
-        float3 local = CosineSampleHemisphere(xiRemap);
-        float3x3 frame = BuildTangentFrame(N);
-        wi = normalize(mul(local, frame));
+//        float3 local = CosineSampleHemisphere(xiRemap);
+//        float3x3 frame = BuildTangentFrame(N);
+//        wi = normalize(mul(local, frame));
 
-        float NdotL = saturate(dot(N, wi));
-        float NdotV = saturate(dot(N, V));
-        if (NdotL <= 0.0f || NdotV <= 0.0f)
-        {
-            bsdfOverPdf = 0.0;
-            outPdf = 1.0;
-            return;
-        }
+//        float NdotL = saturate(dot(N, wi));
+//        float NdotV = saturate(dot(N, V));
+//        if (NdotL <= 0.0f || NdotV <= 0.0f)
+//        {
+//            bsdfOverPdf = 0.0;
+//            outPdf = 1.0;
+//            return;
+//        }
 
-        float3 Hn = normalize(V + wi);
-        float LdotH = saturate(dot(wi, Hn));
+//        float3 Hn = normalize(V + wi);
+//        float LdotH = saturate(dot(wi, Hn));
 
-        float diffBRDF = DisneyDiffuse(NdotV, NdotL, LdotH, roughness);
-        float3 fDiff = Cd * diffBRDF;
+//        float diffBRDF = DisneyDiffuse(NdotV, NdotL, LdotH, roughness);
+//        float3 fDiff = Cd * diffBRDF;
 
-        pdfDiff = NdotL / 3.14159265f;
-        outPdf = pdfDiff * (1.0f - specProb);
-        bsdfOverPdf = fDiff * NdotL / max(outPdf, 1e-6f);
-    }
-}
+//        pdfDiff = NdotL / 3.14159265f;
+//        outPdf = pdfDiff * (1.0f - specProb);
+//        bsdfOverPdf = fDiff * NdotL / max(outPdf, 1e-6f);
+//    }
+//}
 
 #endif // PATHTRACER_COMMON_HLSL

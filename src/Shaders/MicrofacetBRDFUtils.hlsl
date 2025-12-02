@@ -17,7 +17,8 @@ struct Light
 float RoughnessToAlpha(float r)
 {
     r = saturate(r);
-    return r * r;
+
+    return (max(r * r, 1e-4f));
 }
 
 float GGX_D(float NdotH, float roughness)

@@ -148,16 +148,19 @@ float GGX_PDF(float3 N, float3 V, float3 L, float roughness)
 {
     float3 H = normalize(V + L);
     float NdotH = saturate(dot(N, H));
-    float alpha = 1.0 / roughness;
-    float D = GGX_D(NdotH, alpha);
-    float G1V = GGX_G1(N, V, alpha);
-
     float VdotH = saturate(dot(V, H));
     float LdotH = saturate(dot(L, H));
+    
+    if (NdotH <= 0.0f || VdotH <= 0.0f || LdotH <= 0.0f)
+        return 0.0f;
+    
+    float alpha = max(roughness * roughness, 1e-4f);
+    float D = GGX_D(NdotH, alpha);
+  //  float G1V = GGX_G1(N, V, alpha);
 
-    // Convert from half-vector pdf to direction pdf
-    float pdf = (D * G1V * VdotH) / (4.0f * LdotH);
 
+    // Heitz VNDF-based pdf: D * NdotH / (4 * VdotH)
+    float pdf = (D * NdotH) / max(4.0f * VdotH, 1e-4f);
     return pdf;
 }
 

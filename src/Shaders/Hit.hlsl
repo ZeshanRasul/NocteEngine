@@ -1,7 +1,7 @@
 ﻿#include "Common.hlsl"
 #include "MicrofacetBRDFUtils.hlsl"
 #include "PathTracerCommon.hlsl"
-
+#include "BSDF.hlsl"
 
 #define NumLights 1
 
@@ -220,15 +220,23 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     // World-space position and normal
     float3 pW = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
     float3 N = TransformNormalToWorld(nObj);
+    float3 V = -WorldRayDirection();
+    
+    if (dot(N, V) < 0.0f)
+    {
+        N = -N;
+    }
 
     // Fill payload base data
     payload.hitPos = pW;
     payload.normal = N;
     payload.depth++;
 
+
+
+    
     Material mat = materials[materialIndex];
 
-//    // After you fetch Material mat
 //    float3 Cd, F0;
 //    ComputeDisneyMetalWorkflow(mat.DiffuseAlbedo.xyz, mat.metallic, Cd, F0);
 
@@ -240,27 +248,36 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
 //    return;
 
     
-    // Emissive term (if you use it; otherwise keep 0)
-    // Here we just use alpha as emissive multiplier placeholder.
-    float emissiveIntensity = mat.DiffuseAlbedo.w;
-    payload.emission = emissiveIntensity * mat.DiffuseAlbedo.xyz;
+//    float emissiveIntensity = mat.DiffuseAlbedo.w;
+//    payload.emission = emissiveIntensity * mat.DiffuseAlbedo.xyz;
 
+    payload.emission = 0.0f;
+    
+    
     // Sample BSDF
-    float3 wo = -WorldRayDirection();
     float2 xi = Rand2(payload.seed);
 
     float3 wi;
-    float3 bsdfOverPdf;
     float pdf;
-
-    BSDF_Sample(mat, N, wo, xi, wi, bsdfOverPdf, pdf);
+    
+    float3x3 frame = BuildTangentFrame(N);
+    float3 VLocal = mul(V, transpose(frame));
+    
+    BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);
+    
+    if (!bsdf.valid || all(bsdf.fOverPdf == 0.0f))
+    {
+        payload.done = 1;
+        return;
+    }
 
     payload.wi = wi;
-    payload.bsdfOverPdf = bsdfOverPdf;
+    payload.bsdfOverPdf = bsdf.fOverPdf;
     payload.pdf = pdf;
-
+    
+    
     // Stop if pdf is invalid or throughput will be zero
-    if (all(bsdfOverPdf == 0.0f) || pdf <= 0.0f)
+    if (all(bsdf.fOverPdf == 0.0f) || bsdf.pdf <= 0.0f)
     {
         payload.done = 1;
     }
