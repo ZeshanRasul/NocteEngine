@@ -232,27 +232,9 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     payload.normal = N;
     payload.depth++;
 
-
-
-    
     Material mat = materials[materialIndex];
 
-//    float3 Cd, F0;
-//    ComputeDisneyMetalWorkflow(mat.DiffuseAlbedo.xyz, mat.metallic, Cd, F0);
-
-//// DEBUG: show baseColor and stop
-//    payload.emission = float3((materialIndex + 1) / 5.0, 0, 0);
-//    payload.done = 1;
-//    return;
-//    payload.bsdfOverPdf = 0;
-//    return;
-
-    
-//    float emissiveIntensity = mat.DiffuseAlbedo.w;
-//    payload.emission = emissiveIntensity * mat.DiffuseAlbedo.xyz;
-
     payload.emission = 0.0f;
-    
     
     // Sample BSDF
     float2 xi = Rand2(payload.seed);
@@ -271,9 +253,9 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         return;
     }
 
-    payload.wi = wi;
+    payload.wi = bsdf.wi;
     payload.bsdfOverPdf = bsdf.fOverPdf;
-    payload.pdf = pdf;
+    payload.pdf = bsdf.pdf;
     
     
     // Stop if pdf is invalid or throughput will be zero

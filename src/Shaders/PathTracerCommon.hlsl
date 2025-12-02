@@ -49,10 +49,23 @@ uint Hash(uint x)
 }
 
 // Advance RNG and return float in [0,1)
+//float Rand(inout uint state)
+//{
+//    state = Hash(state);
+//    return (state & 0x00FFFFFFu) / 16777216.0f; // 2^24
+//}
+
+//float2 Rand2(inout uint state)
+//{
+//    return float2(Rand(state), Rand(state));
+//}
+
 float Rand(inout uint state)
 {
-    state = Hash(state);
-    return (state & 0x00FFFFFFu) / 16777216.0f; // 2^24
+    state ^= state << 13;
+    state ^= state >> 17;
+    state ^= state << 5;
+    return (float(state) * (1.0 / 4294967296.0)); // [0,1)
 }
 
 float2 Rand2(inout uint state)

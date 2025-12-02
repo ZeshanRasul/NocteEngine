@@ -57,17 +57,20 @@ void RayGen()
     float3 originWS = gEyePosW;
     float3 dirWS = normalize(mul(float4(pView.xyz, 0), gInvView).xyz);
 
+    uint seed = launchIndex.x * 1973u ^
+            launchIndex.y * 9277u ^
+            frameIndex * 26699u;
+
+    seed ^= (launchIndex.x + launchIndex.y) * 1013904223u;
+
     // Initialize payload
     PathPayload payload;
     payload.radiance = 0.0f;
     payload.throughput = 1.0f;
     payload.depth = 0;
     payload.done = 0;
-    payload.seed =
-        (launchIndex.x * 73856093u) ^
-        (launchIndex.y * 19349663u) ^
-        (frameIndex * 83492791u);
-
+    payload.seed = seed;
+    
     RayDesc ray;
     ray.Origin = originWS;
     ray.Direction = dirWS;
@@ -98,7 +101,6 @@ void RayGen()
 
         // If the ray missed or we decided to stop, accumulate emission and break
         finalRadiance += payload.throughput * payload.emission;
- //       finalRadiance += payload.throughput;
 
         if (payload.done != 0)
             break;
@@ -123,15 +125,13 @@ void RayGen()
             payload.throughput /= pCont;
         }
 
-      //  finalRadiance += payload.throughput;
-        
         // Set up next ray
         ray.Origin = payload.hitPos + payload.normal * 0.001f;
         ray.Direction = normalize(payload.wi);
         ray.TMin = 0.001f;
         ray.TMax = 1e38f;
     }
-
+     
     float3 finalColor = PostProcessColor(finalRadiance);
     gOutput[launchIndex] = float4(finalColor, 1.0f);
 }
