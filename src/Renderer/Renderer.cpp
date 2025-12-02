@@ -1326,25 +1326,25 @@ void Renderer::CreateRaytracingPipeline()
 	m_MissLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Shaders\\Miss.hlsl");
 	m_HitLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Shaders\\Hit.hlsl");
 
-	m_ShadowLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Shaders\\ShadowRay.hlsl");
-	pipeline.AddLibrary(m_ShadowLibrary.Get(), { L"ShadowMiss" });
-	m_ShadowSignature = CreateMissSignature();
+	//	m_ShadowLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Shaders\\ShadowRay.hlsl");
+	//	pipeline.AddLibrary(m_ShadowLibrary.Get(), { L"ShadowMiss" });
+	//	m_ShadowSignature = CreateMissSignature();
 
 	pipeline.AddLibrary(m_RayGenLibrary.Get(), { L"RayGen" });
-	pipeline.AddLibrary(m_MissLibrary.Get(), { L"Miss" });
-	pipeline.AddLibrary(m_HitLibrary.Get(), { L"ClosestHit" });
+	pipeline.AddLibrary(m_MissLibrary.Get(), { L"Miss",  L"ShadowMiss" });
+	pipeline.AddLibrary(m_HitLibrary.Get(), { L"ClosestHit", L"ShadowClosestHit" });
 
 	m_RayGenSignature = CreateRayGenSignature();
 	m_MissSignature = CreateMissSignature();
 	m_HitSignature = CreateHitSignature();
-	m_ReflectionSignature = CreateHitSignature();
+	//	m_ReflectionSignature = CreateHitSignature();
 
 	pipeline.AddHitGroup(L"HitGroup", L"ClosestHit");
-	pipeline.AddHitGroup(L"ShadowHitGroup", L"");
+	pipeline.AddHitGroup(L"ShadowHitGroup", L"ShadowClosestHit");
 
 	pipeline.AddRootSignatureAssociation(m_RayGenSignature.Get(), { L"RayGen" });
-	pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"Miss" });
-	pipeline.AddRootSignatureAssociation(m_HitSignature.Get(), { L"HitGroup" });
+	pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"Miss", L"ShadowMiss" });
+	pipeline.AddRootSignatureAssociation(m_HitSignature.Get(), { L"HitGroup", L"ShadowHitGroup" });
 
 	pipeline.SetMaxPayloadSize(48 * sizeof(float));
 	pipeline.SetMaxAttributeSize(2 * sizeof(float));
@@ -1478,18 +1478,29 @@ void Renderer::CreateShaderBindingTable()
 			heapPointer
 			});
 
+		m_SbtHelper.AddHitGroup(L"ShadowHitGroup", { (void*)vb,(void*)ib,
+			(void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
+			(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),
+			(void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(),
+			(void*)perInstanceCB,
+			(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
+			(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
+			(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
+			heapPointer
+			});
 
-		uint32_t sbtSize = m_SbtHelper.ComputeSBTSize();
 
-		m_SbtStorage = nv_helpers_dx12::CreateBuffer(m_Device.Get(), sbtSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
-
-		if (!m_SbtStorage)
-		{
-			throw std::logic_error("Could not allocate the shader binding table.");
-		}
-
-		m_SbtHelper.Generate(m_SbtStorage.Get(), m_RtStateObjectProps.Get());
 	}
+	uint32_t sbtSize = m_SbtHelper.ComputeSBTSize();
+
+	m_SbtStorage = nv_helpers_dx12::CreateBuffer(m_Device.Get(), sbtSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+
+	if (!m_SbtStorage)
+	{
+		throw std::logic_error("Could not allocate the shader binding table.");
+	}
+
+	m_SbtHelper.Generate(m_SbtStorage.Get(), m_RtStateObjectProps.Get());
 }
 
 Renderer::AccelerationStructureBuffers Renderer::CreateBottomLevelAS(std::vector <std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, uint32_t>> vVertexBuffers, std::vector <std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, uint32_t>> vIndexBuffers)
@@ -1537,7 +1548,7 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<Microsoft::WRL::ComPtr<ID3
 			//	hitGroupIndex = i;
 			//}
 
-			m_topLevelASGenerator.AddInstance(instances[i].first.Get(), instances[i].second, static_cast<UINT>(i), static_cast<UINT>(i));
+			m_topLevelASGenerator.AddInstance(instances[i].first.Get(), instances[i].second, static_cast<UINT>(i), static_cast<UINT>(i * 2));
 		}
 
 		UINT64 scratchSizeInBytes = 0;
@@ -1752,8 +1763,8 @@ void Renderer::CreatePostProcessConstantBuffer()
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 50.0f, -25.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(15.0f, 15.0f, 15.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 50.0f, 0.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(5.0f, 5.0f, 5.0f);
 	m_AreaLightData.U = XMFLOAT3(5.0f, 0.0f, 0.0f);
 	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 5.0f);
 

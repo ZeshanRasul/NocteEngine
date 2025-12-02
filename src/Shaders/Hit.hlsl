@@ -78,8 +78,7 @@ cbuffer PerInstance : register(b2)
 
 cbuffer AreaLights : register(b4)
 {
-    AreaLight gAreaLights[8];
-    uint gAreaLightCount;
+    AreaLight gAreaLight;
 }
 
 cbuffer FrameData : register(b5)
@@ -89,7 +88,7 @@ cbuffer FrameData : register(b5)
 
 float3 SampleAreaLight(uint index, float2 xi)
 {
-    AreaLight L = gAreaLights[index];
+    AreaLight L = gAreaLight;
     
     float3 p = L.Position + (2.0f * xi.x - 1.0f) * L.U + (2.0f * xi.y - 1.0f) * L.V;
     return p;
@@ -160,37 +159,83 @@ bool BuildLightSample(
     return true;
 }
 
-float3 SchlickFresnel(float3 R0, float3 normal, float3 lightVec)
+bool IsOccluded(float3 origin, float3 dir, float maxDistance)
 {
-    float cosIncidentAngle = saturate(dot(normal, lightVec));
+    ShadowPayload payload;
+    payload.isHit = false;
     
-    float f0 = 1.0f - cosIncidentAngle;
-    float3 reflectPercent = R0 + (1.0f - R0) * (f0 * f0 * f0 * f0 * f0);
+    RayDesc shadowRay;
+    shadowRay.Origin = origin;
+    shadowRay.Direction = dir;
+    shadowRay.TMin = 0.001f;
+    shadowRay.TMax = maxDistance - 0.001f;
     
-    return reflectPercent;
+    TraceRay(
+    SceneBVH,
+    RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH |
+    RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
+    0xFF,
+    1,
+    2,
+    1,
+    shadowRay,
+    payload);
+
+    return payload.isHit;
+}
+struct LightSample
+{
+    float3 dir; // from hit point to light (normalized)
+    float dist; // distance to light point
+    float3 Li; // radiance from light along -dir
+    float pdf; // pdf in solid angle
+};
+
+LightSample SampleAreaLight(float3 p, float3 n, inout uint seed)
+{
+    LightSample s;
+    s.dir = 0;
+    s.dist = 0;
+    s.Li = 0;
+    s.pdf = 0;
+
+    // Sample a point on the rect with [0,1]^2
+    float2 xi = Rand2(seed);
+
+    float3 pL = gAreaLight.Position +
+                (xi.x - 0.5f) * gAreaLight.U +
+                (xi.y - 0.5f) * gAreaLight.V;
+
+    float3 L = pL - p;
+    float d = length(L);
+    if (d <= 0.0f)
+        return s;
+
+    L /= d;
+
+    // Light normal (assuming U,V define the rect plane)
+    float3 nL = normalize(cross(gAreaLight.U, gAreaLight.V));
+
+    float cosOnLight = dot(nL, -L);
+    if (cosOnLight <= 0.0f)
+        return s; // back side
+
+    // Area pdf -> solid angle pdf
+    float pdfArea = 1.0f / max(gAreaLight.Area, 1e-4f);
+    float pdf = pdfArea * (d * d) / max(cosOnLight, 1e-4f);
+
+    s.dir = L;
+    s.dist = d;
+    s.Li = gAreaLight.Radiance;
+    s.pdf = pdf;
+
+    return s;
 }
 
-float3 BlinnPhong(float3 lightStrength, float3 lightVec, float3 normal, float3 toEye, Material mat)
+[shader("closesthit")]
+void ShadowClosestHit(inout ShadowPayload hit, Attributes attrib)
 {
-    const float m = mat.Shininess * 256.0f;
-    float3 halfVec = normalize(toEye + lightVec);
-    
-    float roughnessFactor = (m + 8.0f) * pow(max(dot(halfVec, normal), 0.0f), m) / 8.0f;
-    float3 fresnelFactor = SchlickFresnel(mat.FresnelR0, halfVec, lightVec);
-    
-    float3 specularAlbedo = fresnelFactor * roughnessFactor;
-    
-    specularAlbedo = specularAlbedo / (specularAlbedo + 1.0f);
-    
-    return (mat.DiffuseAlbedo.rgb + specularAlbedo) * lightStrength;
-}
-
-float3 ComputeDirectionalLight(Light L, float3 normal, float3 toEye, Material mat)
-{
-    float3 lightVec = -L.Direction;
-    float ndotl = max(dot(lightVec, normal), 0.0f);
-    float3 lightStrength = L.Strength * ndotl;
-    return BlinnPhong(lightStrength, lightVec, normal, toEye, mat);
+    hit.isHit = true;
 }
 
 [shader("closesthit")]
@@ -245,7 +290,39 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     float3x3 frame = BuildTangentFrame(N);
     float3 VLocal = mul(V, transpose(frame));
     
-    BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);
+    float3 LdDir = 0.0f;
+    float LdContrib = 0.0f;
+    
+    LightSample lightSample = SampleAreaLight(pW, N, payload.seed);
+    
+    if (lightSample.pdf > 0.0f)
+    {
+        bool occluded = IsOccluded(pW + N * 1e-4f, lightSample.dir, lightSample.dist - 1e-4f);
+        
+        if (!occluded)
+        {
+            float3 L = lightSample.dir;
+            
+            float NdotL = saturate(dot(N, L));
+            
+            if (NdotL > 0.0f)
+            {
+                float3 f = EvaluateDisneyBRDF(mat, N, V, L);
+                float3 pdfBSDF = PdfDisneyBRDF(mat, N, V, L);
+                
+                // Multiple importance sampling weight (balance heuristic)
+                float pdfLight = lightSample.pdf;
+                float pdfL2 = pdfLight * pdfLight;
+                float pdfBSDF2 = pdfBSDF * pdfBSDF;
+                float wLight = pdfL2 / max(pdfL2 + pdfBSDF2, 1e-4f);
+                
+                LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
+            }
+        }
+    }
+    
+    BSDFSample
+        bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);
     
     if (!bsdf.valid || all(bsdf.fOverPdf == 0.0f))
     {
@@ -257,6 +334,8 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     payload.bsdfOverPdf = bsdf.fOverPdf;
     payload.pdf = bsdf.pdf;
     
+    float3 selfEmit = 0.0f;
+    payload.emission = selfEmit + LdContrib;
     
     // Stop if pdf is invalid or throughput will be zero
     if (all(bsdf.fOverPdf == 0.0f) || bsdf.pdf <= 0.0f)

@@ -37,8 +37,6 @@ cbuffer FrameData : register(b5)
     uint frameIndex;
 }
 
-
-
 [shader("raygeneration")]
 void RayGen()
 {
@@ -93,7 +91,7 @@ void RayGen()
             RAY_FLAG_NONE,
             0xFF,
             0, // ray contribution index
-            3, // multiplier for geometry contribution
+            2, // multiplier for geometry contribution
             0, // miss shader index
             ray,
             payload
@@ -101,7 +99,7 @@ void RayGen()
 
         // If the ray missed or we decided to stop, accumulate emission and break
         finalRadiance += payload.throughput * payload.emission;
-
+        
         if (payload.done != 0)
             break;
 

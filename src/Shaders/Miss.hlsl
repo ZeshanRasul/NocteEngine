@@ -19,3 +19,9 @@ void Miss(inout PathPayload payload)
     payload.pdf = 1.0f;
     payload.done = 1;
 }
+
+[shader("miss")]
+void ShadowMiss(inout ShadowPayload hit)
+{
+    hit.isHit = false;
+}

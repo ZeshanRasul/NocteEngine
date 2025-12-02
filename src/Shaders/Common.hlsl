@@ -25,6 +25,11 @@ struct Material
     bool IsReflective;
 };
 
+struct ShadowPayload
+{
+    bool isHit;
+};
+
 float3 LinearToSRGB(float3 x)
 {
     const float a = 0.055f;

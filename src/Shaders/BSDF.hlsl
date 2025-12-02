@@ -158,4 +158,41 @@ BSDFSample SampleDisneyGGX(
     return s;
 }
 
+float3 EvaluateDisneyBRDF(
+    Material mat,
+    float3 N,
+    float3 V,
+    float3 L)
+{
+    float3 fSpec, fDiff;
+    float pdfSpec, pdfDiff;
+    EvaluateDisneyGGX(mat, N, V, L, fSpec, fDiff, pdfSpec, pdfDiff);
+    return fSpec + fDiff;
+}
+
+float PdfDisneyBRDF(
+    Material mat,
+    float3 N,
+    float3 V,
+    float3 L)
+{
+    float roughness = saturate(1.0f - mat.Shininess);
+    // Disney metal workflow helpers
+    float3 Cd, F0;
+    ComputeDisneyMetalWorkflow(mat.DiffuseAlbedo.xyz, mat.metallic, Cd, F0);
+    // Weights
+    float specWeight = max(F0.r, max(F0.g, F0.b));
+    float diffWeight = max(Cd.r, max(Cd.g, Cd.b)) * (1.0f - mat.metallic);
+    float sum = specWeight + diffWeight + 1e-6f;
+    float specProb = saturate(specWeight / sum);
+    specProb = clamp(specProb, 0.1f, 0.9f);
+    // PDFs
+    float pdfSpec = GGX_PDF(N, V, L, roughness);
+    float NdotL = saturate(dot(N, L));
+    float pdfDiff = NdotL / PI;
+    // Mixture
+    float pdfTotal = specProb * pdfSpec + (1.0f - specProb) * pdfDiff;
+    return pdfTotal;
+}
+
 #endif // BSDF_HLSL
