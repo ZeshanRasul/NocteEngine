@@ -218,6 +218,21 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_DepthTex;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_DenoisePing;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_DenoisePong;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_DenoiseCB;
+
+	void CreateComputeRootSignature();
+	void CreateComputePipelineStateObjects();
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_DenoiseRootSignature;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_DenoisePSO;
+	Microsoft::WRL::ComPtr<ID3DBlob> m_CsByteCode;
+	void CreateComputeShaderResourceHeap();
+	D3D12_GPU_DESCRIPTOR_HANDLE m_ComputeSrvHandle;
+	D3D12_GPU_DESCRIPTOR_HANDLE m_ComputeUavHandle;
+
+	int m_DenoiseStep = 1;
+
+	void CreateDenoiseConstantBuffer();
+	void UpdateDenoiseConstantBuffer(int step);
 
 	void CreateShaderBindingTable();
 

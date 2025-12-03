@@ -5,6 +5,17 @@
 
 using namespace DirectX;
 
+struct DenoiseConstants
+{
+	float sigmaColor = 2.0f;
+	float sigmaNormal = 128.0f;
+	float sigmaDepth = 1.0f;
+	int stepWidth = 1;
+	XMFLOAT2 invResolution = { 0.0f, 0.0f };
+	XMFLOAT2 Pad = { 0.0f, 0.0f };
+
+};
+
 struct ObjectConstants
 {
 	XMFLOAT4X4 WorldViewProj = MathHelper::Identity4x4();
