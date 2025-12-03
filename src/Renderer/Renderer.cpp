@@ -84,7 +84,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	//nv_helpers_dx12::Manipulator::Singleton().setLookat(glm::vec3(0.0f, 1.0f, -27.0f), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 
 #if defined(DEBUG) || defined(_DEBUG)
-	CreateDebugController();
+	//CreateDebugController();
 #endif
 	ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&m_DxgiFactory)));
 
@@ -286,6 +286,7 @@ void Renderer::Draw(bool useRaster)
 		auto passCB = m_CurrentFrameResource->PassCB->Resource();
 		m_CommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
 		m_CommandList->SetGraphicsRootConstantBufferView(3, m_CameraBuffer->GetGPUVirtualAddress());
+		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 
 		DrawRenderItems(m_CommandList.Get(), m_OpaqueRenderItems);
 		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_CommandList.Get());
@@ -323,22 +324,11 @@ void Renderer::Draw(bool useRaster)
 		desc.Height = m_ClientHeight;
 		desc.Depth = 1;
 
-		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		//	m_OutputResource.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)); // ensure UAV
+		//TransitionIfNeeded(m_CommandList.Get(), m_AccumulationBuffer.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		//TransitionIfNeeded(m_CommandList.Get(), m_NormalTex.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		//TransitionIfNeeded(m_CommandList.Get(), m_DepthTex.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
-		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		//	m_AccumulationBuffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		//	m_NormalTex.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		//	m_DepthTex.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-		if (m_FrameIndex > 1)
-		{
-			TransitionIfNeeded(m_CommandList.Get(), m_AccumulationBuffer.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-			TransitionIfNeeded(m_CommandList.Get(), m_NormalTex.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-			TransitionIfNeeded(m_CommandList.Get(), m_DepthTex.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
-		}
 		m_CommandList->SetPipelineState1(m_RtStateObject.Get());
 		m_CommandList->DispatchRays(&desc);
 
@@ -356,13 +346,13 @@ void Renderer::Draw(bool useRaster)
 		TransitionIfNeeded(m_CommandList.Get(), m_DenoisePing.Get(), pingState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 		TransitionIfNeeded(m_CommandList.Get(), m_DenoisePong.Get(), pongState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
-		const int numPasses = 5;
+		const int numPasses = 4;
 		ID3D12Resource* ping = m_DenoisePing.Get();
 		ID3D12Resource* pong = m_DenoisePong.Get();
 
 
 
-		for (int pass = 0; pass < numPasses; pass++)
+		for (int pass = 0; pass < numPasses; ++pass)
 		{
 			ID3D12Resource* src = nullptr;
 			ID3D12Resource* dest = nullptr;
@@ -375,7 +365,7 @@ void Renderer::Draw(bool useRaster)
 
 				dest = ping;
 				TransitionIfNeeded(m_CommandList.Get(), dest, pingState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-
+				pingState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 			}
 			else if (pass % 2 == 1)
 			{
@@ -405,29 +395,17 @@ void Renderer::Draw(bool useRaster)
 
 			m_CommandList->SetPipelineState(m_DenoisePSO.Get());
 
-
-			//m_CommandList->SetComputeRootShaderResourceView(0, src->GetGPUVirtualAddress());
-			//m_CommandList->SetComputeRootShaderResourceView(1, m_NormalTex->GetGPUVirtualAddress());
-			//m_CommandList->SetComputeRootShaderResourceView(2, m_DepthTex->GetGPUVirtualAddress());
-			//m_CommandList->SetComputeRootUnorderedAccessView(3, dest->GetGPUVirtualAddress());
-
 			heaps = { m_SrvUavHeap.Get() };
 			m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
 
 			m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
 			D3D12_GPU_DESCRIPTOR_HANDLE srvTable = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
-			// Move to the SRV block: accumulation SRV, normal SRV, depth SRV (last three descriptors you created)
-			srvTable.ptr += m_CbvSrvUavDescriptorSize * 9u; // 9 = number of descriptors before SRV block in your CreateShaderResourceHeap
+			m_CommandList->SetComputeRootConstantBufferView(0, m_DenoiseCB->GetGPUVirtualAddress());
+
+			srvTable.ptr += m_CbvSrvUavDescriptorSize * 7u; // 7 = number of descriptors before SRV block in your CreateShaderResourceHeap
 			m_CommandList->SetComputeRootDescriptorTable(1, srvTable);
 
-			// Set UAV table to denoise ping/pong UAVs (the two descriptors created before SRV block)
-			D3D12_GPU_DESCRIPTOR_HANDLE uavTable = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
-			uavTable.ptr += m_CbvSrvUavDescriptorSize * 7u; // 7 = number of descriptors before ping/pong UAVs in your heap
-			m_CommandList->SetComputeRootDescriptorTable(1, uavTable);
 
-			//m_ComputeSrvHandle.ptr += m_CbvSrvUavDescriptorSize * 2u;
-			//m_CommandList->SetComputeRootDescriptorTable(0, m_ComputeSrvHandle);
-			m_CommandList->SetComputeRootConstantBufferView(0, m_DenoiseCB->GetGPUVirtualAddress());
 
 
 
@@ -441,42 +419,42 @@ void Renderer::Draw(bool useRaster)
 		ID3D12Resource* finalDest = (numPasses % 2 == 0) ? ping : pong;
 		D3D12_RESOURCE_STATES finalState = (finalDest == ping) ? pingState : pongState;
 
+		ID3D12Resource* finalHDR = (numPasses == 0)
+			? m_AccumulationBuffer.Get()
+			: (numPasses % 2 == 1 ? m_DenoisePong.Get() : m_DenoisePing.Get());
 
-		TransitionIfNeeded(m_CommandList.Get(), m_PresentUAV.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
-		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST));
-		m_CommandList->CopyResource(CurrentBackBuffer(), m_PresentUAV.Get());
-		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			CurrentBackBuffer(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET));
-		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
-		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_PresentUAV.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	//	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		//	finalHDR, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+	//	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		//	m_PresentUAV.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 	}
-	//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-	//	m_PresentUAV.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-//	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-//		m_PresentUAV.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE));
 
-	/*	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_AccumulationBuffer.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));*/
-			//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			//	m_NormalTex.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-			//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			//	m_DepthTex.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	UINT gx = (m_ClientWidth + 7) / 8;
+	UINT gy = (m_ClientHeight + 7) / 8;
+	m_CommandList->Dispatch(gx, gy, 1);
 
-		//
-		//ImGui::Render();
-		//
-		//ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_CommandList.Get());
+	TransitionIfNeeded(m_CommandList.Get(), m_PresentUAV.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST));
+	m_CommandList->CopyResource(CurrentBackBuffer(), m_PresentUAV.Get());
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		CurrentBackBuffer(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET));
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		m_PresentUAV.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	/*TransitionIfNeeded(m_CommandList.Get(), m_AccumulationBuffer.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	TransitionIfNeeded(m_CommandList.Get(), m_NormalTex.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	TransitionIfNeeded(m_CommandList.Get(), m_DepthTex.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);*/
 
-		//	m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
-		//
-		//	ImGui::Render();
-		//	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_CommandList.Get());
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		m_AccumulationBuffer.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		m_NormalTex.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		m_DepthTex.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 
-	//	std::vector<ID3D12DescriptorHeap*> imguiHeaps = { m_ImGuiSrvHeap.Get() };
 
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 
 	ThrowIfFailed(m_CommandList->Close());
 	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
@@ -488,8 +466,6 @@ void Renderer::Draw(bool useRaster)
 	m_CurrentFrameResource->Fence = ++m_CurrentFence;
 
 	m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence);
-
-	//FlushCommandQueue();
 }
 
 void Renderer::CreateDebugController()
@@ -788,6 +764,7 @@ void Renderer::BuildShadersAndInputLayout()
 	m_VsByteCode = d3dUtil::CompileShader(L"Shaders\\vertex.hlsl", nullptr, "VS", "vs_5_0");
 	m_PsByteCode = d3dUtil::CompileShader(L"Shaders\\pixel.hlsl", nullptr, "PS", "ps_5_0");
 	m_CsByteCode = d3dUtil::CompileShader(L"Shaders\\Denoise.hlsl", nullptr, "CSMain", "cs_5_1");
+	m_CsByteCode2 = d3dUtil::CompileShader(L"Shaders\\Denoise.hlsl", nullptr, "CS", "cs_5_1");
 
 	m_InputLayoutDescs =
 	{
@@ -1519,7 +1496,7 @@ void Renderer::CreateRaytracingOutputBuffer()
 
 void Renderer::CreateShaderResourceHeap()
 {
-	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 12, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 13, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -1590,6 +1567,12 @@ void Renderer::CreateShaderResourceHeap()
 	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
 	uavDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 	m_Device->CreateUnorderedAccessView(m_DenoisePing.Get(), nullptr, &uavDesc, srvHandle);
+
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	uavDesc = {};
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+	uavDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	m_Device->CreateUnorderedAccessView(m_PresentUAV.Get(), nullptr, &uavDesc, srvHandle);
 
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	uavDesc = {};
@@ -1721,28 +1704,16 @@ void Renderer::CreateComputeRootSignature()
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 0); // Denoise constants
 
 	rsc.AddHeapRangesParameter({
-		{0, 3, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 9}, // Input: accumulation, normal, depth
-		{0, 2, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 7}, // Output: denoise ping, denoise pong
+		{0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 10}, // Input: accumulation, normal, depth
+		{1, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 11}, // Input: accumulation, normal, depth
+		{2, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 12}, // Input: accumulation, normal, depth
+		{0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 7}, // Output: denoise ping, denoise pong
+		{1, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 8}, // Output: denoise ping, denoise pong
+		{2, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 9}, // Output: denoise ping, denoise pong
 		});
 
 
 	m_DenoiseRootSignature = rsc.Generate(m_Device.Get(), true);
-
-	//CD3DX12_ROOT_SIGNATURE_DESC computeRootSigDesc(6, slotRootParameter, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-
-	//Microsoft::WRL::ComPtr<ID3DBlob> serializedRootSig = nullptr;
-	//Microsoft::WRL::ComPtr<ID3DBlob> errorBlob = nullptr;
-
-	//HRESULT hr = D3D12SerializeRootSignature(&computeRootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, serializedRootSig.GetAddressOf(), errorBlob.GetAddressOf());
-
-	//if (errorBlob != nullptr)
-	//{
-	//	::OutputDebugStringA((char*)errorBlob->GetBufferPointer());
-	//}
-
-	//ThrowIfFailed(hr);
-
-	//ThrowIfFailed(m_Device->CreateRootSignature(0, serializedRootSig->GetBufferPointer(), serializedRootSig->GetBufferSize(), IID_PPV_ARGS(m_DenoiseRootSignature.GetAddressOf())));
 
 }
 

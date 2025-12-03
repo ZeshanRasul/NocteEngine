@@ -14,6 +14,7 @@ Texture2D<float> Depth : register(t2);
 
 RWTexture2D<float4> PingOut : register(u0);
 RWTexture2D<float4> PongOut : register(u1);
+RWTexture2D<float4> PresentOut : register(u2);
 
 static const float gKernel[5] = { 1.0 / 16.0, 1.0 / 4.0, 3.0 / 8.0, 1.0 / 4.0, 1.0 / 16.0 };
 static const int gOffsets[5] = { -2, -1, 0, 1, 2 };
@@ -85,4 +86,15 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     float3 result = (wsum > 0.0f) ? (sum / wsum) : centerColor.rgb;
 
     PingOut[coord] = float4(result, centerColor.a);
+}
+
+
+[numthreads(32, 32, 1)]
+void CS(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    int2 coord = int2(dispatchThreadId.xy);
+    float3 filteredColor = PingOut[coord].rgb;
+
+    PresentOut[coord] = float4(filteredColor, 1.0);
+
 }
