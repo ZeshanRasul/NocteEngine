@@ -315,7 +315,7 @@ void Renderer::Draw(bool useRaster)
 		m_CommandList->DispatchRays(&desc);
 
 
-		if (true)
+		if (m_FrameIndex != 0 && m_FrameIndex != 1)
 		{
 			D3D12_RESOURCE_BARRIER barriers[3];
 
@@ -336,7 +336,7 @@ void Renderer::Draw(bool useRaster)
 
 			m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 		}
-		else
+		else if (m_FrameIndex != 0 && m_FrameIndex != 1)
 		{
 			D3D12_RESOURCE_BARRIER barriers[3];
 
@@ -361,18 +361,18 @@ void Renderer::Draw(bool useRaster)
 		//ID3D12Resource* ping = m_DenoisePing.Get();
 		//ID3D12Resource* pong = m_DenoisePong.Get();
 
+			ID3D12Resource* src = nullptr;
+			ID3D12Resource* dest = nullptr;
 		const int numPasses = 5;
 
 		for (int pass = 0; pass < numPasses; ++pass)
 		{
-			ID3D12Resource* src = nullptr;
-			ID3D12Resource* dest = nullptr;
 
-			if (pass == 0)
+			if (pass == 0 || pass == 1)
 			{
 				// First pass: read from accumulation, write to ping.
 				src = m_AccumulationBuffer.Get();
-				dest = m_PresentUAV.Get();
+				dest = m_DenoisePing.Get();
 			}
 
 
@@ -421,6 +421,17 @@ void Renderer::Draw(bool useRaster)
 				m_PresentUAV.Get(),
 				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
 				D3D12_RESOURCE_STATE_UNORDERED_ACCESS));*/
+			D3D12_RESOURCE_BARRIER barriers[2];
+			barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+				src,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // or SRV from previous frame
+				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+				dest,
+				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+			m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 
 			m_CommandList->SetPipelineState(m_DenoisePSO.Get());
 			m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
@@ -435,6 +446,10 @@ void Renderer::Draw(bool useRaster)
 			UINT gx = (m_ClientWidth + 7) / 8;
 			UINT gy = (m_ClientHeight + 7) / 8;
 			m_CommandList->Dispatch(gx, gy, 1);
+
+			src = dest;
+			dest = (dest == m_DenoisePing.Get()) ? m_DenoisePong.Get() : m_DenoisePing.Get();
+
 		}
 		{
 			D3D12_RESOURCE_BARRIER barriers[2];
