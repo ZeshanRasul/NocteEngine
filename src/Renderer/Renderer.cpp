@@ -268,7 +268,11 @@ void Renderer::Draw(bool useRaster)
 	m_ScissorRect = { 0, 0, static_cast<long>(m_ClientWidth), static_cast<long>(m_ClientHeight) };
 	m_CommandList->RSSetScissorRects(1, &m_ScissorRect);
 
-	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+	if (m_FrameIndex != 0)
+	{
+		//		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+
+	}
 
 
 	m_CommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
@@ -286,7 +290,7 @@ void Renderer::Draw(bool useRaster)
 		//	auto passCB = m_CurrentFrameResource->PassCB->Resource();
 		//	m_CommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
 		//	m_CommandList->SetGraphicsRootConstantBufferView(3, m_CameraBuffer->GetGPUVirtualAddress());
-		//	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+	//	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 		//
 		//	DrawRenderItems(m_CommandList.Get(), m_OpaqueRenderItems);
 		//	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_CommandList.Get());
@@ -328,7 +332,7 @@ void Renderer::Draw(bool useRaster)
 		m_CommandList->DispatchRays(&desc);
 
 
-		// Raytraced outputs become SRV inputs for the compute denoiser.
+		if (true)
 		{
 			D3D12_RESOURCE_BARRIER barriers[3];
 
@@ -349,99 +353,111 @@ void Renderer::Draw(bool useRaster)
 
 			m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 		}
+		else
+		{
+			D3D12_RESOURCE_BARRIER barriers[3];
+
+			barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+				m_AccumulationBuffer.Get(),
+				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+			barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+				m_NormalTex.Get(),
+				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+			barriers[2] = CD3DX12_RESOURCE_BARRIER::Transition(
+				m_DepthTex.Get(),
+				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+			m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+		}
+
+		ID3D12Resource* ping = m_DenoisePing.Get();
+		ID3D12Resource* pong = m_DenoisePong.Get();
+
+		const int numPasses = 4;
+
+		for (int pass = 0; pass < numPasses; ++pass)
+		{
+			ID3D12Resource* src = nullptr;
+			ID3D12Resource* dest = nullptr;
+
+			if (pass == 0)
+			{
+				// First pass: read from accumulation, write to ping.
+				src = m_AccumulationBuffer.Get();
+				dest = ping;
+			}
+			else if (pass % 2 == 1)
+			{
+				// Odd passes: ping -> pong
+				src = ping;
+				dest = pong;
+			}
+			else
+			{
+				// Even passes > 0: pong -> ping
+				src = pong;
+				dest = ping;
+			}
+
+			// Transition src to SRV, dest to UAV (explicit, no guessing)
+			if (m_FrameIndex == 0)
+			{
+				D3D12_RESOURCE_BARRIER barriers[2];
+				int barrierCount = 0;
+
+				// src: whatever it currently is, we want NON_PIXEL_SHADER_RESOURCE
+				barriers[barrierCount++] = CD3DX12_RESOURCE_BARRIER::Transition(
+					src,
+					D3D12_RESOURCE_STATE_UNORDERED_ACCESS,        // we EXPECT last state to be UAV
+					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+
+				// dest: whatever it currently is, we want UAV
+				barriers[barrierCount++] = CD3DX12_RESOURCE_BARRIER::Transition(
+					dest,
+					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, // we EXPECT last state to be SRV
+					D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+				m_CommandList->ResourceBarrier(barrierCount, barriers);
+			}
+			else
+			{
+				D3D12_RESOURCE_BARRIER barriers[2];
+				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+					src,
+					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+					D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+					dest,
+					D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+			}
 
 
-		//D3D12_RESOURCE_STATES pingState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS; // created as UAV
-		//D3D12_RESOURCE_STATES pongState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS; // created as UAV
 
-		//ID3D12Resource* ping = m_DenoisePing.Get();
-		//ID3D12Resource* pong = m_DenoisePong.Get();
+			m_CommandList->SetPipelineState(m_DenoisePSO.Get());
+			m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
+			m_CommandList->SetDescriptorHeaps(1, m_SrvUavHeap.GetAddressOf());
 
-		//const int numPasses = 5;
+			m_ComputeSrvHandle = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
+			m_CommandList->SetComputeRootConstantBufferView(2, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
+			m_CommandList->SetComputeRootDescriptorTable(0, m_ComputeSrvHandle);
+			m_CommandList->SetComputeRootDescriptorTable(1, m_ComputeSrvHandle);
 
-		//for (int pass = 0; pass < numPasses; ++pass)
-		//{
-		//	ID3D12Resource* src = nullptr;
-		//	ID3D12Resource* dest = nullptr;
+			if (pass == numPasses - 1)
+			{
+				dest = m_PresentUAV.Get();
+			}
 
-		//	if (pass == 0)
-		//	{
-		//		// First pass: read from accumulation, write to ping.
-		//		src = m_AccumulationBuffer.Get();
-		//		dest = ping;
-		//	}
-		//	else if (pass % 2 == 1)
-		//	{
-		//		// Odd passes: ping -> pong
-		//		src = ping;
-		//		dest = pong;
-		//	}
-		//	else
-		//	{
-		//		// Even passes > 0: pong -> ping
-		//		src = pong;
-		//		dest = ping;
-		//	}
-
-		//	// Transition src to SRV, dest to UAV (explicit, no guessing)
-		//	{
-		//		D3D12_RESOURCE_BARRIER barriers[2];
-		//		int barrierCount = 0;
-
-		//		// src: whatever it currently is, we want NON_PIXEL_SHADER_RESOURCE
-		//		barriers[barrierCount++] = CD3DX12_RESOURCE_BARRIER::Transition(
-		//			src,
-		//			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,        // we EXPECT last state to be UAV
-		//			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-
-		//		// dest: whatever it currently is, we want UAV
-		//		barriers[barrierCount++] = CD3DX12_RESOURCE_BARRIER::Transition(
-		//			dest,
-		//			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, // we EXPECT last state to be SRV
-		//			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-
-			//	m_CommandList->ResourceBarrier(barrierCount, barriers);
-		//	}
-
-		//D3D12_RESOURCE_BARRIER barriers[1];
-		//int barrierCount = 1;
-		//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-		//	m_AccumulationBuffer.Get(),
-		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-		//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-
-		//m_CommandList->ResourceBarrier(barrierCount, barriers);
-
-
-			// Bind correct SRV/UAV descriptor ranges here.
-			// (Make sure SRVs and UAVs use different root indices!)
-
-		m_CommandList->SetPipelineState(m_DenoisePSO.Get());
-		m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
-		m_CommandList->SetDescriptorHeaps(1, m_SrvUavHeap.GetAddressOf());
-
-		// Example: slot 0 = CBV, 1 = SRV table, 2 = UAV table
-//		m_CommandList->SetComputeRootConstantBufferView(0, m_DenoiseCB->GetGPUVirtualAddress());
-		m_ComputeSrvHandle = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
-		// Offset computeSrvHandle to point at SRVs for [src, normal, depth] etc.
-	//	m_ComputeSrvHandle.ptr += m_CbvSrvUavDescriptorSize * 10;
-		m_CommandList->SetComputeRootDescriptorTable(0, m_ComputeSrvHandle);
-		m_CommandList->SetComputeRootDescriptorTable(1, m_ComputeSrvHandle);
-
-		//	D3D12_GPU_DESCRIPTOR_HANDLE srvTable = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
-			// Offset srvTable to point at SRVs for [src, normal, depth] etc.
-		//	srvTable.ptr += m_CbvSrvUavDescriptorSize * 7;
-		//	m_CommandList->SetComputeRootDescriptorTable(1, srvTable);
-
-
-		UINT gx = (m_ClientWidth + 7) / 8;
-		UINT gy = (m_ClientHeight + 7) / 8;
-		m_CommandList->Dispatch(gx, gy, 1);
-		//	}
-
-		//	ID3D12Resource* finalDest = (numPasses % 2 == 0) ? ping : pong;
-
-			// finalDest -> PresentUAV
+			UINT gx = (m_ClientWidth + 7) / 8;
+			UINT gy = (m_ClientHeight + 7) / 8;
+			m_CommandList->Dispatch(gx, gy, 1);
+		}
 		{
 			D3D12_RESOURCE_BARRIER barriers[2];
 
@@ -452,7 +468,7 @@ void Renderer::Draw(bool useRaster)
 
 			barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
 				CurrentBackBuffer(),
-				D3D12_RESOURCE_STATE_RENDER_TARGET,
+				D3D12_RESOURCE_STATE_PRESENT,
 				D3D12_RESOURCE_STATE_COPY_DEST);
 
 			m_CommandList->ResourceBarrier(_countof(barriers), barriers);
@@ -460,23 +476,15 @@ void Renderer::Draw(bool useRaster)
 
 		m_CommandList->CopyResource(CurrentBackBuffer(), m_PresentUAV.Get());
 
-		// Make PresentUAV a COPY_SOURCE for the backbuffer copy:
 		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 			m_PresentUAV.Get(),
 			D3D12_RESOURCE_STATE_COPY_SOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-
-		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		//	CurrentBackBuffer(),
-		//	D3D12_RESOURCE_STATE_COPY_DEST,
-		//	D3D12_RESOURCE_STATE_RENDER_TARGET));
-
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
 
 		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 			CurrentBackBuffer(),
 			D3D12_RESOURCE_STATE_COPY_DEST,
 			D3D12_RESOURCE_STATE_PRESENT));
-
 		{
 			D3D12_RESOURCE_BARRIER barriers[3];
 
@@ -498,22 +506,20 @@ void Renderer::Draw(bool useRaster)
 			m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 		}
 
+
+
+		ThrowIfFailed(m_CommandList->Close());
+		ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
+		m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+
+		ThrowIfFailed(m_SwapChain->Present(0, 0));
+		m_CurrentBackBuffer = (m_CurrentBackBuffer + 1) % SwapChainBufferCount;
+
+		m_CurrentFrameResource->Fence = ++m_CurrentFence;
+
+		m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence);
 	}
-
-
-
-	ThrowIfFailed(m_CommandList->Close());
-	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
-	m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
-
-	ThrowIfFailed(m_SwapChain->Present(0, 0));
-	m_CurrentBackBuffer = (m_CurrentBackBuffer + 1) % SwapChainBufferCount;
-
-	m_CurrentFrameResource->Fence = ++m_CurrentFence;
-
-	m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence);
 }
-
 void Renderer::CreateDebugController()
 {
 	ThrowIfFailed(D3D12GetDebugInterface(IID_PPV_ARGS(&m_DebugController)));
@@ -1649,7 +1655,7 @@ void Renderer::CreateShaderResourceHeap()
 	srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
 	m_Device->CreateShaderResourceView(m_DepthTex.Get(), &srvDesc, srvHandle);
 
-//	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	//	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 }
 
 void Renderer::CreateAccumulationBuffer()
@@ -1755,16 +1761,17 @@ void Renderer::CreateComputeRootSignature()
 	//	{0, 3, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 10}, // Input: accumulation, normal, depth
 	//	});
 	CD3DX12_DESCRIPTOR_RANGE table = {};
-	table.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, 9);
+	table.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 3, 0, 0, 7);
 	CD3DX12_DESCRIPTOR_RANGE table2 = {};
-	table2.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, 10);
+	table2.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0, 0, 10);
 
-	CD3DX12_ROOT_PARAMETER slotRootParameter[2];
+	CD3DX12_ROOT_PARAMETER slotRootParameter[3];
 	slotRootParameter[0].InitAsDescriptorTable(1, &table);
 	slotRootParameter[1].InitAsDescriptorTable(1, &table2);
+	slotRootParameter[2].InitAsConstantBufferView(0);
 
 
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(2, slotRootParameter,
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(3, slotRootParameter,
 		0, nullptr,
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
