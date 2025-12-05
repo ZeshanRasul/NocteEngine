@@ -23,8 +23,8 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     PresentOut.GetDimensions(width, height);
 
     uint2 coord = dispatchThreadId.xy;
-    if (coord.x >= width || coord.y >= height)
-        return;
+  //  if (coord.x >= width || coord.y >= height)
+    //    return;
 
     // Simple debug: magenta
     PresentOut[coord] = float4(1, 0, 1, 1);

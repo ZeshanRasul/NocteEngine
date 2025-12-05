@@ -424,7 +424,7 @@ void Renderer::Draw(bool useRaster)
 	//		m_CommandList->SetComputeRootConstantBufferView(0, m_DenoiseCB->GetGPUVirtualAddress());
 			m_ComputeSrvHandle = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
 			// Offset computeSrvHandle to point at SRVs for [src, normal, depth] etc.
-			m_ComputeSrvHandle.ptr += m_CbvSrvUavDescriptorSize * 9;
+		//	m_ComputeSrvHandle.ptr += m_CbvSrvUavDescriptorSize * 10;
 			m_CommandList->SetComputeRootDescriptorTable(0, m_ComputeSrvHandle);
 
 		//	D3D12_GPU_DESCRIPTOR_HANDLE srvTable = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
@@ -465,15 +465,15 @@ void Renderer::Draw(bool useRaster)
 			D3D12_RESOURCE_STATE_COPY_SOURCE,
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 
+		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		//	CurrentBackBuffer(),
+		//	D3D12_RESOURCE_STATE_COPY_DEST,
+		//	D3D12_RESOURCE_STATE_RENDER_TARGET));
+
+
 		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 			CurrentBackBuffer(),
 			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_RENDER_TARGET));
-
-
-		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			CurrentBackBuffer(),
-			D3D12_RESOURCE_STATE_RENDER_TARGET,
 			D3D12_RESOURCE_STATE_PRESENT));
 
 		{
