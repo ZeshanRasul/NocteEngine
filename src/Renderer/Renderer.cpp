@@ -215,12 +215,12 @@ void Renderer::Update(float dt, Camera& cam)
 		CloseHandle(eventHandle);
 	}
 
-//	m_AnimationCounter++;
-//	m_Instances[1].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / 1000.0f);
-//	m_Instances[2].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(10.0f, -10.0f, 0.0f);;
-//	m_Instances[3].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(-10.0f, -10.0f, 0.0f);;
+	//	m_AnimationCounter++;
+	//	m_Instances[1].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / 1000.0f);
+	//	m_Instances[2].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(10.0f, -10.0f, 0.0f);;
+	//	m_Instances[3].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(-10.0f, -10.0f, 0.0f);;
 
-	//	UpdateCameraBuffer();
+		//	UpdateCameraBuffer();
 	UpdateDenoiseConstantBuffer(m_DenoiseStep++);
 	UpdateFrameIndexRNGCBuffer();
 	UpdateObjectCBs();
@@ -276,27 +276,27 @@ void Renderer::Draw(bool useRaster)
 	if (useRaster)
 	{
 
-	//	std::vector<ID3D12DescriptorHeap*> heaps = { m_SrvUavHeap.Get() };
-	//	m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
-	//
-	//	m_CommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
-	//	m_CommandList->ClearRenderTargetView(CurrentBackBufferView(), DirectX::Colors::LightSteelBlue, 0, nullptr);
-	//	m_CommandList->SetGraphicsRootSignature(m_RootSignature.Get());
-	//
-	//	auto passCB = m_CurrentFrameResource->PassCB->Resource();
-	//	m_CommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
-	//	m_CommandList->SetGraphicsRootConstantBufferView(3, m_CameraBuffer->GetGPUVirtualAddress());
-	//	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
-	//
-	//	DrawRenderItems(m_CommandList.Get(), m_OpaqueRenderItems);
-	//	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_CommandList.Get());
+		//	std::vector<ID3D12DescriptorHeap*> heaps = { m_SrvUavHeap.Get() };
+		//	m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
+		//
+		//	m_CommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+		//	m_CommandList->ClearRenderTargetView(CurrentBackBufferView(), DirectX::Colors::LightSteelBlue, 0, nullptr);
+		//	m_CommandList->SetGraphicsRootSignature(m_RootSignature.Get());
+		//
+		//	auto passCB = m_CurrentFrameResource->PassCB->Resource();
+		//	m_CommandList->SetGraphicsRootConstantBufferView(2, passCB->GetGPUVirtualAddress());
+		//	m_CommandList->SetGraphicsRootConstantBufferView(3, m_CameraBuffer->GetGPUVirtualAddress());
+		//	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+		//
+		//	DrawRenderItems(m_CommandList.Get(), m_OpaqueRenderItems);
+		//	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_CommandList.Get());
 
-		//	m_CommandList->IASetVertexBuffers(0, 1, &m_PlaneBufferView);
-		//	m_CommandList->DrawInstanced(6, 1, 0, 0);
+			//	m_CommandList->IASetVertexBuffers(0, 1, &m_PlaneBufferView);
+			//	m_CommandList->DrawInstanced(6, 1, 0, 0);
 	}
 	else
 	{
-//		CreateTopLevelAS(m_Instances, true);
+		//		CreateTopLevelAS(m_Instances, true);
 
 		std::vector<ID3D12DescriptorHeap*> heaps = { m_SrvUavHeap.Get() };
 		m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
@@ -402,7 +402,7 @@ void Renderer::Draw(bool useRaster)
 
 			//	m_CommandList->ResourceBarrier(barrierCount, barriers);
 		//	}
-			
+
 		//D3D12_RESOURCE_BARRIER barriers[1];
 		//int barrierCount = 1;
 		//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -411,21 +411,22 @@ void Renderer::Draw(bool useRaster)
 		//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
 		//m_CommandList->ResourceBarrier(barrierCount, barriers);
-		
-		
+
+
 			// Bind correct SRV/UAV descriptor ranges here.
 			// (Make sure SRVs and UAVs use different root indices!)
 
+		m_CommandList->SetPipelineState(m_DenoisePSO.Get());
+		m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
 		m_CommandList->SetDescriptorHeaps(1, m_SrvUavHeap.GetAddressOf());
-			m_CommandList->SetPipelineState(m_DenoisePSO.Get());
-			m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
 
-			// Example: slot 0 = CBV, 1 = SRV table, 2 = UAV table
-	//		m_CommandList->SetComputeRootConstantBufferView(0, m_DenoiseCB->GetGPUVirtualAddress());
-			m_ComputeSrvHandle = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
-			// Offset computeSrvHandle to point at SRVs for [src, normal, depth] etc.
-		//	m_ComputeSrvHandle.ptr += m_CbvSrvUavDescriptorSize * 10;
-			m_CommandList->SetComputeRootDescriptorTable(0, m_ComputeSrvHandle);
+		// Example: slot 0 = CBV, 1 = SRV table, 2 = UAV table
+//		m_CommandList->SetComputeRootConstantBufferView(0, m_DenoiseCB->GetGPUVirtualAddress());
+		m_ComputeSrvHandle = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
+		// Offset computeSrvHandle to point at SRVs for [src, normal, depth] etc.
+	//	m_ComputeSrvHandle.ptr += m_CbvSrvUavDescriptorSize * 10;
+		m_CommandList->SetComputeRootDescriptorTable(0, m_ComputeSrvHandle);
+		m_CommandList->SetComputeRootDescriptorTable(1, m_ComputeSrvHandle);
 
 		//	D3D12_GPU_DESCRIPTOR_HANDLE srvTable = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
 			// Offset srvTable to point at SRVs for [src, normal, depth] etc.
@@ -433,14 +434,14 @@ void Renderer::Draw(bool useRaster)
 		//	m_CommandList->SetComputeRootDescriptorTable(1, srvTable);
 
 
-			UINT gx = (m_ClientWidth + 7) / 8;
-			UINT gy = (m_ClientHeight + 7) / 8;
-			m_CommandList->Dispatch(gx, gy, 1);
-	//	}
+		UINT gx = (m_ClientWidth + 7) / 8;
+		UINT gy = (m_ClientHeight + 7) / 8;
+		m_CommandList->Dispatch(gx, gy, 1);
+		//	}
 
-	//	ID3D12Resource* finalDest = (numPasses % 2 == 0) ? ping : pong;
+		//	ID3D12Resource* finalDest = (numPasses % 2 == 0) ? ping : pong;
 
-		// finalDest -> PresentUAV
+			// finalDest -> PresentUAV
 		{
 			D3D12_RESOURCE_BARRIER barriers[2];
 
@@ -1755,12 +1756,15 @@ void Renderer::CreateComputeRootSignature()
 	//	});
 	CD3DX12_DESCRIPTOR_RANGE table = {};
 	table.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, 9);
+	CD3DX12_DESCRIPTOR_RANGE table2 = {};
+	table2.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, 10);
 
-	CD3DX12_ROOT_PARAMETER slotRootParameter[1];
+	CD3DX12_ROOT_PARAMETER slotRootParameter[2];
 	slotRootParameter[0].InitAsDescriptorTable(1, &table);
+	slotRootParameter[1].InitAsDescriptorTable(1, &table2);
 
 
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(1, slotRootParameter,
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(2, slotRootParameter,
 		0, nullptr,
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
