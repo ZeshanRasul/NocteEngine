@@ -85,7 +85,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     float3 result = (wsum > 0.0f) ? (sum / wsum) : centerColor.rgb;
 
-    PresentOut[coord] = float4(result, 1.0);
+    PresentOut[coord] = float4(result, centerColor.a);
   //  PingOut[coord] = float4(result, centerColor.a);
 }
 
