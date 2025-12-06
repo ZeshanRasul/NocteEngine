@@ -219,6 +219,7 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_DenoisePing;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_DenoisePong;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_DenoiseCB;
+	ID3D12Resource* m_FinalDenoiseBuffer = m_AccumulationBuffer.Get();
 
 	void CreateComputeRootSignature();
 	void CreateComputePipelineStateObjects();

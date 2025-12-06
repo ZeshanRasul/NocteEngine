@@ -81,6 +81,12 @@ void RayGen()
 
     float3 finalRadiance = 0.0f;
 
+    // Capture first-hit guides for denoising
+    float3 primaryNormal = float3(0, 0, 1);
+    float primaryDepth = 1.0f;
+    bool primarySet = false;
+
+    
     const int MaxBounces = 8;
 
     for (int bounce = 0; bounce < MaxBounces; ++bounce)
@@ -103,6 +109,14 @@ void RayGen()
 
         // If the ray missed or we decided to stop, accumulate emission and break
         finalRadiance += payload.throughput * payload.emission;
+        
+          // Store first-hit normal/depth once
+        if (!primarySet)
+        {
+            primaryNormal = payload.normal; // in [-1,1]
+            primaryDepth = length(payload.hitPos - gEyePosW); // world units
+            primarySet = true;
+        }
         
         if (payload.done != 0)
             break;
@@ -143,9 +157,12 @@ void RayGen()
     
     gAccumBuf[launchIndex] = lerp(prev, current, a);
     
-    gNormal[launchIndex] = float4(payload.normal, 1.0f);
-    float d = float(length(payload.hitPos - gEyePosW));
-    gDepth[launchIndex] = saturate(d / gFarZ);
+    float3 nEncoded = primarySet ? (primaryNormal * 0.5f + 0.5f) : float3(0.5f, 0.5f, 1.0f);
+    gNormal[launchIndex] = float4(nEncoded, 1.0f);
+    
+    // Linear depth normalized to [0,1]
+    float d = primarySet ? (primaryDepth / gFarZ) : 1.0f;
+    gDepth[launchIndex] = saturate(d);
     
     gOutput[launchIndex] = gAccumBuf[launchIndex];
 }

@@ -223,7 +223,6 @@ void Renderer::Update(float dt, Camera& cam)
 	//	m_Instances[3].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(-10.0f, -10.0f, 0.0f);;
 
 		//	UpdateCameraBuffer();
-	UpdateDenoiseConstantBuffer(m_DenoiseStep++);
 	UpdateFrameIndexRNGCBuffer();
 	UpdateObjectCBs();
 	UpdateMainPassCB();
@@ -353,20 +352,14 @@ void Renderer::Draw(bool useRaster)
 
 		for (int pass = 0; pass < numPasses; ++pass)
 		{
+			UpdateDenoiseConstantBuffer(1);
+
 
 			if (pass == 0)
 			{
 				// First pass: read from accumulation, write to ping.
-				src = m_AccumulationBuffer.Get();
+				src = m_FinalDenoiseBuffer;
 				dest = m_DenoisePing.Get();
-
-				//D3D12_RESOURCE_BARRIER barriers[1];
-
-				//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-				//	dest,
-				//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-				//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				//m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 
 
 			}
@@ -407,6 +400,8 @@ void Renderer::Draw(bool useRaster)
 					D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // or SRV from previous frame
 					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 				m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+
+				m_FinalDenoiseBuffer = dest;
 			}
 
 
@@ -1843,23 +1838,38 @@ void Renderer::CreateDenoiseConstantBuffer()
 	m_DenoiseCB->Unmap(0, nullptr);
 }
 
+// Plan (pseudocode):
+// - Reduce blurring by making edge thresholds tighter for larger kernels.
+// - Keep sigmaColor modest to fight noise, but avoid over-smoothing.
+// - Scale sigmaNormal and sigmaDepth inversely with stepWidth to preserve silhouettes and geometry edges.
+// - Clamp sigmas to sensible minimums to avoid zeroing weights.
+// - Pass unchanged: stepWidth = 1 << pass, invResolution from PassConstants.
+
 void Renderer::UpdateDenoiseConstantBuffer(int step)
 {
+	// Step-aware gating (1 pass by default)
+	const float invStep = 1.0f / float(std::max(1, step));
+	const float minScale = 0.25f;
+	const float scale = std::max(invStep, minScale);
+
+	// These work well with exp(-diff * sigma)
+	const float baseSigmaColor = 18.0f;  // higher -> stronger edge stop by color
+	const float baseSigmaNormal = 40.0f;  // diff = 1 - dot(N0,Ni) in [0,1]
+	const float baseSigmaDepth = 60.0f;  // depth is normalized [0,1]
+
 	DenoiseConstants denoiseConstants = {};
-	denoiseConstants.sigmaColor = 2.0f;
-	denoiseConstants.sigmaNormal = 128.0f;
-	denoiseConstants.sigmaDepth = 1.0f;
-	denoiseConstants.stepWidth = step;
-	denoiseConstants.invResolution = { 0.0f, 0.0f };
+	denoiseConstants.sigmaColor = baseSigmaColor;
+	denoiseConstants.sigmaNormal = baseSigmaNormal * scale;
+	denoiseConstants.sigmaDepth = baseSigmaDepth * scale;
+	denoiseConstants.stepWidth = step; // 1
+	denoiseConstants.invResolution = m_MainPassCB.InvRenderTargetSize;
 	denoiseConstants.Pad = { 0.0f, 0.0f };
 
-	const uint32_t bufferSize = sizeof(DenoiseConstants);
-
-	uint8_t* pData;
-	m_DenoiseCB->Map(0, nullptr, (void**)&pData);
-	memcpy(pData, &denoiseConstants, bufferSize);
-	m_DenoiseCB->Unmap(0, nullptr);
-
+    const uint32_t bufferSize = sizeof(DenoiseConstants);
+    uint8_t* pData = nullptr;
+    m_DenoiseCB->Map(0, nullptr, reinterpret_cast<void**>(&pData));
+    memcpy(pData, &denoiseConstants, bufferSize);
+    m_DenoiseCB->Unmap(0, nullptr);
 }
 
 void Renderer::CreateShaderBindingTable()

@@ -24,11 +24,16 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
     int2 coord = int2(dispatchThreadId.xy);
 
+    int2 dim;
+    Accumulation.GetDimensions(dim.x, dim.y);
+    if (coord.x < 0 || coord.y < 0 || coord.x >= dim.x || coord.y >= dim.y)
+        return;
+    
     float4 centerColor = Accumulation[coord];
     float4 centerN = Normal[coord];
     float centerDepth = Depth[coord];
 
-    // Decode normal from [0,1] back to [-1,1]
+    // We stored normals encoded to [0,1]; decode to [-1,1]
     float3 N0 = normalize(centerN.xyz * 2.0f - 1.0f);
     float Z0 = centerDepth;
 
@@ -47,10 +52,6 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
             int2 off = int2(gOffsets[i], gOffsets[j]) * gStepSize;
             int2 p = coord + off;
 
-            // Clamp to screen
-            // (you can also early-continue if outside)
-            int2 dim;
-            Accumulation.GetDimensions(dim.x, dim.y);
             if (p.x < 0 || p.y < 0 || p.x >= dim.x || p.y >= dim.y)
                 continue;
 
