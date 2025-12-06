@@ -12,7 +12,8 @@ struct DenoiseConstants
 	float sigmaDepth = 1.0f;
 	int stepWidth = 1;
 	XMFLOAT2 invResolution = { 0.0f, 0.0f };
-	XMFLOAT2 Pad = { 0.0f, 0.0f };
+	int pass = 0;
+	int pad = 0;
 
 };
 

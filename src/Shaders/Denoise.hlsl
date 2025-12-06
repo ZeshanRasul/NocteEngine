@@ -5,12 +5,13 @@ cbuffer DenoiseParams : register(b0)
     float gDepthSigma;
     int gStepSize;
     float2 invResolution;
-    float2 Pad;
+    int passNum;
+    int pad;
 }
 
 Texture2D<float4> Accumulation : register(t0);
 Texture2D<float4> Normal : register(t1);
-Texture2D<float> Depth : register(t2);  
+Texture2D<float> Depth : register(t2);
 
 RWTexture2D<float4> PingOut : register(u0);
 RWTexture2D<float4> PongOut : register(u1);
@@ -86,8 +87,30 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     float3 result = (wsum > 0.0f) ? (sum / wsum) : centerColor.rgb;
 
-    PresentOut[coord] = float4(result, centerColor.a);
-    PingOut[coord] = float4(result, centerColor.a);
-    PongOut[coord] = float4(result, centerColor.a);
+    if (passNum == 0)
+    {
+        // First pass: just write to Ping and Present
+        PresentOut[coord] = float4(result, centerColor.a);
+        PingOut[coord] = float4(result, centerColor.a);
+        return;
+    };
+    if (passNum % 2 == 1)
+    {
+        // Odd pass: read from Ping, write to Pong and Present
+        PresentOut[coord] = float4(result, centerColor.a);
+        PongOut[coord] = float4(result, centerColor.a);
+        return;
+    }
+    
+    if (passNum % 2 == 0)
+    {
+        // Even pass: read from Pong, write to Ping and Present
+        PresentOut[coord] = float4(result, centerColor.a);
+        PingOut[coord] = float4(result, centerColor.a);
+        return;
+    }
+   // PresentOut[coord] = float4(result, centerColor.a);
+   // PingOut[coord] = float4(result, centerColor.a);
+   // PongOut[coord] = float4(result, centerColor.a);
 }
 

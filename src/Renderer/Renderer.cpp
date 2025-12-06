@@ -84,7 +84,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	//nv_helpers_dx12::Manipulator::Singleton().setLookat(glm::vec3(0.0f, 1.0f, -27.0f), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 
 #if defined(DEBUG) || defined(_DEBUG)
-	CreateDebugController();
+//	CreateDebugController();
 #endif
 	ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&m_DxgiFactory)));
 
@@ -324,6 +324,34 @@ void Renderer::Draw(bool useRaster)
 		{
 			hasViewChanged = true;
 		}
+		if (m_FrameIndex != 1)
+		{
+			D3D12_RESOURCE_BARRIER barriers[2];
+			barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+				m_AccumulationBuffer.Get(),
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+				D3D12_RESOURCE_STATE_COPY_DEST);
+			barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+				m_FinalDenoiseBuffer,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+				D3D12_RESOURCE_STATE_COPY_SOURCE);
+			m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+
+			m_CommandList->CopyResource(m_AccumulationBuffer.Get(), m_FinalDenoiseBuffer);
+			
+			D3D12_RESOURCE_BARRIER barriers2[2];
+			barriers2[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+				m_AccumulationBuffer.Get(),
+				D3D12_RESOURCE_STATE_COPY_DEST,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			barriers2[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+				m_FinalDenoiseBuffer,
+				D3D12_RESOURCE_STATE_COPY_SOURCE,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+			m_CommandList->ResourceBarrier(_countof(barriers2), barriers2);
+
+		}
 
 		if (m_PrevCamPos.x != m_EyePos.x || m_PrevCamPos.y != m_EyePos.y || m_PrevCamPos.z != m_EyePos.z || hasViewChanged)
 		{
@@ -378,7 +406,7 @@ void Renderer::Draw(bool useRaster)
 
 		for (int pass = 0; pass < numPasses; ++pass)
 		{
-			UpdateDenoiseConstantBuffer(1 << pass);
+			UpdateDenoiseConstantBuffer(1 << pass, pass);
 
 
 			if (pass == 0)
@@ -435,12 +463,15 @@ void Renderer::Draw(bool useRaster)
 			m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
 			m_CommandList->SetDescriptorHeaps(1, m_SrvUavHeap.GetAddressOf());
 
-			m_ComputeSrvHandle = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
-			m_CommandList->SetComputeRootConstantBufferView(2, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
-			m_CommandList->SetComputeRootDescriptorTable(0, m_ComputeSrvHandle);
-			m_CommandList->SetComputeRootDescriptorTable(1, m_ComputeSrvHandle);
+			const auto heapStart = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
 
-	
+			const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, 7, m_CbvSrvUavDescriptorSize);
+			m_CommandList->SetComputeRootConstantBufferView(2, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
+			m_CommandList->SetComputeRootDescriptorTable(0, heapStart);
+			const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, 10, m_CbvSrvUavDescriptorSize);
+			m_CommandList->SetComputeRootDescriptorTable(1, heapStart);
+
+
 
 			UINT gx = (m_ClientWidth + 7) / 8;
 			UINT gy = (m_ClientHeight + 7) / 8;
@@ -1558,8 +1589,8 @@ void Renderer::CreateShaderResourceCPUHeap()
 	m_SrvUavCPUHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 1, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, false);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavCPUHeap->GetCPUDescriptorHandleForHeapStart();
-	
-	
+
+
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
 	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
 	m_AccumulationBuffer->SetName(L"Accumulation Buffer CPU UAV");
@@ -1865,7 +1896,8 @@ void Renderer::CreateDenoiseConstantBuffer()
 	denoiseConstants.sigmaDepth = 2.0f;
 	denoiseConstants.stepWidth = 1;
 	denoiseConstants.invResolution = { 0.0f, 0.0f };
-	denoiseConstants.Pad = { 0.0f, 0.0f };
+	denoiseConstants.pass = 0;
+	denoiseConstants.pad = 0;
 
 	const uint32_t bufferSize = sizeof(DenoiseConstants);
 
@@ -1881,15 +1913,15 @@ void Renderer::CreateDenoiseConstantBuffer()
 	m_DenoiseCB->Unmap(0, nullptr);
 }
 
-void Renderer::UpdateDenoiseConstantBuffer(int step)
+void Renderer::UpdateDenoiseConstantBuffer(int step, int pass)
 {
 	const float invStep = 1.0f / float(std::max(1, step));
 	const float minScale = 0.25f;
 	const float scale = std::max(invStep, minScale);
 
-	const float baseSigmaColor = 18.0f;  
-	const float baseSigmaNormal = 40.0f; 
-	const float baseSigmaDepth = 60.0f;  
+	const float baseSigmaColor = 6.0f;
+	const float baseSigmaNormal = 20.0f;
+	const float baseSigmaDepth = 40.0f;
 
 	DenoiseConstants denoiseConstants = {};
 	denoiseConstants.sigmaColor = baseSigmaColor;
@@ -1897,13 +1929,14 @@ void Renderer::UpdateDenoiseConstantBuffer(int step)
 	denoiseConstants.sigmaDepth = baseSigmaDepth * scale;
 	denoiseConstants.stepWidth = step; // 1
 	denoiseConstants.invResolution = m_MainPassCB.InvRenderTargetSize;
-	denoiseConstants.Pad = { 0.0f, 0.0f };
+	denoiseConstants.pass = pass;
+	denoiseConstants.pad = 0;
 
-    const uint32_t bufferSize = sizeof(DenoiseConstants);
-    uint8_t* pData = nullptr;
-    m_DenoiseCB->Map(0, nullptr, reinterpret_cast<void**>(&pData));
-    memcpy(pData, &denoiseConstants, bufferSize);
-    m_DenoiseCB->Unmap(0, nullptr);
+	const uint32_t bufferSize = sizeof(DenoiseConstants);
+	uint8_t* pData = nullptr;
+	m_DenoiseCB->Map(0, nullptr, reinterpret_cast<void**>(&pData));
+	memcpy(pData, &denoiseConstants, bufferSize);
+	m_DenoiseCB->Unmap(0, nullptr);
 }
 
 void Renderer::CreateShaderBindingTable()

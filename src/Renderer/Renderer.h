@@ -245,7 +245,7 @@ private:
 	int m_DenoiseStep = 1;
 
 	void CreateDenoiseConstantBuffer();
-	void UpdateDenoiseConstantBuffer(int step);
+	void UpdateDenoiseConstantBuffer(int step, int pass);
 
 	void CreateShaderBindingTable();
 
