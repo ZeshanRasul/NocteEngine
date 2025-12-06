@@ -349,24 +349,24 @@ void Renderer::Draw(bool useRaster)
 
 		ID3D12Resource* src = nullptr;
 		ID3D12Resource* dest = nullptr;
-		const int numPasses = 5;
+		const int numPasses = 4;
 
 		for (int pass = 0; pass < numPasses; ++pass)
 		{
 
-			if (pass == 0 || pass == 1)
+			if (pass == 0)
 			{
 				// First pass: read from accumulation, write to ping.
 				src = m_AccumulationBuffer.Get();
 				dest = m_DenoisePing.Get();
 
-				D3D12_RESOURCE_BARRIER barriers[1];
+				//D3D12_RESOURCE_BARRIER barriers[1];
 
-				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-					dest,
-					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-					D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+				//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+				//	dest,
+				//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+				//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				//m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 
 
 			}
@@ -377,18 +377,23 @@ void Renderer::Draw(bool useRaster)
 				src = (dest == m_DenoisePing.Get()) ? m_DenoisePing.Get() : m_DenoisePong.Get();
 				dest = (dest == m_DenoisePing.Get()) ? m_DenoisePong.Get() : m_DenoisePing.Get();
 
-				D3D12_RESOURCE_BARRIER barriers[2];
+				D3D12_RESOURCE_BARRIER barriers[1];
 				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
 					src,
 					D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // or SRV from previous frame
 					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-
-
-				barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
-					dest,
-					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-					D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 				m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+
+				if (pass != 1)
+				{
+					D3D12_RESOURCE_BARRIER barriers[1];
+					barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+						dest,
+						D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+						D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+					m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+				}
+
 
 			}
 			else
@@ -405,85 +410,101 @@ void Renderer::Draw(bool useRaster)
 			}
 
 
-		m_CommandList->SetPipelineState(m_DenoisePSO.Get());
-		m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
-		m_CommandList->SetDescriptorHeaps(1, m_SrvUavHeap.GetAddressOf());
+			m_CommandList->SetPipelineState(m_DenoisePSO.Get());
+			m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
+			m_CommandList->SetDescriptorHeaps(1, m_SrvUavHeap.GetAddressOf());
 
-		m_ComputeSrvHandle = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
-		m_CommandList->SetComputeRootConstantBufferView(2, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
-		m_CommandList->SetComputeRootDescriptorTable(0, m_ComputeSrvHandle);
-		m_CommandList->SetComputeRootDescriptorTable(1, m_ComputeSrvHandle);
-
-
-		UINT gx = (m_ClientWidth + 7) / 8;
-		UINT gy = (m_ClientHeight + 7) / 8;
-		m_CommandList->Dispatch(gx, gy, 1);
+			m_ComputeSrvHandle = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
+			m_CommandList->SetComputeRootConstantBufferView(2, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
+			m_CommandList->SetComputeRootDescriptorTable(0, m_ComputeSrvHandle);
+			m_CommandList->SetComputeRootDescriptorTable(1, m_ComputeSrvHandle);
 
 
+			UINT gx = (m_ClientWidth + 7) / 8;
+			UINT gy = (m_ClientHeight + 7) / 8;
+			m_CommandList->Dispatch(gx, gy, 1);
+
+
+			if (pass == numPasses - 1)
+			{
+
+				ID3D12Resource* finalSrc = src;
+				ID3D12Resource* prevSrc = (finalSrc == m_DenoisePing.Get()) ? m_DenoisePong.Get() : m_DenoisePing.Get();
+				D3D12_RESOURCE_BARRIER barriers[2];
+				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+					src,
+					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+					D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
+				barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+					prevSrc,
+					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+					D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
+				m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+			}
+		}
+		{
+
+			D3D12_RESOURCE_BARRIER barriers[2];
+
+			barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+				m_PresentUAV.Get(),
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS,    // last state we used it as UAV
+				D3D12_RESOURCE_STATE_COPY_SOURCE);
+
+			barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+				CurrentBackBuffer(),
+				D3D12_RESOURCE_STATE_PRESENT,
+				D3D12_RESOURCE_STATE_COPY_DEST);
+
+			m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+
+			m_CommandList->CopyResource(CurrentBackBuffer(), m_PresentUAV.Get());
+
+			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+				m_PresentUAV.Get(),
+				D3D12_RESOURCE_STATE_COPY_SOURCE,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+
+			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+				CurrentBackBuffer(),
+				D3D12_RESOURCE_STATE_COPY_DEST,
+				D3D12_RESOURCE_STATE_PRESENT));
+		}
+
+		{
+			D3D12_RESOURCE_BARRIER barriers[3];
+
+			barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+				m_AccumulationBuffer.Get(),
+				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+			barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+				m_NormalTex.Get(),
+				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+			barriers[2] = CD3DX12_RESOURCE_BARRIER::Transition(
+				m_DepthTex.Get(),
+				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+			m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+		}
+
+
+
+		ThrowIfFailed(m_CommandList->Close());
+		ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
+		m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+
+		ThrowIfFailed(m_SwapChain->Present(0, 0));
+		m_CurrentBackBuffer = (m_CurrentBackBuffer + 1) % SwapChainBufferCount;
+
+		m_CurrentFrameResource->Fence = ++m_CurrentFence;
+
+		m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence);
 	}
-	{
-
-		D3D12_RESOURCE_BARRIER barriers[2];
-
-		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_PresentUAV.Get(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,    // last state we used it as UAV
-			D3D12_RESOURCE_STATE_COPY_SOURCE);
-
-		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
-			CurrentBackBuffer(),
-			D3D12_RESOURCE_STATE_PRESENT,
-			D3D12_RESOURCE_STATE_COPY_DEST);
-
-		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
-
-		m_CommandList->CopyResource(CurrentBackBuffer(), m_PresentUAV.Get());
-
-		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_PresentUAV.Get(),
-			D3D12_RESOURCE_STATE_COPY_SOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-
-		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			CurrentBackBuffer(),
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_PRESENT));
-	}
-
-	{
-		D3D12_RESOURCE_BARRIER barriers[3];
-
-		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_AccumulationBuffer.Get(),
-			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-
-		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_NormalTex.Get(),
-			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-
-		barriers[2] = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_DepthTex.Get(),
-			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-
-		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
-	}
-
-
-
-	ThrowIfFailed(m_CommandList->Close());
-	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
-	m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
-
-	ThrowIfFailed(m_SwapChain->Present(0, 0));
-	m_CurrentBackBuffer = (m_CurrentBackBuffer + 1) % SwapChainBufferCount;
-
-	m_CurrentFrameResource->Fence = ++m_CurrentFence;
-
-	m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence);
-}
 }
 void Renderer::CreateDebugController()
 {
