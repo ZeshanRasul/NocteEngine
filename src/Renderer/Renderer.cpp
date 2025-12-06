@@ -420,14 +420,14 @@ void Renderer::Draw(bool useRaster)
 				// Last pass: write to present UAV.
 				src = (dest == m_DenoisePing.Get()) ? m_DenoisePing.Get() : m_DenoisePong.Get();
 				dest = m_PresentUAV.Get();
-				D3D12_RESOURCE_BARRIER barriers[1];
-				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-					src,
-					D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // or SRV from previous frame
-					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-				m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+				//D3D12_RESOURCE_BARRIER barriers[1];
+				//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+				//	src,
+				//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // or SRV from previous frame
+				//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				//m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 
-				m_FinalDenoiseBuffer = dest;
+				m_FinalDenoiseBuffer = src;
 			}
 
 
@@ -451,13 +451,13 @@ void Renderer::Draw(bool useRaster)
 			{
 
 				ID3D12Resource* finalSrc = src;
-				ID3D12Resource* prevSrc = (finalSrc == m_DenoisePing.Get()) ? m_DenoisePong.Get() : m_DenoisePing.Get();
-				D3D12_RESOURCE_BARRIER barriers[2];
+				ID3D12Resource* prevSrc = m_FinalDenoiseBuffer == m_DenoisePing.Get() ? m_DenoisePong.Get() : m_DenoisePing.Get();
+				D3D12_RESOURCE_BARRIER barriers[1];
 				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-					src,
+					m_DenoisePing.Get(),
 					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
 					D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
-				barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
 					prevSrc,
 					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
 					D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
