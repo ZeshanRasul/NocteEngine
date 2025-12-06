@@ -200,12 +200,14 @@ private:
 
 	void CreateRaytracingOutputBuffer();
 	void CreateShaderResourceHeap();
+	void CreateShaderResourceCPUHeap();
 
 	void CreateAccumulationBuffer();
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_OutputResource;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_AccumulationBuffer;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_SrvUavHeap;
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_SrvUavCPUHeap;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_ImguiHeap;
 
 	/// <summary>
@@ -220,6 +222,12 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_DenoisePong;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_DenoiseCB;
 	ID3D12Resource* m_FinalDenoiseBuffer = m_AccumulationBuffer.Get();
+	XMFLOAT3 m_PrevCamPos = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	D3D12_CPU_DESCRIPTOR_HANDLE m_AccumulationBufferSrvHandleCPU;
+	D3D12_CPU_DESCRIPTOR_HANDLE m_AccumulationBufferUavHandleCPU;
+	D3D12_GPU_DESCRIPTOR_HANDLE m_AccumulationBufferSrvHandleGPU;
+	D3D12_GPU_DESCRIPTOR_HANDLE m_AccumulationBufferUavHandleGPU;
+	UINT m_AccumulationBufferUavHeapIndex = 0;
 
 	void CreateComputeRootSignature();
 	void CreateComputePipelineStateObjects();

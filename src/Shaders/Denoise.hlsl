@@ -12,9 +12,9 @@ Texture2D<float4> Accumulation : register(t0);
 Texture2D<float4> Normal : register(t1);
 Texture2D<float> Depth : register(t2);  
 
-//RWTexture2D<float4> PingOut : register(u0);
-//RWTexture2D<float4> PongOut : register(u1);
-RWTexture2D<float4> PresentOut : register(u0);
+RWTexture2D<float4> PingOut : register(u0);
+RWTexture2D<float4> PongOut : register(u1);
+RWTexture2D<float4> PresentOut : register(u2);
 
 static const float gKernel[5] = { 1.0 / 16.0, 1.0 / 4.0, 3.0 / 8.0, 1.0 / 4.0, 1.0 / 16.0 };
 static const int gOffsets[5] = { -2, -1, 0, 1, 2 };
@@ -87,6 +87,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     float3 result = (wsum > 0.0f) ? (sum / wsum) : centerColor.rgb;
 
     PresentOut[coord] = float4(result, centerColor.a);
-  //  PingOut[coord] = float4(result, centerColor.a);
+    PingOut[coord] = float4(result, centerColor.a);
+    PongOut[coord] = float4(result, centerColor.a);
 }
 

@@ -146,10 +146,12 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateAccumulationBuffer();
 	CreateDenoisingResources();
 	CreateShaderResourceHeap();
+	CreateShaderResourceCPUHeap();
 	CreateDenoiseConstantBuffer();
 	CreateShaderBindingTable();
 	CreateImGuiDescriptorHeap();
 
+	m_PrevCamPos = m_EyePos;
 
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
@@ -216,6 +218,8 @@ void Renderer::Update(float dt, Camera& cam)
 		WaitForSingleObject(eventHandle, INFINITE);
 		CloseHandle(eventHandle);
 	}
+
+
 
 	//	m_AnimationCounter++;
 	//	m_Instances[1].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / 1000.0f);
@@ -314,7 +318,18 @@ void Renderer::Draw(bool useRaster)
 		m_CommandList->SetPipelineState1(m_RtStateObject.Get());
 		m_CommandList->DispatchRays(&desc);
 
-
+		if (m_PrevCamPos.x != m_EyePos.x || m_PrevCamPos.y != m_EyePos.y || m_PrevCamPos.z != m_EyePos.z)
+		{
+			m_FrameIndex = 0;
+			m_PrevCamPos = m_EyePos;
+			float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+			clearColor[0] = 0.0f;
+			clearColor[1] = 0.0f;
+			clearColor[2] = 0.0f;
+			clearColor[3] = 0.0f;
+			m_AccumulationBufferUavHandleGPU = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), 7, m_CbvSrvUavDescriptorSize);
+			m_CommandList->ClearUnorderedAccessViewFloat(m_AccumulationBufferUavHandleGPU, m_AccumulationBufferUavHandleCPU, m_AccumulationBuffer.Get(), clearColor, 0, nullptr);
+		}
 		D3D12_RESOURCE_BARRIER barriers[3];
 
 		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -352,7 +367,7 @@ void Renderer::Draw(bool useRaster)
 
 		for (int pass = 0; pass < numPasses; ++pass)
 		{
-			UpdateDenoiseConstantBuffer(1);
+			UpdateDenoiseConstantBuffer(1 << pass);
 
 
 			if (pass == 0)
@@ -414,6 +429,7 @@ void Renderer::Draw(bool useRaster)
 			m_CommandList->SetComputeRootDescriptorTable(0, m_ComputeSrvHandle);
 			m_CommandList->SetComputeRootDescriptorTable(1, m_ComputeSrvHandle);
 
+	
 
 			UINT gx = (m_ClientWidth + 7) / 8;
 			UINT gy = (m_ClientHeight + 7) / 8;
@@ -1526,6 +1542,22 @@ void Renderer::CreateRaytracingOutputBuffer()
 	ThrowIfFailed(m_Device->CreateCommittedResource(&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&m_OutputResource)));
 }
 
+void Renderer::CreateShaderResourceCPUHeap()
+{
+	m_SrvUavCPUHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 1, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, false);
+
+	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavCPUHeap->GetCPUDescriptorHandleForHeapStart();
+	
+	
+	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+	m_AccumulationBuffer->SetName(L"Accumulation Buffer CPU UAV");
+	m_Device->CreateUnorderedAccessView(m_AccumulationBuffer.Get(), nullptr, &uavDesc, srvHandle);
+
+	m_AccumulationBufferUavHandleCPU = srvHandle;
+
+}
+
 void Renderer::CreateShaderResourceHeap()
 {
 	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 13, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
@@ -1752,7 +1784,7 @@ void Renderer::CreateComputeRootSignature()
 	//	{0, 3, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 10}, // Input: accumulation, normal, depth
 	//	});
 	CD3DX12_DESCRIPTOR_RANGE table = {};
-	table.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, 9);
+	table.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 3, 0, 0, 7);
 	CD3DX12_DESCRIPTOR_RANGE table2 = {};
 	table2.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0, 0, 10);
 
@@ -1838,24 +1870,15 @@ void Renderer::CreateDenoiseConstantBuffer()
 	m_DenoiseCB->Unmap(0, nullptr);
 }
 
-// Plan (pseudocode):
-// - Reduce blurring by making edge thresholds tighter for larger kernels.
-// - Keep sigmaColor modest to fight noise, but avoid over-smoothing.
-// - Scale sigmaNormal and sigmaDepth inversely with stepWidth to preserve silhouettes and geometry edges.
-// - Clamp sigmas to sensible minimums to avoid zeroing weights.
-// - Pass unchanged: stepWidth = 1 << pass, invResolution from PassConstants.
-
 void Renderer::UpdateDenoiseConstantBuffer(int step)
 {
-	// Step-aware gating (1 pass by default)
 	const float invStep = 1.0f / float(std::max(1, step));
 	const float minScale = 0.25f;
 	const float scale = std::max(invStep, minScale);
 
-	// These work well with exp(-diff * sigma)
-	const float baseSigmaColor = 18.0f;  // higher -> stronger edge stop by color
-	const float baseSigmaNormal = 40.0f;  // diff = 1 - dot(N0,Ni) in [0,1]
-	const float baseSigmaDepth = 60.0f;  // depth is normalized [0,1]
+	const float baseSigmaColor = 18.0f;  
+	const float baseSigmaNormal = 40.0f; 
+	const float baseSigmaDepth = 60.0f;  
 
 	DenoiseConstants denoiseConstants = {};
 	denoiseConstants.sigmaColor = baseSigmaColor;
