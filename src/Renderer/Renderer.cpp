@@ -315,11 +315,19 @@ void Renderer::Draw(bool useRaster)
 		desc.Height = m_ClientHeight;
 		desc.Depth = 1;
 
-		m_CommandList->SetPipelineState1(m_RtStateObject.Get());
-		m_CommandList->DispatchRays(&desc);
+		bool hasViewChanged = false;
 
-		if (m_PrevCamPos.x != m_EyePos.x || m_PrevCamPos.y != m_EyePos.y || m_PrevCamPos.z != m_EyePos.z)
+		if (m_View._11 != m_PrevView._11 || m_View._12 != m_PrevView._12 || m_View._13 != m_PrevView._13 || m_View._14 != m_PrevView._14 ||
+			m_View._21 != m_PrevView._21 || m_View._22 != m_PrevView._22 || m_View._23 != m_PrevView._23 || m_View._24 != m_PrevView._24 ||
+			m_View._31 != m_PrevView._31 || m_View._32 != m_PrevView._32 || m_View._33 != m_PrevView._33 || m_View._34 != m_PrevView._34 ||
+			m_View._41 != m_PrevView._41 || m_View._42 != m_PrevView._42 || m_View._43 != m_PrevView._43 || m_View._44 != m_PrevView._44)
 		{
+			hasViewChanged = true;
+		}
+
+		if (m_PrevCamPos.x != m_EyePos.x || m_PrevCamPos.y != m_EyePos.y || m_PrevCamPos.z != m_EyePos.z || hasViewChanged)
+		{
+			m_PrevView = m_View;
 			m_FrameIndex = 0;
 			m_PrevCamPos = m_EyePos;
 			float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -330,6 +338,9 @@ void Renderer::Draw(bool useRaster)
 			m_AccumulationBufferUavHandleGPU = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), 7, m_CbvSrvUavDescriptorSize);
 			m_CommandList->ClearUnorderedAccessViewFloat(m_AccumulationBufferUavHandleGPU, m_AccumulationBufferUavHandleCPU, m_AccumulationBuffer.Get(), clearColor, 0, nullptr);
 		}
+
+		m_CommandList->SetPipelineState1(m_RtStateObject.Get());
+		m_CommandList->DispatchRays(&desc);
 		D3D12_RESOURCE_BARRIER barriers[3];
 
 		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
