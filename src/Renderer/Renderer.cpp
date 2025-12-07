@@ -494,25 +494,25 @@ void Renderer::Draw(bool useRaster)
 			if (src == m_AccumulationBuffer.Get())
 			{
 				// Accumulation Buffer SRV
-				srvOffsetFromStart = -2;
+				srvOffsetFromStart = 2;
 			}
 			else if (src == m_DenoisePing.Get())
 			{
 				// Denoise Ping SRV
-				srvOffsetFromStart = 1;
+				srvOffsetFromStart = 0;
 			}
 			else if (src == m_DenoisePong.Get())
 			{
 				// Denoise Pong SRV
-				srvOffsetFromStart = 2;
+				srvOffsetFromStart = 1;
 			}
 
 			const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, offsetFromStart, m_CbvSrvUavDescriptorSize);
 			m_CommandList->SetComputeRootConstantBufferView(3, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
 			m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
-			const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvOffsetFromStart + 10, m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootDescriptorTable(1, heapStart);
-			const auto pingpongSrvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, 12, m_CbvSrvUavDescriptorSize);
+			const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvOffsetFromStart, m_CbvSrvUavDescriptorSize);
+			m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
+			const auto pingpongSrvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvOffsetFromStart, m_CbvSrvUavDescriptorSize);
 			m_CommandList->SetComputeRootDescriptorTable(2, heapStart);
 
 
@@ -1753,16 +1753,9 @@ void Renderer::CreateShaderResourceHeap()
 	srvDesc = {};
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-
 	srvDesc.Texture2D.MostDetailedMip = 0;
 	srvDesc.Texture2D.MipLevels = 1;
 	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-	m_AccumulationBuffer->SetName(L"Accumulation Buffer SRV");
-	m_Device->CreateShaderResourceView(m_AccumulationBuffer.Get(), &srvDesc, srvHandle);
-
-	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
 	srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
 	m_NormalTex->SetName(L"Normal Texture SRV");
 	m_Device->CreateShaderResourceView(m_NormalTex.Get(), &srvDesc, srvHandle);
@@ -1784,6 +1777,16 @@ void Renderer::CreateShaderResourceHeap()
 	srvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 	m_DenoisePong->SetName(L"Denoise Pong SRV");
 	m_Device->CreateShaderResourceView(m_DenoisePong.Get(), &srvDesc, srvHandle);
+
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	
+	srvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+
+	m_AccumulationBuffer->SetName(L"Accumulation Buffer SRV");
+	m_Device->CreateShaderResourceView(m_AccumulationBuffer.Get(), &srvDesc, srvHandle);
+
+	//srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
 }
 
 void Renderer::CreateAccumulationBuffer()
@@ -1891,7 +1894,7 @@ void Renderer::CreateComputeRootSignature()
 	CD3DX12_DESCRIPTOR_RANGE table = {};
 	table.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, 7);
 	CD3DX12_DESCRIPTOR_RANGE table2 = {};
-	table2.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, 13);
+	table2.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, 12);
 	CD3DX12_DESCRIPTOR_RANGE table3 = {};
 	table3.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 1, 0, 10);
 
