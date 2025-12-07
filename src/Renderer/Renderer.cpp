@@ -84,7 +84,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	//nv_helpers_dx12::Manipulator::Singleton().setLookat(glm::vec3(0.0f, 1.0f, -27.0f), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 
 #if defined(DEBUG) || defined(_DEBUG)
-//	CreateDebugController();
+	CreateDebugController();
 #endif
 	ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&m_DxgiFactory)));
 
@@ -227,7 +227,6 @@ void Renderer::Update(float dt, Camera& cam)
 	//	m_Instances[3].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(-10.0f, -10.0f, 0.0f);;
 
 		//	UpdateCameraBuffer();
-	UpdateFrameIndexRNGCBuffer();
 	UpdateObjectCBs();
 	UpdateMainPassCB();
 	UpdateMaterialCBs();
@@ -324,7 +323,7 @@ void Renderer::Draw(bool useRaster)
 		{
 			hasViewChanged = true;
 		}
-		if (m_FrameIndex != 1)
+		if (m_FrameIndex != 0)
 		{
 			D3D12_RESOURCE_BARRIER barriers[2];
 			barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -338,7 +337,7 @@ void Renderer::Draw(bool useRaster)
 			m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 
 			m_CommandList->CopyResource(m_AccumulationBuffer.Get(), m_FinalDenoiseBuffer);
-			
+
 			D3D12_RESOURCE_BARRIER barriers2[2];
 			barriers2[0] = CD3DX12_RESOURCE_BARRIER::Transition(
 				m_AccumulationBuffer.Get(),
@@ -412,7 +411,7 @@ void Renderer::Draw(bool useRaster)
 			if (pass == 0)
 			{
 				// First pass: read from accumulation, write to ping.
-				src = m_FinalDenoiseBuffer;
+				src = m_AccumulationBuffer.Get();
 				dest = m_DenoisePing.Get();
 
 
@@ -448,12 +447,12 @@ void Renderer::Draw(bool useRaster)
 				// Last pass: write to present UAV.
 				src = (dest == m_DenoisePing.Get()) ? m_DenoisePing.Get() : m_DenoisePong.Get();
 				dest = m_PresentUAV.Get();
-				//D3D12_RESOURCE_BARRIER barriers[1];
-				//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-				//	src,
-				//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // or SRV from previous frame
-				//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-				//m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+				D3D12_RESOURCE_BARRIER barriers[1];
+				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+					src,
+					D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // or SRV from previous frame
+					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 
 				m_FinalDenoiseBuffer = src;
 			}
@@ -481,19 +480,21 @@ void Renderer::Draw(bool useRaster)
 			if (pass == numPasses - 1)
 			{
 
-				ID3D12Resource* finalSrc = src;
-				ID3D12Resource* prevSrc = m_FinalDenoiseBuffer == m_DenoisePing.Get() ? m_DenoisePong.Get() : m_DenoisePing.Get();
-				D3D12_RESOURCE_BARRIER barriers[1];
-				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-					m_DenoisePing.Get(),
-					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-					D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
-				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-					prevSrc,
-					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-					D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
-				m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 			}
+		}
+		{
+			ID3D12Resource* finalSrc = src;
+			ID3D12Resource* prevSrc = src == m_DenoisePing.Get() ? m_DenoisePong.Get() : m_DenoisePing.Get();
+			D3D12_RESOURCE_BARRIER barriers[2];
+			barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+				src,
+				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
+			barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+				prevSrc,
+				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
+			m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 		}
 		{
 
@@ -545,6 +546,7 @@ void Renderer::Draw(bool useRaster)
 			m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 		}
 
+		UpdateFrameIndexRNGCBuffer();
 
 
 		ThrowIfFailed(m_CommandList->Close());
