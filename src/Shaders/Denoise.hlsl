@@ -89,28 +89,28 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     //if (passNum == 0)
     //{
-    //    // First pass: just write to Ping and Present
-    //    PresentOut[coord] = float4(result, centerColor.a);
-    //    PingOut[coord] = float4(result, centerColor.a);
-    //    return;
+        //// First pass: just write to Ping and Present
+        //PresentOut[coord] = float4(result, centerColor.a);
+        //PingOut[coord] = float4(result, centerColor.a);
+        //return;
     //};
     //if (passNum % 2 == 1)
     //{
-    //    // Odd pass: read from Ping, write to Pong and Present
-    //    PresentOut[coord] = float4(result, centerColor.a);
-    //    PongOut[coord] = float4(result, centerColor.a);
-    //    return;
+        //// Odd pass: read from Ping, write to Pong and Present
+        //PresentOut[coord] = float4(result, centerColor.a);
+        //PongOut[coord] = float4(result, centerColor.a);
+        //return;
     //}
     
     //if (passNum % 2 == 0)
     //{
-    //    // Even pass: read from Pong, write to Ping and Present
-    //    PresentOut[coord] = float4(result, centerColor.a);
-    //    PingOut[coord] = float4(result, centerColor.a);
-    //    return;
+        //// Even pass: read from Pong, write to Ping and Present
+        //PresentOut[coord] = float4(result, centerColor.a);
+        //PingOut[coord] = float4(result, centerColor.a);
+        //return;
     //}
-     PresentOut[coord] = float4(result, centerColor.a);
-     PingOut[coord] = float4(result, centerColor.a);
-     PongOut[coord] = float4(result, centerColor.a);
+  PresentOut[coord] = float4(result, centerColor.a);
+  PingOut[coord] = float4(result, centerColor.a);
+  PongOut[coord] = float4(result, centerColor.a);
 }
 
