@@ -110,7 +110,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
         //return;
     //}
   Output[coord] = float4(result, centerColor.a);
-//  PingOut[coord] = float4(result, centerColor.a);
-//  PongOut[coord] = float4(result, centerColor.a);
+//¬  PingOut[coord] = float4(result, centerColor.a);
+//¬  PongOut[coord] = float4(result, centerColor.a);
 }
 
