@@ -354,7 +354,20 @@ void Renderer::Draw(bool useRaster)
 
 		//}
 
+		if (m_PrevCamPos.x != m_EyePos.x || m_PrevCamPos.y != m_EyePos.y || m_PrevCamPos.z != m_EyePos.z || hasViewChanged)
+		{
+			m_FrameIndex = 0;
+			m_PrevCamPos = m_EyePos;
+			XMStoreFloat4x4(&m_PrevView, XMLoadFloat4x4(&m_View));
+			float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+			clearColor[0] = 0.0f;
+			clearColor[1] = 0.0f;
+			clearColor[2] = 0.0f;
+			clearColor[3] = 0.0f;
+			m_AccumulationBufferUavHandleGPU = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), 7, m_CbvSrvUavDescriptorSize);
+			m_CommandList->ClearUnorderedAccessViewFloat(m_AccumulationBufferUavHandleGPU, m_AccumulationBufferUavHandleCPU, m_AccumulationBuffer.Get(), clearColor, 0, nullptr);
 
+		}
 
 		m_CommandList->SetPipelineState1(m_RtStateObject.Get());
 		m_CommandList->DispatchRays(&desc);
@@ -919,8 +932,9 @@ void Renderer::BuildMaterials()
 	bricks0->DiffuseSrvHeapIndex = 1;
 	bricks0->DiffuseAlbedo = XMFLOAT4(Colors::Sienna);
 	bricks0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	bricks0->Roughness = 0.9f;
-	bricks0->metallic = 0.1f;
+	bricks0->Roughness = 0.3f;
+	bricks0->metallic = 0.8f;
+	bricks0->IsReflective = true;
 
 	auto stone0 = std::make_unique<Material>();
 	stone0->Name = "stone0";
@@ -939,8 +953,8 @@ void Renderer::BuildMaterials()
 	skullMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05);
 	skullMat->Roughness = 0.7f;
 	skullMat->metallic = 0.1f;
-	skullMat->Ior = 1.5f;
-	skullMat->IsReflective = true;
+	skullMat->Ior = 1.0f;
+	skullMat->IsReflective = false;
 
 	auto tile0 = std::make_unique<Material>();
 	tile0->Name = "tile0";
@@ -950,6 +964,7 @@ void Renderer::BuildMaterials()
 	tile0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile0->Roughness = 0.2f;
 	tile0->metallic = 0.75f;
+	tile0->IsReflective = true;
 
 
 	auto sphereMat = std::make_unique<Material>();
