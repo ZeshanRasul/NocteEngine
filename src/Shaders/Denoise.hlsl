@@ -69,15 +69,22 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
             float nDiff2 = max(0.0f, 1.0f - dot(N0, Ni)); // 0 if same direction
             float nW = exp(-nDiff2 * gNormalSigma);
 
-            // Depth weight (difference in depth)
-            float dz = abs(Zi - Z0);
-            float zW = exp(-dz * gDepthSigma);
-
             // Optional color/luminance weight
             float lum = dot(c.rgb, float3(0.299, 0.587, 0.114));
             float dl = abs(lum - centerLum);
-            float lW = exp(-dl * 0);
+        //    float lW = exp(-dl * gColorSigma);
 
+
+            // Depth weight (difference in depth)
+            float dz = abs(Zi - Z0);
+            nW = exp(-(nDiff2 * nDiff2) / (2.0 * gNormalSigma * gNormalSigma));
+            float zW = exp(-(dz * dz) / (2.0 * gDepthSigma * gDepthSigma));
+            float lW = exp(-(dl * dl) / (2.0 * gColorSigma * gColorSigma));
+            float3 diff = c.rgb - centerColor.rgb;
+            float lumDiff = abs(dot(diff, float3(0.299, 0.587, 0.114)));
+            if (lumDiff > 0.3f)
+                continue;
+            
             float w = k * nW * zW * lW;
 
             sum += c.rgb * w;
@@ -87,30 +94,6 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     float3 result = (wsum > 0.0f) ? (sum / wsum) : centerColor.rgb;
 
-    //if (passNum == 0)
-    //{
-        //// First pass: just write to Ping and Present
-        //PresentOut[coord] = float4(result, centerColor.a);
-        //PingOut[coord] = float4(result, centerColor.a);
-        //return;
-    //};
-    //if (passNum % 2 == 1)
-    //{
-        //// Odd pass: read from Ping, write to Pong and Present
-        //PresentOut[coord] = float4(result, centerColor.a);
-        //PongOut[coord] = float4(result, centerColor.a);
-        //return;
-    //}
-    
-    //if (passNum % 2 == 0)
-    //{
-        //// Even pass: read from Pong, write to Ping and Present
-        //PresentOut[coord] = float4(result, centerColor.a);
-        //PingOut[coord] = float4(result, centerColor.a);
-        //return;
-    //}
   Output[coord] = float4(result, centerColor.a);
-//  PingOut[coord] = float4(result, centerColor.a);
-//  PongOut[coord] = float4(result, centerColor.a);
 }
 

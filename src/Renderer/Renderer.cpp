@@ -1988,14 +1988,14 @@ void Renderer::UpdateDenoiseConstantBuffer(int step, int pass)
 	const float minScale = 0.25f;
 	const float scale = std::max(invStep, minScale);
 
-	const float baseSigmaColor = 4.0f;
-	const float baseSigmaNormal = 20.0f;
-	const float baseSigmaDepth = 40.0f;
+	const float baseSigmaColor = 6.0f;
+	const float baseSigmaNormal = 4.0f;
+	const float baseSigmaDepth = 1.0f;
 
 	DenoiseConstants denoiseConstants = {};
 	denoiseConstants.sigmaColor = baseSigmaColor;
-	denoiseConstants.sigmaNormal = baseSigmaNormal * 0.25f;
-	denoiseConstants.sigmaDepth = baseSigmaDepth * 0.25f;
+	denoiseConstants.sigmaNormal = baseSigmaNormal;
+	denoiseConstants.sigmaDepth = baseSigmaDepth;
 	denoiseConstants.stepWidth = 1; // 1
 	denoiseConstants.invResolution = m_MainPassCB.InvRenderTargetSize;
 	denoiseConstants.pass = pass;
