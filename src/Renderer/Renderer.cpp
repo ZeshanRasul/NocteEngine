@@ -417,34 +417,34 @@ void Renderer::Draw(bool useRaster)
 								D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 							m_CommandList->ResourceBarrier(_countof(barriers), barriers);*/
 			}
-			else if (m_FrameIndex != 0 && dest != m_PresentUAV.Get())
-			{
-				D3D12_RESOURCE_BARRIER barriers[2];
-				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-					m_AccumulationBuffer.Get(),
-					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-					D3D12_RESOURCE_STATE_COPY_DEST);
-				barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
-					dest,
-					D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-					D3D12_RESOURCE_STATE_COPY_SOURCE);
-				m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+			//else if (m_FrameIndex != 0 && dest != m_PresentUAV.Get())
+			//{
+			//	D3D12_RESOURCE_BARRIER barriers[2];
+			//	barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			//		m_AccumulationBuffer.Get(),
+			//		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+			//		D3D12_RESOURCE_STATE_COPY_DEST);
+			//	barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+			//		dest,
+			//		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			//		D3D12_RESOURCE_STATE_COPY_SOURCE);
+			//	m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 
-				m_CommandList->CopyResource(m_AccumulationBuffer.Get(), dest);
+			//	m_CommandList->CopyResource(m_AccumulationBuffer.Get(), dest);
 
-				D3D12_RESOURCE_BARRIER barriers2[2];
-				barriers2[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-					m_AccumulationBuffer.Get(),
-					D3D12_RESOURCE_STATE_COPY_DEST,
-					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-				barriers2[1] = CD3DX12_RESOURCE_BARRIER::Transition(
-					dest,
-					D3D12_RESOURCE_STATE_COPY_SOURCE,
-					D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			//	D3D12_RESOURCE_BARRIER barriers2[2];
+			//	barriers2[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			//		m_AccumulationBuffer.Get(),
+			//		D3D12_RESOURCE_STATE_COPY_DEST,
+			//		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			//	barriers2[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+			//		dest,
+			//		D3D12_RESOURCE_STATE_COPY_SOURCE,
+			//		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
-				m_CommandList->ResourceBarrier(_countof(barriers2), barriers2);
+			//	m_CommandList->ResourceBarrier(_countof(barriers2), barriers2);
 
-			}
+			//}
 
 
 			UpdateDenoiseConstantBuffer(1 << pass, pass);
@@ -455,12 +455,12 @@ void Renderer::Draw(bool useRaster)
 				// First pass: read from accumulation, write to ping.
 				src = m_AccumulationBuffer.Get();
 				dest = m_DenoisePing.Get();
-				//D3D12_RESOURCE_BARRIER barriers[1];
-				//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-				//	src,
-				//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // or SRV from previous frame
-				//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-				//m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+				D3D12_RESOURCE_BARRIER barriers[1];
+				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+					src,
+					D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // or SRV from previous frame
+					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 
 
 			}
@@ -468,39 +468,39 @@ void Renderer::Draw(bool useRaster)
 			{
 				// Intermediate passes: ping-pong between ping and pong.
 				// If last pass was to ping, now read ping and write pong, and vice versa.
-				src = m_AccumulationBuffer.Get();
+				src = (dest == m_DenoisePing.Get()) ? m_DenoisePing.Get() : m_DenoisePong.Get();
 				dest = (dest == m_DenoisePing.Get()) ? m_DenoisePong.Get() : m_DenoisePing.Get();
 
-				//D3D12_RESOURCE_BARRIER barriers[1];
-				//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-				//	src,
-				//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // or SRV from previous frame
-				//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-				//m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+				D3D12_RESOURCE_BARRIER barriers[1];
+				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+					src,
+					D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // or SRV from previous frame
+					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 
-				//if (pass != 1)
-				//{
-				//	D3D12_RESOURCE_BARRIER barriers[1];
-				//	barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-				//		dest,
-				//		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-				//		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-				//	m_CommandList->ResourceBarrier(_countof(barriers), barriers);
-				//}
+				if (pass != 1)
+				{
+					D3D12_RESOURCE_BARRIER barriers[1];
+					barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+						dest,
+						D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+						D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+					m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+				}
 
 
 			}
 			else
 			{
 				// Last pass: write to present UAV.
-				src = m_AccumulationBuffer.Get();
+				src = (dest == m_DenoisePong.Get()) ? m_DenoisePing.Get() : m_DenoisePong.Get();
 				dest = m_PresentUAV.Get();
-				//D3D12_RESOURCE_BARRIER barriers[1];
-				//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-				//	src,
-				//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // or SRV from previous frame
-				//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-				//m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+				D3D12_RESOURCE_BARRIER barriers[1];
+				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+					src,
+					D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // or SRV from previous frame
+					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 
 		//		m_FinalDenoiseBuffer = src;
 			}
@@ -511,12 +511,27 @@ void Renderer::Draw(bool useRaster)
 			m_CommandList->SetDescriptorHeaps(1, m_SrvUavHeap.GetAddressOf());
 
 			const auto heapStart = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
-
-			const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, 7, m_CbvSrvUavDescriptorSize);
+			int offsetFromStart = 0;
+			if (dest == m_DenoisePing.Get())
+			{
+				// Denoise Ping UAV
+				offsetFromStart = 0;
+			}
+			else if (dest == m_DenoisePong.Get())
+			{
+				// Denoise Pong UAV
+				offsetFromStart = 1;
+			}
+			else if (dest == m_PresentUAV.Get())
+			{
+				// Present UAV
+				offsetFromStart = 2;
+			}
+			const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, 7 + offsetFromStart, m_CbvSrvUavDescriptorSize);
 			m_CommandList->SetComputeRootConstantBufferView(2, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
-			m_CommandList->SetComputeRootDescriptorTable(0, heapStart);
+			m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
 			const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, 10, m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootDescriptorTable(1, heapStart);
+			m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
 
 
 
@@ -973,7 +988,7 @@ void Renderer::BuildMaterials()
 	sphereMat->DiffuseSrvHeapIndex = 4;
 	sphereMat->DiffuseAlbedo = XMFLOAT4(Colors::Violet);
 	sphereMat->FresnelR0 = XMFLOAT3(0.06f, 0.06f, 0.06f);
-	sphereMat->Roughness = 0.85f;
+	sphereMat->Roughness = 0.15f;
 	sphereMat->metallic = 0.15f;
 	skullMat->Ior = 1.5f;
 	skullMat->IsReflective = true;
@@ -1878,7 +1893,7 @@ void Renderer::CreateComputeRootSignature()
 	//	{0, 3, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 10}, // Input: accumulation, normal, depth
 	//	});
 	CD3DX12_DESCRIPTOR_RANGE table = {};
-	table.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 3, 0, 0, 7);
+	table.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, 7);
 	CD3DX12_DESCRIPTOR_RANGE table2 = {};
 	table2.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0, 0, 10);
 
