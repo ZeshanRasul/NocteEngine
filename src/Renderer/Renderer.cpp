@@ -924,8 +924,9 @@ void Renderer::BuildMaterials()
 	boxMat->DiffuseSrvHeapIndex = 0;
 	boxMat->DiffuseAlbedo = XMFLOAT4(Colors::ForestGreen);
 	boxMat->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	boxMat->Roughness = 0.7f;
+	boxMat->Roughness = 0.4f;
 	boxMat->metallic = 0.3f;
+	boxMat->IsReflective = false;
 
 	auto bricks0 = std::make_unique<Material>();
 	bricks0->Name = "bricks0";
@@ -939,7 +940,7 @@ void Renderer::BuildMaterials()
 
 	auto stone0 = std::make_unique<Material>();
 	stone0->Name = "stone0";
-	stone0->MatCBIndex = 5;
+	stone0->MatCBIndex = 2;
 	stone0->DiffuseSrvHeapIndex = 5;
 	stone0->DiffuseAlbedo = XMFLOAT4(Colors::Crimson);
 	stone0->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
@@ -959,23 +960,23 @@ void Renderer::BuildMaterials()
 
 	auto tile0 = std::make_unique<Material>();
 	tile0->Name = "tile0";
-	tile0->MatCBIndex = 2;
+	tile0->MatCBIndex = 4;
 	tile0->DiffuseSrvHeapIndex = 2;
 	tile0->DiffuseAlbedo = XMFLOAT4(Colors::Aquamarine);
 	tile0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	tile0->Roughness = 0.2f;
-	tile0->metallic = 0.75f;
-	tile0->IsReflective = true;
+	tile0->Roughness = 0.8f;
+	tile0->metallic = 0.05f;
+	tile0->IsReflective = false;
 
 
 	auto sphereMat = std::make_unique<Material>();
 	sphereMat->Name = "sphere";
-	sphereMat->MatCBIndex = 4;
+	sphereMat->MatCBIndex = 5;
 	sphereMat->DiffuseSrvHeapIndex = 4;
 	sphereMat->DiffuseAlbedo = XMFLOAT4(Colors::Violet);
 	sphereMat->FresnelR0 = XMFLOAT3(0.06f, 0.06f, 0.06f);
-	sphereMat->Roughness = 0.15f;
-	sphereMat->metallic = 0.15f;
+	sphereMat->Roughness = 0.01f;
+	sphereMat->metallic = 0.85f;
 	skullMat->Ior = 1.5f;
 	skullMat->IsReflective = true;
 
@@ -2152,18 +2153,18 @@ void Renderer::CreateAccelerationStructures()
 {
 	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} }, { {m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount }
 		});
-	AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} }, { {m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount} });
+	AccelerationStructureBuffers skull0BottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} }, { {m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount} });
 
 	AccelerationStructureBuffers sphereBottomLevelBuffers = CreateBottomLevelAS({ { sphereSubmesh.VertexBufferGPU, sphereSubmesh.VertexCount} }, { {sphereSubmesh.IndexBufferGPU, sphereSubmesh.IndexCount} });
 	AccelerationStructureBuffers boxBottomLevelBuffers = CreateBottomLevelAS({ { boxSubmesh.VertexBufferGPU, boxSubmesh.VertexCount} }, { {boxSubmesh.IndexBufferGPU, boxSubmesh.IndexCount} });
 
 
 	m_Instances = {
-		{ boxBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 5.0f, 50.0f) * XMMatrixTranslation(0.0f, -50.0f, 0.0f) },
-		{bottomLevelBuffers.pResult, XMMatrixTranslation(-16.0f, -10.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(16.0f, -10.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(0.0f, 10.0f, 0.0f)},
+		{ boxBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
+		{bottomLevelBuffers.pResult, XMMatrixTranslation(-16.0f, 450.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(16.0f, 15.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(0.0f, 35.0f, 0.0f)},
 
-		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, -20.0f, 0.0f) },
-		{ sphereBottomLevelBuffers.pResult, XMMatrixScaling(5.0f, 5.0f, 5.0f) * XMMatrixTranslation(-10.0f, -10.0f, -10.0f) },
+		{ skull0BottomLevelBuffers.pResult, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 50.0f, 0.0f) },
+		{ sphereBottomLevelBuffers.pResult, XMMatrixScaling(5.0f, 5.0f, 5.0f) * XMMatrixTranslation(-10.0f, 24.0f, -10.0f) },
 	};
 
 	m_IsInstanceReflective = {
@@ -2200,7 +2201,7 @@ void Renderer::CreateAccelerationStructures()
 	//ThrowIfFailed(m_CommandList->Reset(m_CommandAllocator.Get(), m_PipelineStateObjects["opaque"].Get()));
 
 	m_BottomLevelAS = bottomLevelBuffers.pResult;
-	m_PlaneBottomLevelAS = planeBottomLevelBuffers.pResult;
+	m_PlaneBottomLevelAS = skull0BottomLevelBuffers.pResult;
 }
 
 void Renderer::CreatePlaneVB()
