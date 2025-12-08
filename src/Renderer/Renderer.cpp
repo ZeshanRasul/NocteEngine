@@ -114,7 +114,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRootSignature();
 	CreateComputeRootSignature();
 	BuildShadersAndInputLayout();
-	d3dUtil::LoadObjModel("Models/bunny.obj", m_DragonModel);
+	d3dUtil::LoadObjModel("Models/sponza.obj", m_DragonModel);
 
 	CreateModelBuffers(m_DragonModel);
 	BuildShapeGeometry();
@@ -2318,7 +2318,7 @@ void Renderer::CreateAccelerationStructures()
 		  XMMatrixTranslation(-20.0f, 2.0f, 15.0f) },
 
 		{ bottomLevelBuffers.pResult,
-		  XMMatrixScaling(10.0f, 10.0f, 10.0f) *
+		  XMMatrixScaling(1.0f, 1.0f, 1.0f) *
 		  XMMatrixTranslation(0.0f, 0.0f, -25.0f)}
 	};
 
