@@ -114,7 +114,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRootSignature();
 	CreateComputeRootSignature();
 	BuildShadersAndInputLayout();
-	d3dUtil::LoadObjModel("Models/dragon.obj", m_DragonModel);
+	d3dUtil::LoadObjModel("Models/bunny.obj", m_DragonModel);
 
 	CreateModelBuffers(m_DragonModel);
 	BuildShapeGeometry();
@@ -1026,8 +1026,8 @@ void Renderer::BuildMaterials()
 	tile4->DiffuseAlbedo = XMFLOAT4(Colors::DarkSlateGray);
 	tile4->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile4->Roughness = 0.8f;
-	tile4->metallic = 0.05f;
-	tile4->IsReflective = false;
+	tile4->metallic = 0.65f;
+	tile4->IsReflective = true;
 
 	auto tile5 = std::make_unique<Material>();
 	tile5->Name = "tile5";
@@ -1045,10 +1045,10 @@ void Renderer::BuildMaterials()
 	dragon->Name = "dragon";
 	dragon->MatCBIndex = 11;
 	dragon->DiffuseSrvHeapIndex = 2;
-	dragon->DiffuseAlbedo = XMFLOAT4(Colors::Gold);
+	dragon->DiffuseAlbedo = XMFLOAT4(Colors::LightGoldenrodYellow);
 	dragon->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	dragon->Roughness = 0.01f;
-	dragon->metallic = 0.85f;
+	dragon->Roughness = 0.71f;
+	dragon->metallic = 0.25f;
 //	dragon->IsReflective = false;
 //	dragon->IsRefractive = true;
 //	dragon->Ior = 1.5f;
@@ -2318,8 +2318,8 @@ void Renderer::CreateAccelerationStructures()
 		  XMMatrixTranslation(-20.0f, 2.0f, 15.0f) },
 
 		{ bottomLevelBuffers.pResult,
-		  XMMatrixScaling(35.0f, 35.0f, 35.0f) *
-		  XMMatrixTranslation(0.0f, 7.5f, -25.0f)}
+		  XMMatrixScaling(10.0f, 10.0f, 10.0f) *
+		  XMMatrixTranslation(0.0f, 0.0f, -25.0f)}
 	};
 
 
