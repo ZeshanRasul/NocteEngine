@@ -14,8 +14,8 @@ void Miss(inout PathPayload payload)
 {
     float3 dir = normalize(WorldRayDirection());
 
-  //  payload.emission = SampleEnvironment(dir);
-    payload.emission = float3(0, 0, 0);
+    payload.emission = SampleEnvironment(dir);
+    //payload.emission = float3(0, 0, 0);
     payload.bsdfOverPdf = 0.0f;
     payload.pdf = 1.0f;
     payload.done = 1;
