@@ -161,27 +161,27 @@ bool BuildLightSample(
 
 bool IsOccluded(float3 origin, float3 dir, float maxDistance)
 {
-    ShadowPayload payload;
-    payload.isHit = false;
+    ShadowPayload spayload;
+    spayload.isHit = true;
     
     RayDesc shadowRay;
     shadowRay.Origin = origin;
     shadowRay.Direction = dir;
-    shadowRay.TMin = 0.001f;
+    shadowRay.TMin = 0.01f;
     shadowRay.TMax = maxDistance - 0.001f;
     
     TraceRay(
     SceneBVH,
     RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH |
-    RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
+    RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_OPAQUE,
     0xFF,
     1,
     2,
     1,
     shadowRay,
-    payload);
+    spayload);
 
-    return payload.isHit;
+    return spayload.isHit;
 }
 struct LightSample
 {
@@ -297,7 +297,13 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     if (lightSample.pdf > 0.0f)
     {
-        bool occluded = IsOccluded(pW + N * 1e-2f, lightSample.dir, lightSample.dist - 1e-4f);
+        bool occluded = IsOccluded(pW + N * 0.1f, lightSample.dir, lightSample.dist - 1e-4f);
+        //if (occluded)
+        //{
+        //    payload.emission = 0.0f;
+        //    payload.done = 1;
+        //    return;
+        //}
         if (!occluded)
         {
             float3 L = lightSample.dir;

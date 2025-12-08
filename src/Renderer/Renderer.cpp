@@ -11,8 +11,8 @@
 #include "imgui/backends/imgui_impl_win32.h"
 #include "imgui/backends/imgui_impl_dx12.h"
 
-const int gNumFrameResources = 3;
-const int gNumRayTypes = 3;
+const int gNumFrameResources = 1;
+const int gNumRayTypes = 2;
 
 // Simple free list based allocator
 struct ExampleDescriptorHeapAllocator
@@ -985,7 +985,7 @@ void Renderer::BuildMaterials()
 	tile1->Name = "tile1";
 	tile1->MatCBIndex = 4;
 	tile1->DiffuseSrvHeapIndex = 2;
-	tile1->DiffuseAlbedo = XMFLOAT4(Colors::Yellow);
+	tile1->DiffuseAlbedo = XMFLOAT4(Colors::DarkSlateGray);
 	tile1->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile1->Roughness = 0.8f;
 	tile1->metallic = 0.05f;
@@ -995,7 +995,7 @@ void Renderer::BuildMaterials()
 	tile2->Name = "tile2";
 	tile2->MatCBIndex = 4;
 	tile2->DiffuseSrvHeapIndex = 2;
-	tile2->DiffuseAlbedo = XMFLOAT4(Colors::Yellow);
+	tile2->DiffuseAlbedo = XMFLOAT4(0.63, 0.065, 0.05, 1.0f);
 	tile2->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile2->Roughness = 0.8f;
 	tile2->metallic = 0.05f;
@@ -1005,11 +1005,31 @@ void Renderer::BuildMaterials()
 	tile3->Name = "tile3";
 	tile3->MatCBIndex = 4;
 	tile3->DiffuseSrvHeapIndex = 2;
-	tile3->DiffuseAlbedo = XMFLOAT4(Colors::Yellow);
+	tile3->DiffuseAlbedo = XMFLOAT4(0.14, 0.45, 0.091, 1.0f);
 	tile3->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile3->Roughness = 0.8f;
 	tile3->metallic = 0.05f;
 	tile3->IsReflective = false;
+
+	auto tile4 = std::make_unique<Material>();
+	tile4->Name = "tile4";
+	tile4->MatCBIndex = 4;
+	tile4->DiffuseSrvHeapIndex = 2;
+	tile4->DiffuseAlbedo = XMFLOAT4(Colors::DarkSlateGray);
+	tile4->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+	tile4->Roughness = 0.8f;
+	tile4->metallic = 0.05f;
+	tile4->IsReflective = false;
+
+	auto tile5 = std::make_unique<Material>();
+	tile5->Name = "tile5";
+	tile5->MatCBIndex = 4;
+	tile5->DiffuseSrvHeapIndex = 2;
+	tile5->DiffuseAlbedo = XMFLOAT4(0.725, 0.725, 0.725, 1.0f);
+	tile5->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+	tile5->Roughness = 0.8f;
+	tile5->metallic = 0.05f;
+	tile5->IsReflective = false;
 
 
 	m_Materials["box"] = std::move(boxMat);
@@ -1021,6 +1041,8 @@ void Renderer::BuildMaterials()
 	m_Materials["tile1"] = std::move(tile1);
 	m_Materials["tile2"] = std::move(tile2);
 	m_Materials["tile3"] = std::move(tile3);
+	m_Materials["tile4"] = std::move(tile4);
+	m_Materials["tile5"] = std::move(tile5);
 }
 void Renderer::BuildShapeGeometry()
 {
@@ -2072,13 +2094,14 @@ void Renderer::CreateShaderBindingTable()
 			ib = boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 		}
 		else */
-		if (i >= 0 && i <= m_SkullCount)
-		{
-			vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
-			ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
-
-		}
-		else if (i > m_SkullCount && i <= m_SkullCount + m_SphereCount)
+		//if (i >= 0 && i <= m_SkullCount)
+		//{
+		//	vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
+		//	ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
+		//
+		//}
+		//else if (i > m_SkullCount && i <= m_SkullCount + m_SphereCount)
+		if (i == 0)
 		{
 			vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
 			ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
@@ -2205,17 +2228,21 @@ void Renderer::CreateAccelerationStructures()
 
 	m_Instances = {
 		//{ boxBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
-		{bottomLevelBuffers.pResult, XMMatrixTranslation(-16.0f, 45.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(16.0f, 15.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(0.0f, 35.0f, 0.0f)},
+	//	{bottomLevelBuffers.pResult, XMMatrixTranslation(-16.0f, 25.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(16.0f, 15.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(0.0f, 25.0f, 0.0f)},
 
-		{ skull0BottomLevelBuffers.pResult, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 50.0f, 0.0f) },
-		{ sphereBottomLevelBuffers.pResult, XMMatrixScaling(5.0f, 5.0f, 5.0f) * XMMatrixTranslation(-10.0f, 24.0f, -10.0f) },
+		//{ skull0BottomLevelBuffers.pResult, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 30.0f, 0.0f) },
+		{ sphereBottomLevelBuffers.pResult, XMMatrixScaling(5.0f, 5.0f, 5.0f) * XMMatrixTranslation(0.0f, 10.0f, 0.0f) },
 		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
-		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixTranslation(0.0f, 25.0f, 0.0f) },
-		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0)) * XMMatrixTranslation(25.0f, 0.0f, 0.0f) },
-		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0)) * XMMatrixTranslation(-25.0f, 0.0f, 0.0f)},
+		//{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixTranslation(0.0f, 80.0f, 0.0f) },
+		//{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0)) * XMMatrixTranslation(100.0f, 0.0f, 0.0f) },
+		//{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0)) * XMMatrixTranslation(-100.0f, 0.0f, 0.0f)},
+		//{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(-90.0)) * XMMatrixTranslation(0.0f, 0.0f, -100.0f)},
+		//{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(-90.0)) * XMMatrixTranslation(0.0f, 0.0f, 100.0f)},
 	};
 
 	m_IsInstanceReflective = {
+		false,
+		false,
 		false,
 		false,
 		false,
@@ -2260,10 +2287,10 @@ void Renderer::CreatePlaneGeometry()
 	// 4 unique vertices for the plane
 	Vertex planeVertices[] =
 	{
-		{{-1.5f, -0.8f,  1.5f}, { 0.0f, 1.0f, 0.0f }}, // 0
-		{{-1.5f, -0.8f, -1.5f}, { 0.0f, 1.0f, 0.0f }}, // 1
-		{{ 1.5f, -0.8f,  1.5f}, { 0.0f, 1.0f, 0.0f }}, // 2
-		{{ 1.5f, -0.8f, -1.5f}, { 0.0f, 1.0f, 0.0f }}, // 3
+		{{-1.5f, -0.8f,  1.5f}, { 0.0f, -1.0f, 0.0f }}, // 0
+		{{-1.5f, -0.8f, -1.5f}, { 0.0f, -1.0f, 0.0f }}, // 1
+		{{ 1.5f, -0.8f,  1.5f}, { 0.0f, -1.0f, 0.0f }}, // 2
+		{{ 1.5f, -0.8f, -1.5f}, { 0.0f, -1.0f, 0.0f }}, // 3
 	};
 
 	// Two triangles: (0,1,2) and (2,1,3) – matches your original winding
@@ -2439,8 +2466,8 @@ void Renderer::CreatePostProcessConstantBuffer()
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 100.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(20.0f, 20.0f, 20.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 20.0f, 0.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(5.0f, 5.0f, 5.0f);
 	m_AreaLightData.U = XMFLOAT3(10.0f, 0.0f, 0.0f);
 	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 10.0f);
 

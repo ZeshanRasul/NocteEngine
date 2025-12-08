@@ -87,7 +87,7 @@ void RayGen()
     bool primarySet = false;
 
     
-    const int MaxBounces = 8;
+    const int MaxBounces = 1;
 
     for (int bounce = 0; bounce < MaxBounces; ++bounce)
     {
@@ -148,7 +148,8 @@ void RayGen()
         ray.TMax = 1e38f;
     }
     
-    float3 finalColor = PostProcessColor(finalRadiance);
+   // float3 finalColor = PostProcessColor(finalRadiance);
+    float3 finalColor = finalRadiance;
      
     float4 prev = gAccumBuf[launchIndex];
     float4 current = float4(finalColor, 1.0f);
