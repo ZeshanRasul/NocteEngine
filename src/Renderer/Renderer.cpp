@@ -2234,61 +2234,61 @@ void Renderer::CreateAccelerationStructures()
 
 		// Ceiling (y = 40)
 		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+		  XMMatrixScaling(50.0f, 1.0f, 50.0f) *
 		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
 		  XMMatrixTranslation(0.0f, 60.0f, 0.0f) },
 
 		// Back wall (z = -20), normal pointing into the box (+Z)
 		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+		  XMMatrixScaling(50.0f, 1.0f, 50.0f) *
 		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(-90.0f)) *
-		  XMMatrixTranslation(0.0f, 40.0f, -40.0f) },
+		  XMMatrixTranslation(0.0f, 60.0f, -60.0f) },
 
 		// Front wall (z = +20), normal pointing into the box (-Z)
 		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+		  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
 		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
-		  XMMatrixTranslation(0.0f, 40.0f, 60.0f) },
+		  XMMatrixTranslation(0.0f, 60.0f, 80.0f) },
 
 		// Left wall (x = -20), normal pointing into the box (+X)
 		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+		  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
 		  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
-		  XMMatrixTranslation(-40.0f, 40.0f, 0.0f) },
+		  XMMatrixTranslation(-60.0f, 60.0f, 0.0f) },
 
 		// Right wall (x = +20), normal pointing into the box (-X)
 		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+		  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
 		  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
-		  XMMatrixTranslation(40.0f, 40.0f, 0.0f) },
+		  XMMatrixTranslation(60.0f, 60.0f, 0.0f) },
 
 		// ----------------------------------------------------
 		// Objects on the floor: sphere (left) + skull (right)
 		// ----------------------------------------------------
 
 		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(4.0f, 1.0f, 4.0f) *
-		  XMMatrixTranslation(7.0f, 0.0f, 5.0f) },
+		  XMMatrixScaling(6.0f, 1.0f, 6.0f) *
+		  XMMatrixTranslation(12.0f, 0.0f, 8.0f) },
 		
 		// Sphere on the left: radius ~3 at y = 3
 		{ sphereBottomLevelBuffers.pResult,
-		  XMMatrixScaling(3.0f, 3.0f, 3.0f) *
-		  XMMatrixTranslation(-7.0f, 3.0f, -5.0f) },
+		  XMMatrixScaling(6.0f, 6.0f, 6.0f) *
+		  XMMatrixTranslation(-17.0f, 3.0f, -5.0f) },
 
 		// Sphere on the right: radius ~3 at y = 3
 		{ sphereBottomLevelBuffers.pResult,
-		  XMMatrixScaling(3.0f, 3.0f, 3.0f) *
-		  XMMatrixTranslation(-7.0f, 3.0f, -15.0f) },
+		  XMMatrixScaling(6.0f, 6.0f, 6.0f) *
+		  XMMatrixTranslation(25.0f, 3.0f, -5.0f) },
 
 		// Skull on the right
 		{ skull0BottomLevelBuffers.pResult,
-		  XMMatrixScaling(2.0f, 2.0f, 2.0f) *
-		  XMMatrixTranslation(7.0f, 2.0f, 5.0f) },
+		  XMMatrixScaling(4.0f, 4.0f, 4.0f) *
+		  XMMatrixTranslation(12.0f, 2.0f, 8.0f) },
 		
 		// Skull on the left
 		{ skull0BottomLevelBuffers.pResult,
-		  XMMatrixScaling(2.0f, 2.0f, 2.0f) *
-		  XMMatrixTranslation(-15.0f, 2.0f, 5.0f) },
+		  XMMatrixScaling(4.0f, 4.0f, 4.0f) *
+		  XMMatrixTranslation(-20.0f, 2.0f, 15.0f) },
 
 	};
 
@@ -2517,8 +2517,8 @@ void Renderer::CreatePostProcessConstantBuffer()
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 39.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(18.0f, 18.0f, 18.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 49.0f, 0.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(25.0f, 25.0f, 25.0f);
 	m_AreaLightData.U = XMFLOAT3(10.0f, 0.0f, 0.0f);
 	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 10.0f);
 
