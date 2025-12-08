@@ -297,8 +297,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     if (lightSample.pdf > 0.0f)
     {
-        bool occluded = IsOccluded(pW + N * 1e-4f, lightSample.dir, lightSample.dist - 1e-4f);
-        
+        bool occluded = IsOccluded(pW + N * 1e-2f, lightSample.dir, lightSample.dist - 1e-4f);
         if (!occluded)
         {
             float3 L = lightSample.dir;

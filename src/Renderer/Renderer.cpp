@@ -114,7 +114,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	BuildShadersAndInputLayout();
 	BuildShapeGeometry();
 	BuildSkullGeometry();
-	CreatePlaneVB();
+	CreatePlaneGeometry();
 	BuildMaterials();
 	BuildRenderItems();
 
@@ -980,12 +980,23 @@ void Renderer::BuildMaterials()
 	skullMat->Ior = 1.5f;
 	skullMat->IsReflective = true;
 
+	auto tile1 = std::make_unique<Material>();
+	tile1->Name = "tile1";
+	tile1->MatCBIndex = 4;
+	tile1->DiffuseSrvHeapIndex = 2;
+	tile1->DiffuseAlbedo = XMFLOAT4(Colors::Yellow);
+	tile1->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+	tile1->Roughness = 0.8f;
+	tile1->metallic = 0.05f;
+	tile1->IsReflective = false;
+
 	m_Materials["box"] = std::move(boxMat);
 	m_Materials["bricks0"] = std::move(bricks0);
 	m_Materials["stone0"] = std::move(stone0);
 	m_Materials["tile0"] = std::move(tile0);
 	m_Materials["skullMat"] = std::move(skullMat);
 	m_Materials["sphere"] = std::move(sphereMat);
+	m_Materials["tile1"] = std::move(tile1);
 }
 void Renderer::BuildShapeGeometry()
 {
@@ -2048,6 +2059,12 @@ void Renderer::CreateShaderBindingTable()
 			ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 
 		}
+		else if (i > m_SkullCount + m_SphereCount)
+		{
+			vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
+			ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
+
+		}
 
 		m_SbtHelper.AddHitGroup(L"HitGroup", { (void*)vb,(void*)ib,
 			(void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
@@ -2157,17 +2174,21 @@ void Renderer::CreateAccelerationStructures()
 
 	AccelerationStructureBuffers sphereBottomLevelBuffers = CreateBottomLevelAS({ { sphereSubmesh.VertexBufferGPU, sphereSubmesh.VertexCount} }, { {sphereSubmesh.IndexBufferGPU, sphereSubmesh.IndexCount} });
 	AccelerationStructureBuffers boxBottomLevelBuffers = CreateBottomLevelAS({ { boxSubmesh.VertexBufferGPU, boxSubmesh.VertexCount} }, { {boxSubmesh.IndexBufferGPU, boxSubmesh.IndexCount} });
+	AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { m_PlaneVertexBuffer, 4} }, { { m_PlaneIndexBuffer, 6 }
+});
 
 
 	m_Instances = {
 		{ boxBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
-		{bottomLevelBuffers.pResult, XMMatrixTranslation(-16.0f, 450.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(16.0f, 15.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(0.0f, 35.0f, 0.0f)},
+		{bottomLevelBuffers.pResult, XMMatrixTranslation(-16.0f, 45.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(16.0f, 15.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(0.0f, 35.0f, 0.0f)},
 
 		{ skull0BottomLevelBuffers.pResult, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 50.0f, 0.0f) },
 		{ sphereBottomLevelBuffers.pResult, XMMatrixScaling(5.0f, 5.0f, 5.0f) * XMMatrixTranslation(-10.0f, 24.0f, -10.0f) },
+		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z ) * XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z) }
 	};
 
 	m_IsInstanceReflective = {
+		false,
 		false,
 		false,
 		false,
@@ -2204,37 +2225,80 @@ void Renderer::CreateAccelerationStructures()
 	m_PlaneBottomLevelAS = skull0BottomLevelBuffers.pResult;
 }
 
-void Renderer::CreatePlaneVB()
+void Renderer::CreatePlaneGeometry()
 {
-	Vertex planeVertices[] = {
-		 {{-1.5f, -.8f, 01.5f}, { 0.0f, -1.0f, 0.0f }}, // 0
-		 {{-1.5f, -.8f, -1.5f}, { 0.0f, -1.0f, 0.0f }}, // 1
-		 {{01.5f, -.8f, 01.5f}, { 0.0f, -1.0f, 0.0f }}, // 2
-		 {{01.5f, -.8f, 01.5f}, { 0.0f, -1.0f, 0.0f }}, // 2
-		 {{-1.5f, -.8f, -1.5f}, { 0.0f, -1.0f, 0.0f }}, // 1
-		 {{01.5f, -.8f, -1.5f}, { 0.0f, -1.0f, 0.0f }},  // 4
+	// 4 unique vertices for the plane
+	Vertex planeVertices[] =
+	{
+		{{-1.5f, -0.8f,  1.5f}, { 0.0f, -1.0f, 0.0f }}, // 0
+		{{-1.5f, -0.8f, -1.5f}, { 0.0f, -1.0f, 0.0f }}, // 1
+		{{ 1.5f, -0.8f,  1.5f}, { 0.0f, -1.0f, 0.0f }}, // 2
+		{{ 1.5f, -0.8f, -1.5f}, { 0.0f, -1.0f, 0.0f }}, // 3
 	};
 
-	const UINT planeBufferSize = sizeof(planeVertices);
+	// Two triangles: (0,1,2) and (2,1,3) – matches your original winding
+	uint16_t planeIndices[] =
+	{
+		0, 1, 2,
+		2, 1, 3
+	};
 
-	CD3DX12_HEAP_PROPERTIES heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-	CD3DX12_RESOURCE_DESC bufferResource = CD3DX12_RESOURCE_DESC::Buffer(planeBufferSize);
+	const UINT vbSize = sizeof(planeVertices);
+	const UINT ibSize = sizeof(planeIndices);
 
-	ThrowIfFailed(m_Device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &bufferResource, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&m_PlaneBuffer)));
+	// Vertex buffer (upload for simplicity)
+	{
+		CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
+		CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(vbSize);
 
-	UINT8* pVertexDataBegin;
+		ThrowIfFailed(m_Device->CreateCommittedResource(
+			&heapProps,
+			D3D12_HEAP_FLAG_NONE,
+			&bufferDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&m_PlaneVertexBuffer)));
 
-	CD3DX12_RANGE readRange(0, 0);
+		UINT8* pDataBegin = nullptr;
+		CD3DX12_RANGE readRange(0, 0); // CPU will not read back
 
-	ThrowIfFailed(m_PlaneBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin)));
+		ThrowIfFailed(m_PlaneVertexBuffer->Map(0, &readRange,
+			reinterpret_cast<void**>(&pDataBegin)));
+		memcpy(pDataBegin, planeVertices, vbSize);
+		m_PlaneVertexBuffer->Unmap(0, nullptr);
 
-	memcpy(pVertexDataBegin, planeVertices, sizeof(planeVertices));
-	m_PlaneBuffer->Unmap(0, nullptr);
+		m_PlaneVBView.BufferLocation = m_PlaneVertexBuffer->GetGPUVirtualAddress();
+		m_PlaneVBView.StrideInBytes = sizeof(Vertex);
+		m_PlaneVBView.SizeInBytes = vbSize;
+	}
 
-	m_PlaneBufferView.BufferLocation = m_PlaneBuffer->GetGPUVirtualAddress();
-	m_PlaneBufferView.StrideInBytes = sizeof(Vertex);
-	m_PlaneBufferView.SizeInBytes = planeBufferSize;
+	// Index buffer (16-bit, upload for now)
+	{
+		CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
+		CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(ibSize);
+
+		ThrowIfFailed(m_Device->CreateCommittedResource(
+			&heapProps,
+			D3D12_HEAP_FLAG_NONE,
+			&bufferDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&m_PlaneIndexBuffer)));
+
+		UINT8* pDataBegin = nullptr;
+		CD3DX12_RANGE readRange(0, 0);
+
+		ThrowIfFailed(m_PlaneIndexBuffer->Map(0, &readRange,
+			reinterpret_cast<void**>(&pDataBegin)));
+		memcpy(pDataBegin, planeIndices, ibSize);
+		m_PlaneIndexBuffer->Unmap(0, nullptr);
+
+		m_PlaneIBView.BufferLocation = m_PlaneIndexBuffer->GetGPUVirtualAddress();
+		m_PlaneIBView.Format = DXGI_FORMAT_R16_UINT;
+		m_PlaneIBView.SizeInBytes = ibSize;
+	}
 }
+
 
 void Renderer::CreateCameraBuffer()
 {
@@ -2345,8 +2409,8 @@ void Renderer::CreatePostProcessConstantBuffer()
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 30.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(60.0f, 60.0f, 60.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 50.0f, 0.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(20.0f, 20.0f, 20.0f);
 	m_AreaLightData.U = XMFLOAT3(5.0f, 0.0f, 0.0f);
 	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 5.0f);
 

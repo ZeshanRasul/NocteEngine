@@ -260,10 +260,12 @@ private:
 	UINT m_vertexCount = 0;
 	Microsoft::WRL::ComPtr<ID3D12Resource> skullUB;
 
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_PlaneBuffer;
-	D3D12_VERTEX_BUFFER_VIEW m_PlaneBufferView;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_PlaneVertexBuffer;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_PlaneIndexBuffer;
+	D3D12_VERTEX_BUFFER_VIEW m_PlaneVBView;
+	D3D12_INDEX_BUFFER_VIEW m_PlaneIBView;
 
-	void CreatePlaneVB();
+	void CreatePlaneGeometry();
 
 	void CreateCameraBuffer();
 	void UpdateCameraBuffer();
@@ -291,7 +293,7 @@ private:
 
 	void CreatePerInstanceBuffers();
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_PerInstanceCBs;
-	UINT m_PerInstanceCBCount = 6;
+	UINT m_PerInstanceCBCount = 7;
 	UINT m_SkullCount = 4;
 	UINT m_SphereCount = 1;
 
