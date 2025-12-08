@@ -293,7 +293,7 @@ private:
 
 	void CreatePerInstanceBuffers();
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_PerInstanceCBs;
-	UINT m_PerInstanceCBCount = 7;
+	UINT m_PerInstanceCBCount = 9;
 	UINT m_SkullCount = 4;
 	UINT m_SphereCount = 1;
 

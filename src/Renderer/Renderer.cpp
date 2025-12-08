@@ -922,10 +922,11 @@ void Renderer::BuildMaterials()
 	boxMat->Name = "box";
 	boxMat->MatCBIndex = 0;
 	boxMat->DiffuseSrvHeapIndex = 0;
-	boxMat->DiffuseAlbedo = XMFLOAT4(Colors::ForestGreen);
+	boxMat->DiffuseAlbedo = XMFLOAT4(0.1, 0.3, 0.1, 1.0);
 	boxMat->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	boxMat->Roughness = 0.4f;
-	boxMat->metallic = 0.3f;
+	boxMat->Roughness = 0.99f;
+	boxMat->metallic = 0.01f;
+	boxMat->Ior = 1.0f;
 	boxMat->IsReflective = false;
 
 	auto bricks0 = std::make_unique<Material>();
@@ -934,9 +935,9 @@ void Renderer::BuildMaterials()
 	bricks0->DiffuseSrvHeapIndex = 1;
 	bricks0->DiffuseAlbedo = XMFLOAT4(Colors::Sienna);
 	bricks0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	bricks0->Roughness = 0.3f;
-	bricks0->metallic = 0.8f;
-	bricks0->IsReflective = true;
+	bricks0->Roughness = 0.9f;
+	bricks0->metallic = 0.1f;
+	bricks0->IsReflective = false;
 
 	auto stone0 = std::make_unique<Material>();
 	stone0->Name = "stone0";
@@ -944,8 +945,8 @@ void Renderer::BuildMaterials()
 	stone0->DiffuseSrvHeapIndex = 5;
 	stone0->DiffuseAlbedo = XMFLOAT4(Colors::Crimson);
 	stone0->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
-	stone0->Roughness = 0.6f;
-	stone0->metallic = 0.4f;
+	stone0->Roughness = 0.9f;
+	stone0->metallic = 0.1f;
 
 	auto skullMat = std::make_unique<Material>();
 	skullMat->Name = "skullMat";
@@ -975,8 +976,8 @@ void Renderer::BuildMaterials()
 	sphereMat->DiffuseSrvHeapIndex = 4;
 	sphereMat->DiffuseAlbedo = XMFLOAT4(Colors::Violet);
 	sphereMat->FresnelR0 = XMFLOAT3(0.06f, 0.06f, 0.06f);
-	sphereMat->Roughness = 0.01f;
-	sphereMat->metallic = 0.85f;
+	sphereMat->Roughness = 0.9f;
+	sphereMat->metallic = 0.05f;
 	skullMat->Ior = 1.5f;
 	skullMat->IsReflective = true;
 
@@ -990,6 +991,27 @@ void Renderer::BuildMaterials()
 	tile1->metallic = 0.05f;
 	tile1->IsReflective = false;
 
+	auto tile2 = std::make_unique<Material>();
+	tile2->Name = "tile2";
+	tile2->MatCBIndex = 4;
+	tile2->DiffuseSrvHeapIndex = 2;
+	tile2->DiffuseAlbedo = XMFLOAT4(Colors::Yellow);
+	tile2->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+	tile2->Roughness = 0.8f;
+	tile2->metallic = 0.05f;
+	tile2->IsReflective = false;
+
+	auto tile3 = std::make_unique<Material>();
+	tile3->Name = "tile3";
+	tile3->MatCBIndex = 4;
+	tile3->DiffuseSrvHeapIndex = 2;
+	tile3->DiffuseAlbedo = XMFLOAT4(Colors::Yellow);
+	tile3->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+	tile3->Roughness = 0.8f;
+	tile3->metallic = 0.05f;
+	tile3->IsReflective = false;
+
+
 	m_Materials["box"] = std::move(boxMat);
 	m_Materials["bricks0"] = std::move(bricks0);
 	m_Materials["stone0"] = std::move(stone0);
@@ -997,6 +1019,8 @@ void Renderer::BuildMaterials()
 	m_Materials["skullMat"] = std::move(skullMat);
 	m_Materials["sphere"] = std::move(sphereMat);
 	m_Materials["tile1"] = std::move(tile1);
+	m_Materials["tile2"] = std::move(tile2);
+	m_Materials["tile3"] = std::move(tile3);
 }
 void Renderer::BuildShapeGeometry()
 {
@@ -2042,12 +2066,13 @@ void Renderer::CreateShaderBindingTable()
 		D3D12_GPU_VIRTUAL_ADDRESS ib = 0;
 		D3D12_GPU_VIRTUAL_ADDRESS perInstanceCB = m_PerInstanceCBs[i]->GetGPUVirtualAddress();
 
-		if (i == 0)
+	/*	if (i == 0)
 		{
 			vb = boxSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
 			ib = boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 		}
-		else if (i > 0 && i <= m_SkullCount)
+		else */
+		if (i >= 0 && i <= m_SkullCount)
 		{
 			vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
 			ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
@@ -2179,15 +2204,20 @@ void Renderer::CreateAccelerationStructures()
 
 
 	m_Instances = {
-		{ boxBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
+		//{ boxBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
 		{bottomLevelBuffers.pResult, XMMatrixTranslation(-16.0f, 45.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(16.0f, 15.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(0.0f, 35.0f, 0.0f)},
 
 		{ skull0BottomLevelBuffers.pResult, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 50.0f, 0.0f) },
 		{ sphereBottomLevelBuffers.pResult, XMMatrixScaling(5.0f, 5.0f, 5.0f) * XMMatrixTranslation(-10.0f, 24.0f, -10.0f) },
-		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(5.0f, 1.0f, 5.0f) * XMMatrixTranslation(-10.0f, 10.0f, 10.0f) }
+		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
+		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixTranslation(0.0f, 25.0f, 0.0f) },
+		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0)) * XMMatrixTranslation(25.0f, 0.0f, 0.0f) },
+		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0)) * XMMatrixTranslation(-25.0f, 0.0f, 0.0f)},
 	};
 
 	m_IsInstanceReflective = {
+		false,
+		false,
 		false,
 		false,
 		false,
@@ -2230,10 +2260,10 @@ void Renderer::CreatePlaneGeometry()
 	// 4 unique vertices for the plane
 	Vertex planeVertices[] =
 	{
-		{{-1.5f, -0.8f,  1.5f}, { 0.0f, -1.0f, 0.0f }}, // 0
-		{{-1.5f, -0.8f, -1.5f}, { 0.0f, -1.0f, 0.0f }}, // 1
-		{{ 1.5f, -0.8f,  1.5f}, { 0.0f, -1.0f, 0.0f }}, // 2
-		{{ 1.5f, -0.8f, -1.5f}, { 0.0f, -1.0f, 0.0f }}, // 3
+		{{-1.5f, -0.8f,  1.5f}, { 0.0f, 1.0f, 0.0f }}, // 0
+		{{-1.5f, -0.8f, -1.5f}, { 0.0f, 1.0f, 0.0f }}, // 1
+		{{ 1.5f, -0.8f,  1.5f}, { 0.0f, 1.0f, 0.0f }}, // 2
+		{{ 1.5f, -0.8f, -1.5f}, { 0.0f, 1.0f, 0.0f }}, // 3
 	};
 
 	// Two triangles: (0,1,2) and (2,1,3) – matches your original winding
@@ -2409,10 +2439,10 @@ void Renderer::CreatePostProcessConstantBuffer()
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 50.0f, 0.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 100.0f, 0.0f);
 	m_AreaLightData.Radiance = XMFLOAT3(20.0f, 20.0f, 20.0f);
-	m_AreaLightData.U = XMFLOAT3(5.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 5.0f);
+	m_AreaLightData.U = XMFLOAT3(10.0f, 0.0f, 0.0f);
+	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 10.0f);
 
 	float lenU = sqrtf(m_AreaLightData.U.x * m_AreaLightData.U.x +
 		m_AreaLightData.U.y * m_AreaLightData.U.y +
