@@ -24,8 +24,8 @@ namespace std
             hash_combine(seed, hasher(vertex.Pos.y));
             hash_combine(seed, hasher(vertex.Pos.z));
 
-            hash_combine(seed, hasher(vertex.UV.x));
-            hash_combine(seed, hasher(vertex.UV.y));
+//            hash_combine(seed, hasher(vertex.UV.x));
+//            hash_combine(seed, hasher(vertex.UV.y));
 
             return seed;
         }
