@@ -1678,7 +1678,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 5);
 	rsc.AddHeapRangesParameter(
 		{ { 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2},
-		{ 4, 54, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 16},
+		{ 4, 54, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 15},
 
 		});
 	rsc.AddHeapRangesParameter(
@@ -2687,8 +2687,8 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.metallic = mat->metallic;
 		matGpu.isReflective = mat->IsReflective;
 		matGpu.isRefractive = mat->IsRefractive;
-		matGpu.pad3 = { 0.0f, 0.0f };
-
+		matGpu.pad3 = 0.0f;
+		matGpu.TexIndex = mat->DiffuseTextureFilePath != "" ? mat->DiffuseSrvHeapIndex : -1;
 		m_MaterialsGPU.push_back(std::move(matGpu));
 	}
 

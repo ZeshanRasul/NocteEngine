@@ -228,7 +228,7 @@ void d3dUtil::LoadObjModel(const std::string& filepath, Model& model)
 			mat.specular[1],
 			mat.specular[2]);
 		material->Roughness = mat.shininess / 256.0f;
-		material->DiffuseSrvHeapIndex = i;
+		material->DiffuseSrvHeapIndex = 22;
 		model.materials.push_back(material);
 		auto texture = new Texture();
 		texture->Name = mat.name;

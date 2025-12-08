@@ -100,7 +100,8 @@ struct MaterialDataGPU
 	float metallic;
 	bool isReflective = false;
 	UINT isRefractive = 0;
-	DirectX::XMFLOAT2 pad3;
+	float pad3;
+	int TexIndex = -1;
 };
 
 struct RenderItem

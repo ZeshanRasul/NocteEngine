@@ -24,7 +24,8 @@ struct Material
     float Metallic;
     bool IsReflective;
     uint IsRefractive;
-    float2 pad2;
+    float pad2;
+    int TexIndex;
 };
 
 struct ShadowPayload

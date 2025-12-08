@@ -368,7 +368,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     payload.emission = 0.0f;
     
-    mat.DiffuseAlbedo = textures[materialIndex].SampleLevel(sampAniso, uv, 0);
+    mat.DiffuseAlbedo = textures[16].SampleLevel(sampAniso, uv, 0);
     
     // Refractive materials (glass) – handle with dedicated BSDF
     if (mat.IsRefractive != 0)
