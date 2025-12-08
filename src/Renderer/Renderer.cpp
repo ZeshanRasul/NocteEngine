@@ -115,7 +115,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateComputeRootSignature();
 	BuildShadersAndInputLayout();
 	d3dUtil::LoadObjModel("Models/sponza.obj", m_DragonModel);
-
+	LoadTextures(m_DragonModel);
 	CreateModelBuffers(m_DragonModel);
 	BuildShapeGeometry();
 	BuildSkullGeometry();
@@ -1736,7 +1736,7 @@ void Renderer::CreateShaderResourceCPUHeap()
 
 void Renderer::CreateShaderResourceHeap()
 {
-	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 15, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 69, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -1866,7 +1866,24 @@ void Renderer::CreateShaderResourceHeap()
 	m_AccumulationBuffer->SetName(L"Accumulation Buffer SRV");
 	m_Device->CreateShaderResourceView(m_AccumulationBuffer.Get(), &srvDesc, srvHandle);
 
-	//srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> tex2DList;
+
+	for (auto& tex : m_DragonModel.textures)
+	{
+		tex2DList.push_back(tex->Resource);
+	}
+
+	for (UINT i = 0; i < (UINT)tex2DList.size(); ++i)
+	{
+		srvDesc.Format = tex2DList[i]->GetDesc().Format;
+		srvDesc.Texture2D.MipLevels = tex2DList[i]->GetDesc().MipLevels;
+		m_Device->CreateShaderResourceView(tex2DList[i].Get(), &srvDesc, srvHandle);
+
+		srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	}
 
 }
 
@@ -2117,19 +2134,20 @@ void Renderer::CreateShaderBindingTable()
 			ib = boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 		}
 		else */
-		if (i >= 9 && i < 11)
+		if (i >= 3 && i < 5)
 		{
 			vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
 			ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
 		
 		}
-		else if (i >= 7 && i < 9)
+		else if (i >= 1 && i < 3)
+
 		{
 			vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
 			ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 
 		}
-		else if (i < 7)
+		else if (i == 0)
 		{
 			vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
 			ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
@@ -2254,40 +2272,40 @@ void Renderer::CreateAccelerationStructures()
 
 	m_Instances =
 	{
-		// Floor (y = 0)
-		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-		  XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
+		//// Floor (y = 0)
+		//{ planeBottomLevelBuffers.pResult,
+		//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+		//  XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
 
-		// Ceiling (y = 40)
-		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(50.0f, 1.0f, 50.0f) *
-		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
-		  XMMatrixTranslation(0.0f, 60.0f, 0.0f) },
+		//// Ceiling (y = 40)
+		//{ planeBottomLevelBuffers.pResult,
+		//  XMMatrixScaling(50.0f, 1.0f, 50.0f) *
+		//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+		//  XMMatrixTranslation(0.0f, 60.0f, 0.0f) },
 
-		// Back wall (z = -20), normal pointing into the box (+Z)
-		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(50.0f, 1.0f, 50.0f) *
-		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(-90.0f)) *
-		  XMMatrixTranslation(0.0f, 60.0f, -120.0f) },
+		//// Back wall (z = -20), normal pointing into the box (+Z)
+		//{ planeBottomLevelBuffers.pResult,
+		//  XMMatrixScaling(50.0f, 1.0f, 50.0f) *
+		//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(-90.0f)) *
+		//  XMMatrixTranslation(0.0f, 60.0f, -120.0f) },
 
-		// Front wall (z = +20), normal pointing into the box (-Z)
-		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
-		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
-		  XMMatrixTranslation(0.0f, 60.0f, 60.0f) },
+		//// Front wall (z = +20), normal pointing into the box (-Z)
+		//{ planeBottomLevelBuffers.pResult,
+		//  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
+		//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
+		//  XMMatrixTranslation(0.0f, 60.0f, 60.0f) },
 
-		// Left wall (x = -20), normal pointing into the box (+X)
-		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
-		  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
-		  XMMatrixTranslation(-60.0f, 60.0f, 0.0f) },
+		//// Left wall (x = -20), normal pointing into the box (+X)
+		//{ planeBottomLevelBuffers.pResult,
+		//  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
+		//  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
+		//  XMMatrixTranslation(-60.0f, 60.0f, 0.0f) },
 
-		// Right wall (x = +20), normal pointing into the box (-X)
-		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
-		  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
-		  XMMatrixTranslation(60.0f, 60.0f, 0.0f) },
+		//// Right wall (x = +20), normal pointing into the box (-X)
+		//{ planeBottomLevelBuffers.pResult,
+		//  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
+		//  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
+		//  XMMatrixTranslation(60.0f, 60.0f, 0.0f) },
 
 		// ----------------------------------------------------
 		// Objects on the floor: sphere (left) + skull (right)
@@ -2330,12 +2348,7 @@ void Renderer::CreateAccelerationStructures()
 		false,
 		false,
 		false,
-		false,
-		false,
-		false,
-		false,
-		false,
-		false,
+
 	};
 
 	CreateTopLevelAS(m_Instances);
@@ -2550,10 +2563,10 @@ void Renderer::CreatePostProcessConstantBuffer()
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 39.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(35.0f, 35.0f, 35.0f);
-	m_AreaLightData.U = XMFLOAT3(10.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 10.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 209.0f, 0.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(85.0f, 85.0f, 85.0f);
+	m_AreaLightData.U = XMFLOAT3(50.0f, 0.0f, 0.0f);
+	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 50.0f);
 
 	float lenU = sqrtf(m_AreaLightData.U.x * m_AreaLightData.U.x +
 		m_AreaLightData.U.y * m_AreaLightData.U.y +
@@ -2628,6 +2641,21 @@ void Renderer::CreatePerInstanceBuffers()
 	memcpy(pData, m_MaterialsGPU.data(), bufferSize);
 	m_UploadCBuffer->Unmap(0, nullptr);
 
+}
+
+void Renderer::LoadTextures(Model& model)
+{
+	for (Texture* tex : model.textures)
+	{
+		if (tex->Filename != L"")
+		{
+			Microsoft::WRL::ComPtr<ID3D12Resource> texture;
+			Microsoft::WRL::ComPtr<ID3D12Resource> textureUploadHeap;
+			ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(m_Device.Get(),
+				m_CommandList.Get(), tex->Filename.c_str(),
+				tex->Resource, tex->UploadHeap));
+		}
+	}
 }
 
 void Renderer::CreateFrameIndexRNGCBuffer()
