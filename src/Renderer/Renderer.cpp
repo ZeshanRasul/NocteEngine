@@ -2094,14 +2094,13 @@ void Renderer::CreateShaderBindingTable()
 			ib = boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 		}
 		else */
-		//if (i >= 0 && i <= m_SkullCount)
-		//{
-		//	vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
-		//	ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
-		//
-		//}
-		//else if (i > m_SkullCount && i <= m_SkullCount + m_SphereCount)
-		if (i == 0)
+		if (i >= 0 && i < m_SkullCount)
+		{
+			vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
+			ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
+		
+		}
+		else if (i >= m_SkullCount && i < m_SkullCount + m_SphereCount)
 		{
 			vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
 			ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
@@ -2228,16 +2227,16 @@ void Renderer::CreateAccelerationStructures()
 
 	m_Instances = {
 		//{ boxBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
-	//	{bottomLevelBuffers.pResult, XMMatrixTranslation(-16.0f, 25.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(16.0f, 15.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(0.0f, 25.0f, 0.0f)},
+		{bottomLevelBuffers.pResult, XMMatrixTranslation(-16.0f, 25.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(16.0f, 15.0f, 0.0f)}, {bottomLevelBuffers.pResult, XMMatrixTranslation(0.0f, 25.0f, 0.0f)},
 
-		//{ skull0BottomLevelBuffers.pResult, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 30.0f, 0.0f) },
+		{ skull0BottomLevelBuffers.pResult, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 30.0f, -10.0f) },
 		{ sphereBottomLevelBuffers.pResult, XMMatrixScaling(5.0f, 5.0f, 5.0f) * XMMatrixTranslation(0.0f, 10.0f, 0.0f) },
 		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
-		//{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixTranslation(0.0f, 80.0f, 0.0f) },
-		//{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0)) * XMMatrixTranslation(100.0f, 0.0f, 0.0f) },
-		//{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0)) * XMMatrixTranslation(-100.0f, 0.0f, 0.0f)},
-		//{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(-90.0)) * XMMatrixTranslation(0.0f, 0.0f, -100.0f)},
-		//{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(-90.0)) * XMMatrixTranslation(0.0f, 0.0f, 100.0f)},
+		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixTranslation(0.0f, 80.0f, 0.0f) },
+		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0)) * XMMatrixTranslation(100.0f, 0.0f, 0.0f) },
+		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0)) * XMMatrixTranslation(-100.0f, 0.0f, 0.0f)},
+		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(-90.0)) * XMMatrixTranslation(0.0f, 0.0f, -100.0f)},
+		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(50.0f, 1.0f, 50.0f) * XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(-90.0)) * XMMatrixTranslation(0.0f, 0.0f, 100.0f)},
 	};
 
 	m_IsInstanceReflective = {
@@ -2466,8 +2465,8 @@ void Renderer::CreatePostProcessConstantBuffer()
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 20.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(5.0f, 5.0f, 5.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 50.0f, 0.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(10.0f, 10.0f, 10.0f);
 	m_AreaLightData.U = XMFLOAT3(10.0f, 0.0f, 0.0f);
 	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 10.0f);
 
