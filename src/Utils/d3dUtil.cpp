@@ -24,8 +24,12 @@ namespace std
             hash_combine(seed, hasher(vertex.Pos.y));
             hash_combine(seed, hasher(vertex.Pos.z));
 
-//            hash_combine(seed, hasher(vertex.UV.x));
-//            hash_combine(seed, hasher(vertex.UV.y));
+            hash_combine(seed, hasher(vertex.Normal.x));
+            hash_combine(seed, hasher(vertex.Normal.y));
+            hash_combine(seed, hasher(vertex.Normal.z));
+
+            //hash_combine(seed, hasher(vertex.UV.x));
+            //hash_combine(seed, hasher(vertex.UV.y));
 
             return seed;
         }
@@ -227,6 +231,13 @@ void d3dUtil::LoadObjModel(const std::string& filepath, Model& model)
                 attrib.vertices[3 * index.vertex_index + 0]
             };
 
+
+            vertex.Normal =
+            {
+                attrib.normals[3 * index.normal_index + 2],
+                attrib.normals[3 * index.normal_index + 1],
+                attrib.normals[3 * index.normal_index + 0]
+			};
     /*        vertex.UV =
             {
                 attrib.texcoords[2 * index.texcoord_index + 0],

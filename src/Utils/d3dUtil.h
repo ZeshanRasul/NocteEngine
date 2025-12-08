@@ -46,14 +46,18 @@ static bool CompareVector2WithEpsilon(const DirectX::XMFLOAT2& lhs, const Direct
 struct VertexObj
 {
     DirectX::XMFLOAT3 Pos;
-    DirectX::XMFLOAT3 Normal = { 0.0f, 1.0f, 0.0f };
- //   DirectX::XMFLOAT2 UV = { 0.0f, 0.0f };
+    DirectX::XMFLOAT3 Normal;
+//    DirectX::XMFLOAT2 UV = { 0.0f, 0.0f };
 
     bool operator==(const VertexObj& v) const
     {
         if (CompareVector3WithEpsilon(Pos, v.Pos))
         {
-     //       if (CompareVector2WithEpsilon(UV, v.UV)) return true;
+            if (CompareVector3WithEpsilon(Normal, v.Normal))
+            {
+          //      if (CompareVector2WithEpsilon(UV, v.UV)) return true;
+                return true;
+            }
             return true;
         }
         return false;
@@ -62,7 +66,8 @@ struct VertexObj
     VertexObj& operator=(const VertexObj& v)
     {
         Pos = v.Pos;
-    //    UV = v.UV;
+		Normal = v.Normal;
+   //     UV = v.UV;
         return *this;
     }
 };
