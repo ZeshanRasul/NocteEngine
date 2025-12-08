@@ -148,8 +148,7 @@ void RayGen()
         ray.TMax = 1e38f;
     }
     
-   // float3 finalColor = PostProcessColor(finalRadiance);
-    float3 finalColor = finalRadiance;
+    float3 finalColor = PostProcessColor(finalRadiance);
      
     float4 prev = gAccumBuf[launchIndex];
     float4 current = float4(finalColor, 1.0f);
