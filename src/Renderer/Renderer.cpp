@@ -2059,7 +2059,7 @@ void Renderer::CreateShaderBindingTable()
 			ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 
 		}
-		else if (i > m_SkullCount + m_SphereCount)
+		else
 		{
 			vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
 			ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
@@ -2184,7 +2184,7 @@ void Renderer::CreateAccelerationStructures()
 
 		{ skull0BottomLevelBuffers.pResult, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 50.0f, 0.0f) },
 		{ sphereBottomLevelBuffers.pResult, XMMatrixScaling(5.0f, 5.0f, 5.0f) * XMMatrixTranslation(-10.0f, 24.0f, -10.0f) },
-		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z ) * XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z) }
+		{ planeBottomLevelBuffers.pResult, XMMatrixScaling(5.0f, 1.0f, 5.0f) * XMMatrixTranslation(-10.0f, 10.0f, 10.0f) }
 	};
 
 	m_IsInstanceReflective = {
@@ -2237,7 +2237,7 @@ void Renderer::CreatePlaneGeometry()
 	};
 
 	// Two triangles: (0,1,2) and (2,1,3) – matches your original winding
-	uint16_t planeIndices[] =
+	uint32_t planeIndices[] =
 	{
 		0, 1, 2,
 		2, 1, 3
@@ -2441,7 +2441,7 @@ void Renderer::CreatePerInstanceBuffers()
 
 	int i(0);
 
-	for (int i = 0; i < m_PerInstanceCBCount; ++i)
+	for (int i = 0; i < m_PerInstanceCBCount; i++)
 	{
 		const uint32_t bufferSize = sizeof(PerInstanceData);
 
