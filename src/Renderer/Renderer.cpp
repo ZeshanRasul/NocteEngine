@@ -877,14 +877,18 @@ void Renderer::CreateConstantBufferViews()
 
 void Renderer::CreateRootSignature()
 {
-	CD3DX12_ROOT_PARAMETER slotRootParameter[4];
+	CD3DX12_DESCRIPTOR_RANGE texTable;
+	texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 54, 0, 0, 15);
+
+	CD3DX12_ROOT_PARAMETER slotRootParameter[5];
 
 	slotRootParameter[0].InitAsConstantBufferView(0);
 	slotRootParameter[1].InitAsConstantBufferView(1);
 	slotRootParameter[2].InitAsConstantBufferView(2);
 	slotRootParameter[3].InitAsConstantBufferView(3);
+	slotRootParameter[4].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);
 
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(4, slotRootParameter, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(5, slotRootParameter, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	Microsoft::WRL::ComPtr<ID3DBlob> serializedRootSig = nullptr;
 	Microsoft::WRL::ComPtr<ID3DBlob> errorBlob = nullptr;
@@ -1652,7 +1656,10 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 3);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 4);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 5);
-	rsc.AddHeapRangesParameter({ { 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2} });
+	rsc.AddHeapRangesParameter(
+		{ { 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2},
+		{ 4, 54, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 15},
+		});
 
 	return rsc.Generate(m_Device.Get(), true);
 }
@@ -1870,7 +1877,7 @@ void Renderer::CreateShaderResourceHeap()
 
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> tex2DList;
 
-	for (auto& tex : m_DragonModel.textures)
+	for (auto& tex : m_Textures)
 	{
 		tex2DList.push_back(tex->Resource);
 	}
@@ -2645,15 +2652,17 @@ void Renderer::CreatePerInstanceBuffers()
 
 void Renderer::LoadTextures(Model& model)
 {
-	for (Texture* tex : model.textures)
+	for (auto& mat : model.materials)
 	{
-		if (tex->Filename != L"")
+		if (mat->DiffuseTextureFilePath != "")
 		{
-			Microsoft::WRL::ComPtr<ID3D12Resource> texture;
-			Microsoft::WRL::ComPtr<ID3D12Resource> textureUploadHeap;
+			auto texMap = std::make_unique<Texture>();
+			texMap->Filename = AnsiToWString(mat->DiffuseTextureFilePath);
 			ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(m_Device.Get(),
-				m_CommandList.Get(), tex->Filename.c_str(),
-				tex->Resource, tex->UploadHeap));
+				m_CommandList.Get(), texMap->Filename.c_str(),
+				texMap->Resource, texMap->UploadHeap));
+
+			m_Textures.push_back(std::move(texMap));
 		}
 	}
 }

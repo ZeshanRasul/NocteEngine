@@ -297,6 +297,7 @@ private:
 	UINT m_SkullCount = 4;
 	UINT m_SphereCount = 1;
 	void LoadTextures(Model& model);
+	std::vector<std::unique_ptr<Texture>> m_Textures;
 
 	void CreateFrameIndexRNGCBuffer();
 	void UpdateFrameIndexRNGCBuffer();

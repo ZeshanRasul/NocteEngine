@@ -230,9 +230,9 @@ void d3dUtil::LoadObjModel(const std::string& filepath, Model& model)
 		material->Roughness = mat.shininess / 256.0f;
 		material->DiffuseSrvHeapIndex = i;
 		model.materials.push_back(material);
-		Texture* texture = {};
+		auto texture = new Texture();
 		texture->Name = mat.name;
-		texture->Filename = L"materials\\" + std::wstring(mat.diffuse_texname.begin(), mat.diffuse_texname.end());
+		texture->Filename = AnsiToWString(mat.diffuse_texname);
 		model.textures.push_back(texture);
 		i++;
 	}
