@@ -2094,13 +2094,13 @@ void Renderer::CreateShaderBindingTable()
 			ib = boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 		}
 		else */
-		if (i == 8)
+		if (i >= 9 && i < 11)
 		{
 			vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
 			ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
 		
 		}
-		else if (i >= 7 && i < 8)
+		else if (i >= 7 && i < 9)
 		{
 			vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
 			ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
@@ -2248,7 +2248,7 @@ void Renderer::CreateAccelerationStructures()
 		{ planeBottomLevelBuffers.pResult,
 		  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
 		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
-		  XMMatrixTranslation(0.0f, 40.0f, 40.0f) },
+		  XMMatrixTranslation(0.0f, 40.0f, 60.0f) },
 
 		// Left wall (x = -20), normal pointing into the box (+X)
 		{ planeBottomLevelBuffers.pResult,
@@ -2275,10 +2275,20 @@ void Renderer::CreateAccelerationStructures()
 		  XMMatrixScaling(3.0f, 3.0f, 3.0f) *
 		  XMMatrixTranslation(-7.0f, 3.0f, -5.0f) },
 
+		// Sphere on the right: radius ~3 at y = 3
+		{ sphereBottomLevelBuffers.pResult,
+		  XMMatrixScaling(3.0f, 3.0f, 3.0f) *
+		  XMMatrixTranslation(-7.0f, 3.0f, -15.0f) },
+
 		// Skull on the right
 		{ skull0BottomLevelBuffers.pResult,
 		  XMMatrixScaling(2.0f, 2.0f, 2.0f) *
 		  XMMatrixTranslation(7.0f, 2.0f, 5.0f) },
+		
+		// Skull on the left
+		{ skull0BottomLevelBuffers.pResult,
+		  XMMatrixScaling(2.0f, 2.0f, 2.0f) *
+		  XMMatrixTranslation(-15.0f, 2.0f, 5.0f) },
 
 	};
 
