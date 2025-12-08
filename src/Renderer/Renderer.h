@@ -293,7 +293,7 @@ private:
 
 	void CreatePerInstanceBuffers();
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_PerInstanceCBs;
-	UINT m_PerInstanceCBCount = 11;
+	UINT m_PerInstanceCBCount = 12;
 	UINT m_SkullCount = 4;
 	UINT m_SphereCount = 1;
 
@@ -313,6 +313,14 @@ private:
 	D3D12_CPU_DESCRIPTOR_HANDLE imguiCpuStart;
 	D3D12_GPU_DESCRIPTOR_HANDLE imguiGpuStart;
 	std::vector<bool> m_IsInstanceReflective;
+
+
+	Model m_DragonModel;
+	void CreateModelBuffers(Model& model);
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_DragonVertexBuffer;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_DragonIndexBuffer;
+	D3D12_VERTEX_BUFFER_VIEW m_DragonVBView;
+	D3D12_INDEX_BUFFER_VIEW m_DragonIBView; 
 };
 
 struct PerInstanceData

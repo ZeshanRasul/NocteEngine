@@ -31,6 +31,49 @@
 
 extern const int gNumFrameResources;
 
+static bool CompareVector3WithEpsilon(const DirectX::XMFLOAT3& lhs, const DirectX::XMFLOAT3& rhs)
+{
+    const DirectX::XMFLOAT3 vector3Epsilon = DirectX::XMFLOAT3(0.00001f, 0.00001f, 0.00001f);
+    return DirectX::XMVector3NearEqual(DirectX::XMLoadFloat3(&lhs), DirectX::XMLoadFloat3(&rhs), DirectX::XMLoadFloat3(&vector3Epsilon)) == TRUE;
+}
+
+static bool CompareVector2WithEpsilon(const DirectX::XMFLOAT2& lhs, const DirectX::XMFLOAT2& rhs)
+{
+    const DirectX::XMFLOAT2 vector2Epsilon = DirectX::XMFLOAT2(0.00001f, 0.00001f);
+    return DirectX::XMVector3NearEqual(DirectX::XMLoadFloat2(&lhs), DirectX::XMLoadFloat2(&rhs), DirectX::XMLoadFloat2(&vector2Epsilon)) == TRUE;
+}
+
+struct VertexObj
+{
+    DirectX::XMFLOAT3 Pos;
+    DirectX::XMFLOAT3 Normal = { 0.0f, 1.0f, 0.0f };
+    DirectX::XMFLOAT2 UV = { 0.0f, 0.0f };
+
+    bool operator==(const VertexObj& v) const
+    {
+        if (CompareVector3WithEpsilon(Pos, v.Pos))
+        {
+            if (CompareVector2WithEpsilon(UV, v.UV)) return true;
+            return true;
+        }
+        return false;
+    }
+
+    VertexObj& operator=(const VertexObj& v)
+    {
+        Pos = v.Pos;
+        UV = v.UV;
+        return *this;
+    }
+};
+
+struct Model
+{
+    std::vector<VertexObj> vertices;
+    std::vector<uint32_t> indices;
+};
+
+
 inline void d3dSetDebugName(IDXGIObject* obj, const char* name)
 {
     if (obj)
@@ -126,6 +169,8 @@ public:
         const D3D_SHADER_MACRO* defines,
         const std::string& entrypoint,
         const std::string& target);
+
+	static void LoadObjModel(const std::string& filename, Model& model);
 };
 
 class DxException

@@ -83,6 +83,8 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	//nv_helpers_dx12::Manipulator::Singleton().setWindowSize(m_ClientWidth, m_ClientHeight);
 	//nv_helpers_dx12::Manipulator::Singleton().setLookat(glm::vec3(0.0f, 1.0f, -27.0f), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 
+
+
 #if defined(DEBUG) || defined(_DEBUG)
 	CreateDebugController();
 #endif
@@ -112,11 +114,17 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRootSignature();
 	CreateComputeRootSignature();
 	BuildShadersAndInputLayout();
+	d3dUtil::LoadObjModel("Models/dragon.obj", m_DragonModel);
+
+	CreateModelBuffers(m_DragonModel);
 	BuildShapeGeometry();
 	BuildSkullGeometry();
 	CreatePlaneGeometry();
 	BuildMaterials();
 	BuildRenderItems();
+
+
+
 
 	vp.TopLeftX = 0.0f;
 	vp.TopLeftY = 0.0f;
@@ -1031,6 +1039,16 @@ void Renderer::BuildMaterials()
 	tile5->metallic = 0.05f;
 	tile5->IsReflective = false;
 
+	auto bunny = std::make_unique<Material>();
+	bunny->Name = "bunny";
+	bunny->MatCBIndex = 4;
+	bunny->DiffuseSrvHeapIndex = 2;
+	bunny->DiffuseAlbedo = XMFLOAT4(Colors::DarkGoldenrod);
+	bunny->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+	bunny->Roughness = 0.8f;
+	bunny->metallic = 0.05f;
+	bunny->IsReflective = false;
+
 
 	m_Materials["box"] = std::move(boxMat);
 	m_Materials["bricks0"] = std::move(bricks0);
@@ -1043,6 +1061,7 @@ void Renderer::BuildMaterials()
 	m_Materials["tile3"] = std::move(tile3);
 	m_Materials["tile4"] = std::move(tile4);
 	m_Materials["tile5"] = std::move(tile5);
+	m_Materials["bunny"] = std::move(bunny);
 }
 void Renderer::BuildShapeGeometry()
 {
@@ -2110,7 +2129,11 @@ void Renderer::CreateShaderBindingTable()
 		{
 			vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
 			ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
-
+		}
+		else
+		{
+			vb = m_DragonVertexBuffer->GetGPUVirtualAddress();
+			ib = m_DragonIndexBuffer->GetGPUVirtualAddress();
 		}
 
 		m_SbtHelper.AddHitGroup(L"HitGroup", { (void*)vb,(void*)ib,
@@ -2215,7 +2238,7 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<Microsoft::WRL::ComPtr<ID3
 
 void Renderer::CreateAccelerationStructures()
 {
-	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} }, { {m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount }
+	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_DragonVertexBuffer, m_DragonModel.vertices.size()}}, {{m_DragonIndexBuffer, m_DragonModel.indices.size()}
 		});
 	AccelerationStructureBuffers skull0BottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} }, { {m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount} });
 
@@ -2290,10 +2313,14 @@ void Renderer::CreateAccelerationStructures()
 		  XMMatrixScaling(4.0f, 4.0f, 4.0f) *
 		  XMMatrixTranslation(-20.0f, 2.0f, 15.0f) },
 
+		{ bottomLevelBuffers.pResult,
+		  XMMatrixScaling(5.0f, 5.0f, 5.0f) *
+		  XMMatrixTranslation(-10.0f, 2.5f, 20.0f)}
 	};
 
 
 	m_IsInstanceReflective = {
+		false,
 		false,
 		false,
 		false,
@@ -2402,7 +2429,7 @@ void Renderer::CreatePlaneGeometry()
 		m_PlaneIndexBuffer->Unmap(0, nullptr);
 
 		m_PlaneIBView.BufferLocation = m_PlaneIndexBuffer->GetGPUVirtualAddress();
-		m_PlaneIBView.Format = DXGI_FORMAT_R16_UINT;
+		m_PlaneIBView.Format = DXGI_FORMAT_R32_UINT;
 		m_PlaneIBView.SizeInBytes = ibSize;
 	}
 }
@@ -2630,4 +2657,62 @@ void Renderer::CreateImGuiDescriptorHeap()
 
 	ThrowIfFailed(m_Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(m_ImGuiSrvHeap.GetAddressOf())));
 
+}
+
+void Renderer::CreateModelBuffers(Model& model)
+{
+	const UINT vbSize = model.vertices.size() * sizeof(VertexObj);
+	const UINT ibSize = model.indices.size()* sizeof(uint32_t);
+
+	// Vertex buffer (upload for simplicity)
+	{
+		CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
+		CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(vbSize);
+
+		ThrowIfFailed(m_Device->CreateCommittedResource(
+			&heapProps,
+			D3D12_HEAP_FLAG_NONE,
+			&bufferDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&m_DragonVertexBuffer)));
+
+		UINT8* pDataBegin = nullptr;
+		CD3DX12_RANGE readRange(0, 0); // CPU will not read back
+
+		ThrowIfFailed(m_DragonVertexBuffer->Map(0, &readRange,
+			reinterpret_cast<void**>(&pDataBegin)));
+		memcpy(pDataBegin, model.vertices.data(), vbSize);
+		m_DragonVertexBuffer->Unmap(0, nullptr);
+
+		m_DragonVBView.BufferLocation = m_DragonVertexBuffer->GetGPUVirtualAddress();
+		m_DragonVBView.StrideInBytes = sizeof(VertexObj);
+		m_DragonVBView.SizeInBytes = vbSize;
+	}
+
+	// Index buffer (16-bit, upload for now)
+	{
+		CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
+		CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(ibSize);
+
+		ThrowIfFailed(m_Device->CreateCommittedResource(
+			&heapProps,
+			D3D12_HEAP_FLAG_NONE,
+			&bufferDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&m_DragonIndexBuffer)));
+
+		UINT8* pDataBegin = nullptr;
+		CD3DX12_RANGE readRange(0, 0);
+
+		ThrowIfFailed(m_DragonIndexBuffer->Map(0, &readRange,
+			reinterpret_cast<void**>(&pDataBegin)));
+		memcpy(pDataBegin, model.indices.data(), ibSize);
+		m_DragonIndexBuffer->Unmap(0, nullptr);
+
+		m_DragonIBView.BufferLocation = m_DragonIndexBuffer->GetGPUVirtualAddress();
+		m_DragonIBView.Format = DXGI_FORMAT_R32_UINT;
+		m_DragonIBView.SizeInBytes = ibSize;
+	}
 }
