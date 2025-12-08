@@ -51,7 +51,7 @@ void EvaluateDisneyGGX(
 
     // Disney metal workflow helpers
     float3 Cd, F0;
-    ComputeDisneyMetalWorkflow(mat.DiffuseAlbedo.xyz, mat.metallic, Cd, F0);
+    ComputeDisneyMetalWorkflow(mat.DiffuseAlbedo.xyz, mat.Metallic, Cd, F0);
 
     // Specular (GGX)
     float3 F = Fresnel_Schlick(F0, LdotH);
@@ -64,7 +64,7 @@ void EvaluateDisneyGGX(
     // Diffuse (Disney)
     float diffBRDF = DisneyDiffuse(NdotV, NdotL, LdotH, roughness);
     // Diffuse energy is only from the non-metal part
-    fDiff = Cd * diffBRDF * (1.0f - mat.metallic);
+    fDiff = Cd * diffBRDF * (1.0f - mat.Metallic);
 
     // PDFs for each lobe given this direction
     pdfSpec = GGX_PDF(N, V, L, roughness); // microfacet lobe pdf
@@ -96,9 +96,9 @@ BSDFSample SampleDisneyGGX(
     // Compute weights for picking a lobe.
     // This does NOT change energy, only affects variance.
     float3 Cd, F0;
-    ComputeDisneyMetalWorkflow(mat.DiffuseAlbedo.xyz, mat.metallic, Cd, F0);
+    ComputeDisneyMetalWorkflow(mat.DiffuseAlbedo.xyz, mat.Metallic, Cd, F0);
     float specWeight = max(F0.r, max(F0.g, F0.b));
-    float diffWeight = max(Cd.r, max(Cd.g, Cd.b)) * (1.0f - mat.metallic);
+    float diffWeight = max(Cd.r, max(Cd.g, Cd.b)) * (1.0f - mat.Metallic);
     float sum = specWeight + diffWeight + 1e-6f;
     float specProb = saturate(specWeight / sum);
     specProb = clamp(specProb, 0.1f, 0.9f);
@@ -179,10 +179,10 @@ float PdfDisneyBRDF(
     float roughness = saturate(1.0f - mat.Shininess);
     // Disney metal workflow helpers
     float3 Cd, F0;
-    ComputeDisneyMetalWorkflow(mat.DiffuseAlbedo.xyz, mat.metallic, Cd, F0);
+    ComputeDisneyMetalWorkflow(mat.DiffuseAlbedo.xyz, mat.Metallic, Cd, F0);
     // Weights
     float specWeight = max(F0.r, max(F0.g, F0.b));
-    float diffWeight = max(Cd.r, max(Cd.g, Cd.b)) * (1.0f - mat.metallic);
+    float diffWeight = max(Cd.r, max(Cd.g, Cd.b)) * (1.0f - mat.Metallic);
     float sum = specWeight + diffWeight + 1e-6f;
     float specProb = saturate(specWeight / sum);
     specProb = clamp(specProb, 0.1f, 0.9f);

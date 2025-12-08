@@ -336,6 +336,8 @@ struct Material
     bool IsReflective = false;
     float metallic = 0.01f;
     DirectX::XMFLOAT4X4 MatTransform = MathHelper::Identity4x4();
+    UINT IsRefractive = 0;
+    DirectX::XMFLOAT2 pad2 = { 0.0f, 0.0f };
 };
 
 struct Texture

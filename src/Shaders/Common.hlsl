@@ -21,8 +21,10 @@ struct Material
     float Shininess;
     float pad;
     float pad1;
-    float metallic;
+    float Metallic;
     bool IsReflective;
+    uint IsRefractive;
+    float2 pad2;
 };
 
 struct ShadowPayload

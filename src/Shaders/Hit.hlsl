@@ -86,6 +86,87 @@ cbuffer FrameData : register(b5)
     uint frameIndex;
 }
 
+// Handles a refractive material (glass) as a specular BSDF
+void HandleRefractiveHit(
+    Material mat,
+    float3 pW,
+    float3 N,
+    float3 V,
+    bool frontFace,
+    inout PathPayload payload)
+{
+    // Assume we are in air outside
+    float etaI = 1.0f;
+    float etaT = mat.Ior;
+    float eta = frontFace ? (etaI / etaT) : (etaT / etaI);
+
+    float3 Nn = N; // shading normal already oriented to oppose V
+    float cosI = saturate(dot(V, Nn));
+    float sin2T = eta * eta * (1.0f - cosI * cosI);
+
+    // Fresnel term from stored F0
+    float3 F = Fresnel_Schlick(mat.FresnelR0, cosI);
+
+    // Use luminance / max channel for branch probability
+    float reflProb = max(F.r, max(F.g, F.b));
+    reflProb = saturate(reflProb);
+    reflProb = clamp(reflProb, 0.05f, 0.95f);
+
+    float3 dir;
+    float3 weight;
+
+    // Total internal reflection when exiting the glass
+    if (!frontFace && sin2T > 1.0f)
+    {
+        dir = reflect(-V, Nn);
+        weight = 1.0f; // all energy reflected
+        reflProb = 1.0f; // pdf = 1, only reflection
+    }
+    else
+    {
+        float r = Rand(payload.seed);
+
+        if (r < reflProb)
+        {
+            // Reflection branch
+            dir = reflect(-V, Nn);
+            weight = F / max(reflProb, 1e-4f);
+        }
+        else
+        {
+            // Refraction branch
+            float cosT = sqrt(max(0.0f, 1.0f - sin2T));
+            float3 refrDir = eta * (-V) + (eta * cosI - cosT) * Nn;
+            dir = normalize(refrDir);
+
+            float3 oneMinusF = 1.0f - F;
+            float transProb = max(1.0f - reflProb, 1e-4f);
+            weight = oneMinusF / transProb;
+
+            // Optional: account for radiance / importance mismatch with eta^2:
+            // float eta2 = eta * eta;
+            // weight *= eta2;
+        }
+    }
+
+    // Tint the glass by base color
+    weight *= mat.DiffuseAlbedo.rgb;
+
+    payload.wi = dir;
+    payload.bsdfOverPdf = weight; // f * cos / pdf collapsed into this scalar weight
+    payload.pdf = 1.0f; // implicit delta BSDF
+
+    // Glass itself does not emit
+    payload.emission = 0.0f;
+
+    // If we somehow ended with zero weight, terminate
+    if (all(weight <= 0.0f))
+        payload.done = 1;
+    else
+        payload.done = 0;
+}
+
+
 float3 SampleAreaLight(uint index, float2 xi)
 {
     AreaLight L = gAreaLight;
@@ -264,13 +345,11 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
 
     // World-space position and normal
     float3 pW = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
-    float3 N = TransformNormalToWorld(nObj);
+    float3 Ngeom = TransformNormalToWorld(nObj);
     float3 V = -WorldRayDirection();
     
-    if (dot(N, V) < 0.0f)
-    {
-        N = -N;
-    }
+    bool frontFace = dot(Ngeom, V) > 0.0f;
+    float3 N = frontFace ? Ngeom : -Ngeom;
 
     // Fill payload base data
     payload.hitPos = pW;
@@ -280,6 +359,13 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     Material mat = materials[materialIndex];
     
     payload.emission = 0.0f;
+    
+    // Refractive materials (glass) – handle with dedicated BSDF
+    if (mat.IsRefractive != 0)
+    {
+        HandleRefractiveHit(mat, pW, N, V, frontFace, payload);
+        return;
+    }
     
     // Sample BSDF
     float2 xi = Rand2(payload.seed);
@@ -316,7 +402,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
                 float pdfBSDF2 = pdfBSDF * pdfBSDF;
                 float wLight = pdfL2 / max(pdfL2 + pdfBSDF2, 1e-4f);
                 
-               LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
+                LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
             }
         }
     }

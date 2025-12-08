@@ -987,7 +987,7 @@ void Renderer::BuildMaterials()
 	sphereMat->Roughness = 0.9f;
 	sphereMat->metallic = 0.05f;
 	skullMat->Ior = 1.5f;
-	skullMat->IsReflective = true;
+	skullMat->IsReflective = false;
 
 	auto tile1 = std::make_unique<Material>();
 	tile1->Name = "tile1";
@@ -1013,7 +1013,7 @@ void Renderer::BuildMaterials()
 	tile3->Name = "tile3";
 	tile3->MatCBIndex = 8;
 	tile3->DiffuseSrvHeapIndex = 2;
-	tile3->DiffuseAlbedo = XMFLOAT4(0.14, 0.45, 0.091, 1.0f);
+	tile3->DiffuseAlbedo = XMFLOAT4(0.14, 0.45, 0.591, 1.0f);
 	tile3->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile3->Roughness = 0.8f;
 	tile3->metallic = 0.05f;
@@ -1037,19 +1037,21 @@ void Renderer::BuildMaterials()
 	tile5->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile5->Roughness = 0.01f;
 	tile5->metallic = 0.05f;
-	tile5->IsReflective = true;
-	tile5->Ior = 1.5f;
+	tile5->IsReflective = false;
+//	tile5->IsRefractive = true;
+//	tile5->Ior = 1.5f;
 
 	auto dragon = std::make_unique<Material>();
 	dragon->Name = "dragon";
 	dragon->MatCBIndex = 11;
 	dragon->DiffuseSrvHeapIndex = 2;
-	dragon->DiffuseAlbedo = XMFLOAT4(Colors::DarkGoldenrod);
+	dragon->DiffuseAlbedo = XMFLOAT4(Colors::Gold);
 	dragon->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	dragon->Roughness = 0.01f;
-	dragon->metallic = 0.05f;
-	dragon->IsReflective = true;
-	dragon->Ior = 1.5f;
+	dragon->metallic = 0.85f;
+//	dragon->IsReflective = false;
+//	dragon->IsRefractive = true;
+//	dragon->Ior = 1.5f;
 
 
 	m_Materials.push_back(std::move(boxMat));
@@ -2332,6 +2334,8 @@ void Renderer::CreateAccelerationStructures()
 		false,
 		false,
 		false,
+		false,
+		false,
 	};
 
 	CreateTopLevelAS(m_Instances);
@@ -2546,8 +2550,8 @@ void Renderer::CreatePostProcessConstantBuffer()
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 49.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(25.0f, 25.0f, 25.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 39.0f, 0.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(35.0f, 35.0f, 35.0f);
 	m_AreaLightData.U = XMFLOAT3(10.0f, 0.0f, 0.0f);
 	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 10.0f);
 
@@ -2609,6 +2613,8 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.pad2 = 1.0f;
 		matGpu.metallic = mat->metallic;
 		matGpu.isReflective = mat->IsReflective;
+		matGpu.isRefractive = mat->IsRefractive;
+		matGpu.pad3 = { 0.0f, 0.0f };
 
 		m_MaterialsGPU.push_back(std::move(matGpu));
 	}
