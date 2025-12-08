@@ -155,7 +155,7 @@ private:
 	std::vector<RenderItem*> m_TransparentRenderItems;
 
 	std::unordered_map<std::string, std::unique_ptr<MeshGeometry>> m_Geometries;
-	std::unordered_map<std::string, std::shared_ptr<Material>> m_Materials;
+	std::vector<std::shared_ptr<Material>> m_Materials;
 
 	PassConstants m_MainPassCB;
 	UINT m_skullVertCount = 0;
