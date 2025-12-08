@@ -2265,13 +2265,13 @@ void Renderer::CreateAccelerationStructures()
 		{ planeBottomLevelBuffers.pResult,
 		  XMMatrixScaling(50.0f, 1.0f, 50.0f) *
 		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(-90.0f)) *
-		  XMMatrixTranslation(0.0f, 60.0f, -60.0f) },
+		  XMMatrixTranslation(0.0f, 60.0f, -120.0f) },
 
 		// Front wall (z = +20), normal pointing into the box (-Z)
 		{ planeBottomLevelBuffers.pResult,
 		  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
 		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
-		  XMMatrixTranslation(0.0f, 60.0f, 120.0f) },
+		  XMMatrixTranslation(0.0f, 60.0f, 60.0f) },
 
 		// Left wall (x = -20), normal pointing into the box (+X)
 		{ planeBottomLevelBuffers.pResult,
@@ -2314,8 +2314,8 @@ void Renderer::CreateAccelerationStructures()
 		  XMMatrixTranslation(-20.0f, 2.0f, 15.0f) },
 
 		{ bottomLevelBuffers.pResult,
-		  XMMatrixScaling(15.0f, 15.0f, 15.0f) *
-		  XMMatrixTranslation(0.0f, 2.5f, 45.0f)}
+		  XMMatrixScaling(35.0f, 35.0f, 35.0f) *
+		  XMMatrixTranslation(0.0f, 7.5f, -25.0f)}
 	};
 
 
