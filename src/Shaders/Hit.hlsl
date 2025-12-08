@@ -33,6 +33,7 @@ struct STriVertex
 {
     float3 Vertex;
     float3 Normal;
+    float2 UV;
 };
 
 StructuredBuffer<STriVertex> BTriVertex : register(t0);
@@ -40,6 +41,8 @@ StructuredBuffer<int> indices : register(t1);
 RaytracingAccelerationStructure SceneBVH : register(t2);
 StructuredBuffer<Material> materials : register(t3);
 Texture2D textures[54] : register(t4);
+
+SamplerState sampAniso : register(s0);
 
 cbuffer cbPass : register(b0)
 {
@@ -343,6 +346,11 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         v2.Normal * bary.z
     );
 
+    float2 uv = 
+        v0.UV * bary.x +
+        v1.UV * bary.y +
+        v2.UV * bary.z;
+    
     // World-space position and normal
     float3 pW = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
     float3 Ngeom = TransformNormalToWorld(nObj);
@@ -359,6 +367,8 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     Material mat = materials[materialIndex];
     
     payload.emission = 0.0f;
+    
+    mat.DiffuseAlbedo = textures[materialIndex].SampleLevel(sampAniso, uv, 0);
     
     // Refractive materials (glass) – handle with dedicated BSDF
     if (mat.IsRefractive != 0)

@@ -155,6 +155,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateDenoisingResources();
 	CreateShaderResourceHeap();
 	CreateShaderResourceCPUHeap();
+	CreateSamplerHeap();
 	CreateDenoiseConstantBuffer();
 	CreateShaderBindingTable();
 	CreateImGuiDescriptorHeap();
@@ -298,7 +299,7 @@ void Renderer::Draw(bool useRaster)
 	else
 	{
 
-		std::vector<ID3D12DescriptorHeap*> heaps = { m_SrvUavHeap.Get() };
+		std::vector<ID3D12DescriptorHeap*> heaps = { m_SrvUavHeap.Get(), m_SamplerHeap.Get()};
 		m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
 
 		CD3DX12_RESOURCE_BARRIER transition;
@@ -888,7 +889,22 @@ void Renderer::CreateRootSignature()
 	slotRootParameter[3].InitAsConstantBufferView(3);
 	slotRootParameter[4].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);
 
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(5, slotRootParameter, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+	D3D12_STATIC_SAMPLER_DESC samp = {};
+	samp.Filter = D3D12_FILTER_ANISOTROPIC;
+	samp.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	samp.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	samp.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	samp.MipLODBias = 0.0f;
+	samp.MaxAnisotropy = 16;
+	samp.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+	samp.MinLOD = 0.0f;
+	samp.MaxLOD = D3D12_FLOAT32_MAX;
+	samp.ShaderRegister = 0; // s0
+	samp.RegisterSpace = 0;
+	samp.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(5, slotRootParameter, 1, &samp, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	Microsoft::WRL::ComPtr<ID3DBlob> serializedRootSig = nullptr;
 	Microsoft::WRL::ComPtr<ID3DBlob> errorBlob = nullptr;
@@ -1042,8 +1058,8 @@ void Renderer::BuildMaterials()
 	tile5->Roughness = 0.01f;
 	tile5->metallic = 0.05f;
 	tile5->IsReflective = false;
-//	tile5->IsRefractive = true;
-//	tile5->Ior = 1.5f;
+	//	tile5->IsRefractive = true;
+	//	tile5->Ior = 1.5f;
 
 	auto dragon = std::make_unique<Material>();
 	dragon->Name = "dragon";
@@ -1053,9 +1069,9 @@ void Renderer::BuildMaterials()
 	dragon->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	dragon->Roughness = 0.71f;
 	dragon->metallic = 0.25f;
-//	dragon->IsReflective = false;
-//	dragon->IsRefractive = true;
-//	dragon->Ior = 1.5f;
+	//	dragon->IsReflective = false;
+	//	dragon->IsRefractive = true;
+	//	dragon->Ior = 1.5f;
 
 
 	m_Materials.push_back(std::move(boxMat));
@@ -1639,7 +1655,11 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
 		{ 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 6},
 		}
 	);
-
+	rsc.AddHeapRangesParameter(
+		{
+			{0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 0}
+		}
+	);
 
 	return rsc.Generate(m_Device.Get(), true);
 }
@@ -1658,9 +1678,14 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 5);
 	rsc.AddHeapRangesParameter(
 		{ { 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2},
-		{ 4, 54, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 15},
-		});
+		{ 4, 54, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 16},
 
+		});
+	rsc.AddHeapRangesParameter(
+		{
+			{0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 0}
+		}
+	);
 	return rsc.Generate(m_Device.Get(), true);
 }
 
@@ -1738,6 +1763,29 @@ void Renderer::CreateShaderResourceCPUHeap()
 	m_Device->CreateUnorderedAccessView(m_AccumulationBuffer.Get(), nullptr, &uavDesc, srvHandle);
 
 	m_AccumulationBufferUavHandleCPU = srvHandle;
+
+}
+
+void Renderer::CreateSamplerHeap()
+{
+	D3D12_DESCRIPTOR_HEAP_DESC samplerHeapDesc = {};
+	samplerHeapDesc.NumDescriptors = 1;
+	samplerHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
+	samplerHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	ThrowIfFailed(m_Device->CreateDescriptorHeap(&samplerHeapDesc, IID_PPV_ARGS(&m_SamplerHeap)));
+
+	D3D12_CPU_DESCRIPTOR_HANDLE samplerHandle = m_SamplerHeap->GetCPUDescriptorHandleForHeapStart();
+	D3D12_SAMPLER_DESC s = {};
+	s.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+	s.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	s.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	s.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	s.MinLOD = 0.0f;
+	s.MaxLOD = D3D12_FLOAT32_MAX;
+	s.MipLODBias = 0.0f;
+	s.MaxAnisotropy = 1;
+	s.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+	m_Device->CreateSampler(&s, m_SamplerHeap->GetCPUDescriptorHandleForHeapStart());
 
 }
 
@@ -1867,14 +1915,14 @@ void Renderer::CreateShaderResourceHeap()
 	m_Device->CreateShaderResourceView(m_DenoisePong.Get(), &srvDesc, srvHandle);
 
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	
+
 	srvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 
 	m_AccumulationBuffer->SetName(L"Accumulation Buffer SRV");
 	m_Device->CreateShaderResourceView(m_AccumulationBuffer.Get(), &srvDesc, srvHandle);
 
-	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+	
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> tex2DList;
 
 	for (auto& tex : m_Textures)
@@ -2120,6 +2168,9 @@ void Renderer::CreateShaderBindingTable()
 	D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
 	auto heapPointer = reinterpret_cast<void*>(srvUavHeapHandle.ptr);
 
+	D3D12_GPU_DESCRIPTOR_HANDLE samplerHeapHandle = m_SamplerHeap->GetGPUDescriptorHandleForHeapStart();
+	auto samplerHeapPointer = reinterpret_cast<void*>(samplerHeapHandle.ptr);
+
 	m_SbtHelper.AddRayGenerationProgram(L"RayGen", {
 				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
 				(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
@@ -2135,17 +2186,17 @@ void Renderer::CreateShaderBindingTable()
 		D3D12_GPU_VIRTUAL_ADDRESS ib = 0;
 		D3D12_GPU_VIRTUAL_ADDRESS perInstanceCB = m_PerInstanceCBs[i]->GetGPUVirtualAddress();
 
-	/*	if (i == 0)
-		{
-			vb = boxSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
-			ib = boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
-		}
-		else */
+		/*	if (i == 0)
+			{
+				vb = boxSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
+				ib = boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
+			}
+			else */
 		if (i >= 3 && i < 5)
 		{
 			vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
 			ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
-		
+
 		}
 		else if (i >= 1 && i < 3)
 
@@ -2173,7 +2224,8 @@ void Renderer::CreateShaderBindingTable()
 			(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
 			(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
 			(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
-			heapPointer
+			heapPointer,
+			samplerHeapPointer
 			});
 
 		m_SbtHelper.AddHitGroup(L"ShadowHitGroup", { (void*)vb,(void*)ib,
@@ -2184,7 +2236,8 @@ void Renderer::CreateShaderBindingTable()
 			(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
 			(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
 			(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
-			heapPointer
+			heapPointer,
+			samplerHeapPointer
 			});
 
 
@@ -2267,14 +2320,14 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<Microsoft::WRL::ComPtr<ID3
 
 void Renderer::CreateAccelerationStructures()
 {
-	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_DragonVertexBuffer, m_DragonModel.vertices.size()}}, {{m_DragonIndexBuffer, m_DragonModel.indices.size()}
+	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_DragonVertexBuffer, m_DragonModel.vertices.size()} }, { {m_DragonIndexBuffer, m_DragonModel.indices.size()}
 		});
 	AccelerationStructureBuffers skull0BottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} }, { {m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount} });
 
 	AccelerationStructureBuffers sphereBottomLevelBuffers = CreateBottomLevelAS({ { sphereSubmesh.VertexBufferGPU, sphereSubmesh.VertexCount} }, { {sphereSubmesh.IndexBufferGPU, sphereSubmesh.IndexCount} });
 	AccelerationStructureBuffers boxBottomLevelBuffers = CreateBottomLevelAS({ { boxSubmesh.VertexBufferGPU, boxSubmesh.VertexCount} }, { {boxSubmesh.IndexBufferGPU, boxSubmesh.IndexCount} });
 	AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { m_PlaneVertexBuffer, 4} }, { { m_PlaneIndexBuffer, 6 }
-});
+		});
 
 
 	m_Instances =
@@ -2321,7 +2374,7 @@ void Renderer::CreateAccelerationStructures()
 		{ planeBottomLevelBuffers.pResult,
 		  XMMatrixScaling(6.0f, 1.0f, 6.0f) *
 		  XMMatrixTranslation(12.0f, 0.0f, 8.0f) },
-		
+
 		// Sphere on the left: radius ~3 at y = 3
 		{ sphereBottomLevelBuffers.pResult,
 		  XMMatrixScaling(6.0f, 6.0f, 6.0f) *
@@ -2336,7 +2389,7 @@ void Renderer::CreateAccelerationStructures()
 		{ skull0BottomLevelBuffers.pResult,
 		  XMMatrixScaling(4.0f, 4.0f, 4.0f) *
 		  XMMatrixTranslation(12.0f, 2.0f, 8.0f) },
-		
+
 		// Skull on the left
 		{ skull0BottomLevelBuffers.pResult,
 		  XMMatrixScaling(4.0f, 4.0f, 4.0f) *
@@ -2707,7 +2760,7 @@ void Renderer::CreateImGuiDescriptorHeap()
 void Renderer::CreateModelBuffers(Model& model)
 {
 	const UINT vbSize = model.vertices.size() * sizeof(VertexObj);
-	const UINT ibSize = model.indices.size()* sizeof(uint32_t);
+	const UINT ibSize = model.indices.size() * sizeof(uint32_t);
 
 	// Vertex buffer (upload for simplicity)
 	{

@@ -47,7 +47,7 @@ struct Vertex
 {
 	DirectX::XMFLOAT3 Pos;
 	DirectX::XMFLOAT3 Normal = { 0.0f, 1.0f, 0.0f };
-//	DirectX::XMFLOAT2 UV = { 0.0f, 0.0f };
+	DirectX::XMFLOAT2 UV = { 0.0f, 0.0f };
 };
 
 struct FrameResource

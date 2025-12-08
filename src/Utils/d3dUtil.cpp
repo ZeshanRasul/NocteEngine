@@ -28,8 +28,8 @@ namespace std
 			hash_combine(seed, hasher(vertex.Normal.y));
 			hash_combine(seed, hasher(vertex.Normal.z));
 
-			//hash_combine(seed, hasher(vertex.UV.x));
-			//hash_combine(seed, hasher(vertex.UV.y));
+			hash_combine(seed, hasher(vertex.UV.x));
+			hash_combine(seed, hasher(vertex.UV.y));
 
 			return seed;
 		}
@@ -258,13 +258,13 @@ void d3dUtil::LoadObjModel(const std::string& filepath, Model& model)
 				attrib.normals[3 * index.normal_index + 1],
 				attrib.normals[3 * index.normal_index + 0]
 			};
-			/*        vertex.UV =
-					{
-						attrib.texcoords[2 * index.texcoord_index + 0],
-						1 - attrib.texcoords[2 * index.texcoord_index + 1]
-					};*/
+			vertex.UV =
+			{
+				attrib.texcoords[2 * index.texcoord_index + 0],
+				1 - attrib.texcoords[2 * index.texcoord_index + 1]
+			};
 
-					// Fast find unique vertices using a hash
+			// Fast find unique vertices using a hash
 			if (uniqueVertices.count(vertex) == 0)
 			{
 				uniqueVertices[vertex] = static_cast<uint32_t>(model.vertices.size());
