@@ -2411,13 +2411,13 @@ void Renderer::CreateAccelerationStructures()
 
 		// Skull on the right
 		{ skull0BottomLevelBuffers.pResult,
-		  XMMatrixScaling(4.0f, 4.0f, 4.0f) *
-		  XMMatrixTranslation(12.0f, 2.0f, 8.0f) },
+		  XMMatrixScaling(14.0f, 14.0f, 14.0f) *
+		  XMMatrixTranslation(50.0f, 8.0f, 15.0f) },
 
 		// Skull on the left
 		{ skull0BottomLevelBuffers.pResult,
-		  XMMatrixScaling(4.0f, 4.0f, 4.0f) *
-		  XMMatrixTranslation(-20.0f, 2.0f, 15.0f) },
+		  XMMatrixScaling(14.0f, 14.0f, 14.0f) *
+		  XMMatrixTranslation(-50.0f, 8.0f, 15.0f) },
 
 		{ bottomLevelBuffers.pResult,
 		  XMMatrixScaling(1.0f, 1.0f, 1.0f) *
