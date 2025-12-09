@@ -275,6 +275,11 @@ void d3dUtil::LoadObjModel(const std::string& filepath, Model& model)
 					attrib.normals[3 * idx.normal_index + 0]
 				};
 
+				if (attrib.texcoords.size() == 0)
+				{
+					vertex.UV = { 0.0f, 0.0f };
+				}
+				else
 				vertex.UV =
 				{
 					attrib.texcoords[2 * idx.texcoord_index + 0],

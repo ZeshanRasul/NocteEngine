@@ -112,8 +112,11 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateComputeRootSignature();
 	BuildShadersAndInputLayout();
 	d3dUtil::LoadObjModel("Models/sponza.obj", m_SponzaModel);
+	d3dUtil::LoadObjModel("Models/dragon.obj", m_DragonModel);
 	LoadTextures(m_SponzaModel);
-	CreateModelBuffers(m_SponzaModel);
+	//LoadTextures(m_DragonModel);
+	CreateModelBuffers(m_SponzaModel, m_SponzaVertexBuffer, m_SponzaIndexBuffer, m_SponzaVBView, m_SponzaIBView);
+	CreateModelBuffers(m_DragonModel, m_DragonVertexBuffer, m_DragonIndexBuffer, m_DragonVBView, m_DragonIBView);
 	BuildShapeGeometry();
 	BuildSkullGeometry();
 	CreatePlaneGeometry();
@@ -2239,6 +2242,11 @@ void Renderer::CreateShaderBindingTable()
 			vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
 			ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
 		}
+		else if (i == 5)
+		{
+			vb = m_DragonVertexBuffer->GetGPUVirtualAddress();
+			ib = m_DragonIndexBuffer->GetGPUVirtualAddress();
+		}
 		else
 		{
 			vb = m_SponzaVertexBuffer->GetGPUVirtualAddress();
@@ -2355,7 +2363,8 @@ void Renderer::CreateAccelerationStructures()
 
 	AccelerationStructureBuffers sphereBottomLevelBuffers = CreateBottomLevelAS({ { sphereSubmesh.VertexBufferGPU, sphereSubmesh.VertexCount} }, { {sphereSubmesh.IndexBufferGPU, sphereSubmesh.IndexCount} });
 	AccelerationStructureBuffers boxBottomLevelBuffers = CreateBottomLevelAS({ { boxSubmesh.VertexBufferGPU, boxSubmesh.VertexCount} }, { {boxSubmesh.IndexBufferGPU, boxSubmesh.IndexCount} });
-	AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { m_PlaneVertexBuffer, 4} }, { { m_PlaneIndexBuffer, 6 }
+	AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { m_PlaneVertexBuffer, 4} }, { { m_PlaneIndexBuffer, 6 } });
+	AccelerationStructureBuffers dragonBottomLevelBuffers = CreateBottomLevelAS({ { m_DragonVertexBuffer, m_DragonModel.vertices.size() } }, { {m_DragonIndexBuffer, m_DragonModel.indices.size() }
 		});
 
 
@@ -2424,6 +2433,10 @@ void Renderer::CreateAccelerationStructures()
 		  XMMatrixScaling(14.0f, 14.0f, 14.0f) *
 		  XMMatrixTranslation(-50.0f, 8.0f, 15.0f) },
 
+		{ dragonBottomLevelBuffers.pResult,
+		  XMMatrixScaling(15.0f, 15.0f, 15.0f) *
+		  XMMatrixTranslation(0.0f, 5.0f, -255.0f)},
+
 		{ bottomLevelBuffers.pResult,
 		  XMMatrixScaling(1.0f, 1.0f, 1.0f) *
 		  XMMatrixTranslation(0.0f, 0.0f, -25.0f)}
@@ -2431,6 +2444,7 @@ void Renderer::CreateAccelerationStructures()
 
 
 	m_IsInstanceReflective = {
+		false,
 		false,
 		false,
 		false,
@@ -2879,7 +2893,7 @@ void Renderer::RenderImGuiDebugWindow()
 
 }
 
-void Renderer::CreateModelBuffers(Model& model)
+void Renderer::CreateModelBuffers(Model& model, Microsoft::WRL::ComPtr<ID3D12Resource>& vb, Microsoft::WRL::ComPtr<ID3D12Resource>& ib, D3D12_VERTEX_BUFFER_VIEW& vbv, D3D12_INDEX_BUFFER_VIEW& ibv)
 {
 	const UINT vbSize = model.vertices.size() * sizeof(VertexObj);
 	const UINT ibSize = model.indices.size() * sizeof(uint32_t);
@@ -2895,19 +2909,19 @@ void Renderer::CreateModelBuffers(Model& model)
 			&bufferDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
-			IID_PPV_ARGS(&m_SponzaVertexBuffer)));
+			IID_PPV_ARGS(&vb)));
 
 		UINT8* pDataBegin = nullptr;
 		CD3DX12_RANGE readRange(0, 0); // CPU will not read back
 
-		ThrowIfFailed(m_SponzaVertexBuffer->Map(0, &readRange,
+		ThrowIfFailed(vb->Map(0, &readRange,
 			reinterpret_cast<void**>(&pDataBegin)));
 		memcpy(pDataBegin, model.vertices.data(), vbSize);
-		m_SponzaVertexBuffer->Unmap(0, nullptr);
+		vb->Unmap(0, nullptr);
 
-		m_SponzaVBView.BufferLocation = m_SponzaVertexBuffer->GetGPUVirtualAddress();
-		m_SponzaVBView.StrideInBytes = sizeof(VertexObj);
-		m_SponzaVBView.SizeInBytes = vbSize;
+		vbv.BufferLocation = vb->GetGPUVirtualAddress();
+		vbv.StrideInBytes = sizeof(VertexObj);
+		vbv.SizeInBytes = vbSize;
 	}
 
 	// Index buffer (16-bit, upload for now)
@@ -2921,18 +2935,18 @@ void Renderer::CreateModelBuffers(Model& model)
 			&bufferDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
-			IID_PPV_ARGS(&m_SponzaIndexBuffer)));
+			IID_PPV_ARGS(&ib)));
 
 		UINT8* pDataBegin = nullptr;
 		CD3DX12_RANGE readRange(0, 0);
 
-		ThrowIfFailed(m_SponzaIndexBuffer->Map(0, &readRange,
+		ThrowIfFailed(ib->Map(0, &readRange,
 			reinterpret_cast<void**>(&pDataBegin)));
 		memcpy(pDataBegin, model.indices.data(), ibSize);
-		m_SponzaIndexBuffer->Unmap(0, nullptr);
+		ib->Unmap(0, nullptr);
 
-		m_SponzaIBView.BufferLocation = m_SponzaIndexBuffer->GetGPUVirtualAddress();
-		m_SponzaIBView.Format = DXGI_FORMAT_R32_UINT;
-		m_SponzaIBView.SizeInBytes = ibSize;
+		ibv.BufferLocation = ib->GetGPUVirtualAddress();
+		ibv.Format = DXGI_FORMAT_R32_UINT;
+		ibv.SizeInBytes = ibSize;
 	}
 }

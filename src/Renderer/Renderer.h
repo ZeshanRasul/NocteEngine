@@ -309,9 +309,9 @@ private:
 	void CreatePerInstanceBuffers();
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_PerInstanceCBs;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_TriMatIndexCB;
-	UINT m_PerInstanceCBCount = 6;
-	UINT m_SkullCount = 4;
-	UINT m_SphereCount = 1;
+	UINT m_PerInstanceCBCount = 7;
+	UINT m_SkullCount = 2;
+	UINT m_SphereCount = 2;
 	void LoadTextures(Model& model);
 	std::vector<std::unique_ptr<Texture>> m_Textures;
 	std::vector<int> matIndices;
@@ -337,13 +337,19 @@ private:
 	std::vector<bool> m_IsInstanceReflective;
 
 
+	void CreateModelBuffers(Model& model, Microsoft::WRL::ComPtr<ID3D12Resource>& vb, Microsoft::WRL::ComPtr<ID3D12Resource>& ib, D3D12_VERTEX_BUFFER_VIEW& vbv, D3D12_INDEX_BUFFER_VIEW& ibv);
 
 	Model m_SponzaModel;
-	void CreateModelBuffers(Model& model);
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_SponzaVertexBuffer;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_SponzaIndexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW m_SponzaVBView;
 	D3D12_INDEX_BUFFER_VIEW m_SponzaIBView; 
+
+	Model m_DragonModel;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_DragonVertexBuffer;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_DragonIndexBuffer;
+	D3D12_VERTEX_BUFFER_VIEW m_DragonVBView;
+	D3D12_INDEX_BUFFER_VIEW m_DragonIBView; 
 };
 
 struct PerInstanceData
