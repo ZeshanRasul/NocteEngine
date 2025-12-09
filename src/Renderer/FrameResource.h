@@ -83,7 +83,7 @@ struct AreaLight
 	float Pad2 = 0.0f;
 	XMFLOAT3 V;
 	float Pad3 = 0.0f;
-	XMFLOAT3 Radiance;
+	XMFLOAT3 Radiance = { 65.0f, 65.0f, 48.0f };
 	float Area;
 };
 

@@ -248,7 +248,7 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_PresentUAV;
 
 	int m_DenoiseStep = 1;
-	int m_DenoisePasses = 5;
+	int m_DenoisePasses = 4;
 	float m_SigmaColor = 4.0f;
 	float m_SigmaNormal = 128.0f;
 	float m_SigmaDepth = 1.0f;
@@ -291,8 +291,13 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_GlobalConstantBuffer;
 
 	void CreatePostProcessConstantBuffer();
+	void UpdatePostProcessConstantBuffer();
 	PostProcessData m_PostProcessData;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_PostProcessConstantBuffer;
+	int m_Exposure = 0;
+	int m_ToneMapMode = 2;
+	int m_DebugMode = 0;
+
 
 	void CreateAreaLightConstantBuffer();
 	void UpdateAreaLightConstantBuffer();
