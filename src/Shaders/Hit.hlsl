@@ -367,7 +367,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
 
     Material mat;
     
-    if (InstanceID() >= 5)
+    if (InstanceID() >= 6)
     {
         mat = materials[materialIndex + matIndices[triIndex]];
     }
