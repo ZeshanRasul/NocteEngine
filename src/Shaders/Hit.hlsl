@@ -147,7 +147,10 @@ void HandleRefractiveHit(
             float transProb = max(1.0f - reflProb, 1e-4f);
             weight = oneMinusF / transProb;
 
-            // Optional: account for radiance / importance mismatch with eta^2:
+            float thickness = 0.1f; 
+            float3 sigmaA = float3(0.02, 0.01, 0.01);
+            weight *= exp(-sigmaA * thickness);
+
             // float eta2 = eta * eta;
             // weight *= eta2;
         }
