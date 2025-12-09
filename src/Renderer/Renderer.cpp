@@ -1019,13 +1019,13 @@ void Renderer::BuildMaterials()
 	auto sphereMat = std::make_unique<Material>();
 	sphereMat->Name = "sphere";
 	sphereMat->MatCBIndex = 5;
-	sphereMat->DiffuseSrvHeapIndex = 4;
+	sphereMat->DiffuseSrvHeapIndex = 1;
 	sphereMat->DiffuseAlbedo = XMFLOAT4(Colors::Sienna);
 	sphereMat->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	sphereMat->Roughness = 0.01f;
 	sphereMat->metallic = 0.009f;
-	skullMat->Ior = 1.5f;
-	skullMat->IsReflective = false;
+	sphereMat->Ior = 1.5f;
+	sphereMat->IsReflective = false;
 	sphereMat->IsRefractive = 1;
 
 	auto tile1 = std::make_unique<Material>();
@@ -2435,8 +2435,8 @@ void Renderer::CreateAccelerationStructures()
 		  XMMatrixTranslation(-50.0f, 8.0f, 15.0f) },
 
 		{ dragonBottomLevelBuffers.pResult,
-		  XMMatrixScaling(35.0f, 35.0f, 35.0f) *
-		  XMMatrixTranslation(0.0f, 8.0f, -255.0f)},
+		  XMMatrixScaling(105.0f, 105.0f, 105.0f) *
+		  XMMatrixTranslation(0.0f, 20.0f, -405.0f)},
 
 		{ bottomLevelBuffers.pResult,
 		  XMMatrixScaling(1.0f, 1.0f, 1.0f) *
