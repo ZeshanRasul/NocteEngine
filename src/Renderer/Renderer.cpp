@@ -7,9 +7,6 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "Renderer.h"
 
-#include "imgui/imgui.h"
-#include "imgui/backends/imgui_impl_win32.h"
-#include "imgui/backends/imgui_impl_dx12.h"
 
 const int gNumFrameResources = 1;
 const int gNumRayTypes = 2;
@@ -167,7 +164,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	ImGuiIO& io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-	//	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // IF using Docking Branch
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // IF using Docking Branch
 
 		// Setup Platform/Renderer backends
 	ImGui_ImplDX12_InitInfo init_info = {};
@@ -187,7 +184,6 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	imguiGpuStart = m_ImGuiSrvHeap->GetGPUDescriptorHandleForHeapStart();
 
 	ImGui_ImplDX12_Init(&init_info);
-	//ImGui_ImplDX12_Init(&init_info);
 
 	//	ImGui::StyleColorsDark();
 		//ImGui::StyleColorsLight();
@@ -241,6 +237,7 @@ void Renderer::Update(float dt, Camera& cam)
 	UpdateObjectCBs();
 	UpdateMainPassCB();
 	UpdateMaterialCBs();
+	UpdateAreaLightConstantBuffer();
 }
 
 static inline void TransitionIfNeeded(
@@ -262,8 +259,7 @@ void Renderer::Draw(bool useRaster)
 
 	showWindow = true;
 	ImGui::ShowDemoWindow(&showWindow);
-	ImGui::Render();
-
+	RenderImGuiDebugWindow();
 
 	auto cmdListAlloc = m_CurrentFrameResource->CmdListAlloc;
 
@@ -607,6 +603,8 @@ void Renderer::Draw(bool useRaster)
 
 		UpdateFrameIndexRNGCBuffer();
 
+		ImGui::Render();
+		ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_CommandList.Get());
 
 		ThrowIfFailed(m_CommandList->Close());
 		ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
@@ -2165,7 +2163,7 @@ void Renderer::UpdateDenoiseConstantBuffer(int step, int pass)
 	denoiseConstants.sigmaColor = baseSigmaColor;
 	denoiseConstants.sigmaNormal = baseSigmaNormal;
 	denoiseConstants.sigmaDepth = baseSigmaDepth;
-	denoiseConstants.stepWidth = 1; // 1
+	denoiseConstants.stepWidth = m_DenoiseStep; // 1
 	denoiseConstants.invResolution = m_MainPassCB.InvRenderTargetSize;
 	denoiseConstants.pass = pass;
 	denoiseConstants.pad = 0;
@@ -2664,6 +2662,14 @@ void Renderer::CreateAreaLightConstantBuffer()
 
 }
 
+void Renderer::UpdateAreaLightConstantBuffer()
+{
+	uint8_t* pData;
+	ThrowIfFailed(m_AreaLightConstantBuffer->Map(0, nullptr, (void**)&pData));
+	memcpy(pData, (void*)&m_AreaLightData, sizeof(m_AreaLightData));
+	m_AreaLightConstantBuffer->Unmap(0, nullptr);
+}
+
 void Renderer::CreatePerInstanceBuffers()
 {
 
@@ -2801,6 +2807,37 @@ void Renderer::CreateImGuiDescriptorHeap()
 	desc.NodeMask = 0;
 
 	ThrowIfFailed(m_Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(m_ImGuiSrvHeap.GetAddressOf())));
+
+}
+
+void Renderer::RenderImGuiDebugWindow()
+{
+	ImGui::Begin("Settings");
+	ImGui::Text("Exposure");
+	ImGui::SliderFloat("Exposure", &m_PostProcessData.Exposure, -10.0f, 10.0f);
+	ImGui::Text("Tone Mapping Mode");
+	ImGui::SliderInt("Tone Mapping Mode", &m_PostProcessData.ToneMapMode, 0, 2);
+	ImGui::Text("Debug Mode");
+	ImGui::SliderInt("Debug Mode", &m_PostProcessData.DebugMode, 0, 4);
+	ImGui::End();
+	
+	ImGui::Begin("Denoising Settings");
+	ImGui::Text("Step Size");
+	ImGui::SliderInt("Step Size", &m_DenoiseStep, 0, 8);
+	ImGui::End();
+
+	ImGui::Begin("Area Light Settings");
+	ImGui::Text("Area Light Position");
+	ImGui::SliderFloat("Area Light Position X", &m_AreaLightData.Position.y, 100.0f, 300.0f);
+	ImGui::SliderFloat("Area Light Position Y", &m_AreaLightData.Position.y, 100.0f, 300.0f);
+	ImGui::SliderFloat("Area Light Position Z", &m_AreaLightData.Position.y, 100.0f, 300.0f);
+	ImGui::Text("Area Light Radiance");
+	ImGui::SliderFloat3("Area Light Radiance", &m_AreaLightData.Radiance.x, 0.0f, 100.0f);
+	ImGui::Text("Area Light U Vector");
+	ImGui::SliderFloat3("Area Light U", &m_AreaLightData.U.x, 0.0f, 200.0f);
+	ImGui::Text("Area Light V Vector");
+	ImGui::SliderFloat3("Area Light V", &m_AreaLightData.V.x, 0.0f, 200.0f);
+	ImGui::End();
 
 }
 

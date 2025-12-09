@@ -10,6 +10,9 @@
 #include "nv_helpers_dx12/ShaderBindingTableGenerator.h"
 #include <dxcapi.h>
 
+#include "imgui/imgui.h"
+#include "imgui/backends/imgui_impl_win32.h"
+#include "imgui/backends/imgui_impl_dx12.h"
 using namespace DirectX;
 
 class Renderer {
@@ -288,6 +291,7 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_PostProcessConstantBuffer;
 
 	void CreateAreaLightConstantBuffer();
+	void UpdateAreaLightConstantBuffer();
 	AreaLight m_AreaLightData;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_AreaLightConstantBuffer;
 
@@ -318,7 +322,11 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_ImGuiSrvHeap;
 	D3D12_CPU_DESCRIPTOR_HANDLE imguiCpuStart;
 	D3D12_GPU_DESCRIPTOR_HANDLE imguiGpuStart;
+	void RenderImGuiDebugWindow();
+
+	
 	std::vector<bool> m_IsInstanceReflective;
+
 
 
 	Model m_DragonModel;
