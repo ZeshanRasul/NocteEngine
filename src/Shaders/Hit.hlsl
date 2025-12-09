@@ -365,12 +365,20 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     payload.normal = N;
     payload.depth++;
 
-    Material mat = materials[matIndices[triIndex]];
+    Material mat;
     
+    if (InstanceID() >= 5)
+    {
+        mat = materials[materialIndex + matIndices[triIndex]];
+    }
+    else
+    {
+        mat = materials[materialIndex];
+    }
     payload.emission = 0.0f;
     
     if (mat.TexIndex >= 0)
-        mat.DiffuseAlbedo = textures[].SampleLevel(sampAniso, uv, 0);
+        mat.DiffuseAlbedo = textures[mat.TexIndex].SampleLevel(sampAniso, uv, 0);
     
     // Refractive materials (glass) – handle with dedicated BSDF
     if (mat.IsRefractive != 0)

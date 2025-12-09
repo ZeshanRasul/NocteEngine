@@ -206,13 +206,12 @@ void d3dUtil::LoadObjModel(const std::string& filepath, Model& model)
 	std::vector<tinyobj::material_t> materials;
 	std::string err;
 
-	// Load the OBJ and MTL files
 	if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, filepath.c_str(), "materials\\"))
 	{
 		throw std::runtime_error(err);
 	}
 
-	int i = 0;
+	int matCounter = 0;
 	for (auto& mat : materials)
 	{
 		auto material = new Material();
@@ -228,51 +227,78 @@ void d3dUtil::LoadObjModel(const std::string& filepath, Model& model)
 			mat.specular[1],
 			mat.specular[2]);
 		material->Roughness = mat.shininess / 256.0f;
-		material->DiffuseSrvHeapIndex = i;
+		material->DiffuseSrvHeapIndex = matCounter;
+
 		model.materials.push_back(material);
+
 		auto texture = new Texture();
 		texture->Name = mat.name;
 		texture->Filename = AnsiToWString(mat.diffuse_texname);
 		model.textures.push_back(texture);
-		i++;
+
+		matCounter++;
 	}
 
-	// Parse the model and store the unique vertices
-	unordered_map<VertexObj, uint32_t> uniqueVertices = {};
+	std::unordered_map<VertexObj, uint32_t> uniqueVertices;
+
 	for (const auto& shape : shapes)
 	{
-		for (const auto& index : shape.mesh.indices)
+		size_t indexOffset = 0;
+
+		const size_t numFaces = shape.mesh.num_face_vertices.size();
+
+		for (size_t f = 0; f < numFaces; ++f)
 		{
-			VertexObj vertex = {};
-			vertex.Pos =
-			{
-				attrib.vertices[3 * index.vertex_index + 2],
-				attrib.vertices[3 * index.vertex_index + 1],
-				attrib.vertices[3 * index.vertex_index + 0]
-			};
+			int fv = shape.mesh.num_face_vertices[f];
 
+			int faceMatId = -1;
+			if (!shape.mesh.material_ids.empty())
+				faceMatId = shape.mesh.material_ids[f];
 
-			vertex.Normal =
+			for (int v = 0; v < fv; ++v)
 			{
-				attrib.normals[3 * index.normal_index + 2],
-				attrib.normals[3 * index.normal_index + 1],
-				attrib.normals[3 * index.normal_index + 0]
-			};
-			vertex.UV =
-			{
-				attrib.texcoords[2 * index.texcoord_index + 0],
-				1 - attrib.texcoords[2 * index.texcoord_index + 1]
-			};
+				tinyobj::index_t idx = shape.mesh.indices[indexOffset + v];
 
-			// Fast find unique vertices using a hash
-			if (uniqueVertices.count(vertex) == 0)
-			{
-				uniqueVertices[vertex] = static_cast<uint32_t>(model.vertices.size());
-				model.vertices.push_back(vertex);
+				VertexObj vertex = {};
+
+				vertex.Pos =
+				{
+					attrib.vertices[3 * idx.vertex_index + 2],
+					attrib.vertices[3 * idx.vertex_index + 1],
+					attrib.vertices[3 * idx.vertex_index + 0]
+				};
+
+				vertex.Normal =
+				{
+					attrib.normals[3 * idx.normal_index + 2],
+					attrib.normals[3 * idx.normal_index + 1],
+					attrib.normals[3 * idx.normal_index + 0]
+				};
+
+				vertex.UV =
+				{
+					attrib.texcoords[2 * idx.texcoord_index + 0],
+					1.0f - attrib.texcoords[2 * idx.texcoord_index + 1]
+				};
+
+				// Deduplicate vertices
+				auto it = uniqueVertices.find(vertex);
+				if (it == uniqueVertices.end())
+				{
+					uint32_t newIndex = static_cast<uint32_t>(model.vertices.size());
+					uniqueVertices[vertex] = newIndex;
+					model.vertices.push_back(vertex);
+					model.indices.push_back(newIndex);
+				}
+				else
+				{
+					model.indices.push_back(it->second);
+				}
 			}
 
-			model.indices.push_back(uniqueVertices[vertex]);
-			model.meshMaterialIndices.push_back(shape.mesh.material_ids[0]);
+			indexOffset += fv;
+
+			model.meshMaterialIndices.push_back(faceMatId);
 		}
 	}
 }
