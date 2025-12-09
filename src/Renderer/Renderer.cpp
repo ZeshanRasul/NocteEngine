@@ -958,20 +958,22 @@ void Renderer::BuildMaterials()
 	boxMat->Ior = 1.0f;
 	boxMat->IsReflective = false;
 
+
 	auto bricks0 = std::make_unique<Material>();
 	bricks0->Name = "bricks0";
 	bricks0->MatCBIndex = 1;
 	bricks0->DiffuseSrvHeapIndex = 1;
 	bricks0->DiffuseAlbedo = XMFLOAT4(Colors::Sienna);
 	bricks0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	bricks0->Roughness = 0.9f;
-	bricks0->metallic = 0.1f;
-	bricks0->IsReflective = false;
+	bricks0->Roughness = 0.01f;
+	bricks0->metallic = 0.9f;
+	bricks0->IsReflective = true;
+
 
 	auto stone0 = std::make_unique<Material>();
 	stone0->Name = "stone0";
 	stone0->MatCBIndex = 2;
-	stone0->DiffuseSrvHeapIndex = 5;
+	stone0->DiffuseSrvHeapIndex = 2;
 	stone0->DiffuseAlbedo = XMFLOAT4(Colors::Crimson);
 	stone0->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
 	stone0->Roughness = 0.9f;
@@ -981,12 +983,13 @@ void Renderer::BuildMaterials()
 	skullMat->Name = "skullMat";
 	skullMat->MatCBIndex = 3;
 	skullMat->DiffuseSrvHeapIndex = 3;
-	skullMat->DiffuseAlbedo = XMFLOAT4(Colors::BlanchedAlmond);
+	skullMat->DiffuseAlbedo = XMFLOAT4(Colors::Sienna);
 	skullMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05);
-	skullMat->Roughness = 0.7f;
-	skullMat->metallic = 0.1f;
+	skullMat->Roughness = 0.1f;
+	skullMat->metallic = 0.9f;
 	skullMat->Ior = 1.0f;
-	skullMat->IsReflective = false;
+	skullMat->IsReflective = true;
+
 
 	auto tile0 = std::make_unique<Material>();
 	tile0->Name = "tile0";
@@ -2390,13 +2393,13 @@ void Renderer::CreateAccelerationStructures()
 
 		// Sphere on the left: radius ~3 at y = 3
 		{ sphereBottomLevelBuffers.pResult,
-		  XMMatrixScaling(6.0f, 6.0f, 6.0f) *
-		  XMMatrixTranslation(-17.0f, 3.0f, -5.0f) },
+		  XMMatrixScaling(42.0f, 42.0f, 42.0f) *
+		  XMMatrixTranslation(-37.0f, 23.0f, -175.0f) },
 
 		// Sphere on the right: radius ~3 at y = 3
 		{ sphereBottomLevelBuffers.pResult,
-		  XMMatrixScaling(6.0f, 6.0f, 6.0f) *
-		  XMMatrixTranslation(25.0f, 3.0f, -5.0f) },
+		  XMMatrixScaling(42.0f, 42.0f, 42.0f) *
+		  XMMatrixTranslation(37.0f, 23.0f, -175.0f) },
 
 		// Skull on the right
 		{ skull0BottomLevelBuffers.pResult,
@@ -2637,9 +2640,9 @@ void Renderer::CreatePostProcessConstantBuffer()
 void Renderer::CreateAreaLightConstantBuffer()
 {
 	m_AreaLightData.Position = XMFLOAT3(0.0f, 209.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(85.0f, 85.0f, 65.0f);
-	m_AreaLightData.U = XMFLOAT3(100.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 100.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(55.0f, 55.0f, 35.0f);
+	m_AreaLightData.U = XMFLOAT3(80.0f, 0.0f, 0.0f);
+	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 80.0f);
 
 	float lenU = sqrtf(m_AreaLightData.U.x * m_AreaLightData.U.x +
 		m_AreaLightData.U.y * m_AreaLightData.U.y +
