@@ -256,9 +256,11 @@ void Renderer::Draw(bool useRaster)
 	ImGui_ImplDX12_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
+	ImGuiID dockspace_id = ImGui::GetID("My Dockspace");
+	ImGuiViewport* viewport = ImGui::GetMainViewport();
 
-	showWindow = true;
-	ImGui::ShowDemoWindow(&showWindow);
+	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+
 	RenderImGuiDebugWindow();
 
 	auto cmdListAlloc = m_CurrentFrameResource->CmdListAlloc;
