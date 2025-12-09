@@ -111,9 +111,9 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRootSignature();
 	CreateComputeRootSignature();
 	BuildShadersAndInputLayout();
-	d3dUtil::LoadObjModel("Models/sponza.obj", m_DragonModel);
-	LoadTextures(m_DragonModel);
-	CreateModelBuffers(m_DragonModel);
+	d3dUtil::LoadObjModel("Models/sponza.obj", m_SponzaModel);
+	LoadTextures(m_SponzaModel);
+	CreateModelBuffers(m_SponzaModel);
 	BuildShapeGeometry();
 	BuildSkullGeometry();
 	CreatePlaneGeometry();
@@ -2241,8 +2241,8 @@ void Renderer::CreateShaderBindingTable()
 		}
 		else
 		{
-			vb = m_DragonVertexBuffer->GetGPUVirtualAddress();
-			ib = m_DragonIndexBuffer->GetGPUVirtualAddress();
+			vb = m_SponzaVertexBuffer->GetGPUVirtualAddress();
+			ib = m_SponzaIndexBuffer->GetGPUVirtualAddress();
 		}
 
 		m_SbtHelper.AddHitGroup(L"HitGroup", { (void*)vb,(void*)ib,
@@ -2349,7 +2349,7 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<Microsoft::WRL::ComPtr<ID3
 
 void Renderer::CreateAccelerationStructures()
 {
-	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_DragonVertexBuffer, m_DragonModel.vertices.size()} }, { {m_DragonIndexBuffer, m_DragonModel.indices.size()}
+	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_SponzaVertexBuffer, m_SponzaModel.vertices.size()} }, { {m_SponzaIndexBuffer, m_SponzaModel.indices.size()}
 		});
 	AccelerationStructureBuffers skull0BottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} }, { {m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount} });
 
@@ -2720,7 +2720,7 @@ void Renderer::CreatePerInstanceBuffers()
 		m_PerInstanceCBs[i]->Unmap(0, nullptr);
 	}
 
-	m_MaterialsGPU.reserve(m_PerInstanceCBCount + m_DragonModel.materials.size());
+	m_MaterialsGPU.reserve(m_PerInstanceCBCount + m_SponzaModel.materials.size());
 
 	for (auto& m : m_Materials)
 	{
@@ -2742,7 +2742,7 @@ void Renderer::CreatePerInstanceBuffers()
 		m_MaterialsGPU.push_back(std::move(matGpu));
 	}
 
-	for (auto& m : m_DragonModel.materials)
+	for (auto& m : m_SponzaModel.materials)
 	{
 		MaterialDataGPU matGpu{};
 		Material* mat = m;
@@ -2771,7 +2771,7 @@ void Renderer::CreatePerInstanceBuffers()
 	memcpy(pData, m_MaterialsGPU.data(), bufferSize);
 	m_UploadCBuffer->Unmap(0, nullptr);
 
-	for (int idx : m_DragonModel.meshMaterialIndices)
+	for (int idx : m_SponzaModel.meshMaterialIndices)
 	{
 		matIndices.push_back(5 + idx);
 	}
@@ -2895,19 +2895,19 @@ void Renderer::CreateModelBuffers(Model& model)
 			&bufferDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
-			IID_PPV_ARGS(&m_DragonVertexBuffer)));
+			IID_PPV_ARGS(&m_SponzaVertexBuffer)));
 
 		UINT8* pDataBegin = nullptr;
 		CD3DX12_RANGE readRange(0, 0); // CPU will not read back
 
-		ThrowIfFailed(m_DragonVertexBuffer->Map(0, &readRange,
+		ThrowIfFailed(m_SponzaVertexBuffer->Map(0, &readRange,
 			reinterpret_cast<void**>(&pDataBegin)));
 		memcpy(pDataBegin, model.vertices.data(), vbSize);
-		m_DragonVertexBuffer->Unmap(0, nullptr);
+		m_SponzaVertexBuffer->Unmap(0, nullptr);
 
-		m_DragonVBView.BufferLocation = m_DragonVertexBuffer->GetGPUVirtualAddress();
-		m_DragonVBView.StrideInBytes = sizeof(VertexObj);
-		m_DragonVBView.SizeInBytes = vbSize;
+		m_SponzaVBView.BufferLocation = m_SponzaVertexBuffer->GetGPUVirtualAddress();
+		m_SponzaVBView.StrideInBytes = sizeof(VertexObj);
+		m_SponzaVBView.SizeInBytes = vbSize;
 	}
 
 	// Index buffer (16-bit, upload for now)
@@ -2921,18 +2921,18 @@ void Renderer::CreateModelBuffers(Model& model)
 			&bufferDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
-			IID_PPV_ARGS(&m_DragonIndexBuffer)));
+			IID_PPV_ARGS(&m_SponzaIndexBuffer)));
 
 		UINT8* pDataBegin = nullptr;
 		CD3DX12_RANGE readRange(0, 0);
 
-		ThrowIfFailed(m_DragonIndexBuffer->Map(0, &readRange,
+		ThrowIfFailed(m_SponzaIndexBuffer->Map(0, &readRange,
 			reinterpret_cast<void**>(&pDataBegin)));
 		memcpy(pDataBegin, model.indices.data(), ibSize);
-		m_DragonIndexBuffer->Unmap(0, nullptr);
+		m_SponzaIndexBuffer->Unmap(0, nullptr);
 
-		m_DragonIBView.BufferLocation = m_DragonIndexBuffer->GetGPUVirtualAddress();
-		m_DragonIBView.Format = DXGI_FORMAT_R32_UINT;
-		m_DragonIBView.SizeInBytes = ibSize;
+		m_SponzaIBView.BufferLocation = m_SponzaIndexBuffer->GetGPUVirtualAddress();
+		m_SponzaIBView.Format = DXGI_FORMAT_R32_UINT;
+		m_SponzaIBView.SizeInBytes = ibSize;
 	}
 }

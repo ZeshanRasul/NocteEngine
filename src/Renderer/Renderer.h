@@ -338,12 +338,12 @@ private:
 
 
 
-	Model m_DragonModel;
+	Model m_SponzaModel;
 	void CreateModelBuffers(Model& model);
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_DragonVertexBuffer;
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_DragonIndexBuffer;
-	D3D12_VERTEX_BUFFER_VIEW m_DragonVBView;
-	D3D12_INDEX_BUFFER_VIEW m_DragonIBView; 
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_SponzaVertexBuffer;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_SponzaIndexBuffer;
+	D3D12_VERTEX_BUFFER_VIEW m_SponzaVBView;
+	D3D12_INDEX_BUFFER_VIEW m_SponzaIBView; 
 };
 
 struct PerInstanceData
