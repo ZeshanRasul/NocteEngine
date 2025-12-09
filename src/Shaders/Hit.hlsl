@@ -40,7 +40,8 @@ StructuredBuffer<STriVertex> BTriVertex : register(t0);
 StructuredBuffer<int> indices : register(t1);
 RaytracingAccelerationStructure SceneBVH : register(t2);
 StructuredBuffer<Material> materials : register(t3);
-Texture2D textures[54] : register(t4);
+StructuredBuffer<int> matIndices : register(t4);
+Texture2D textures[] : register(t5);
 
 SamplerState sampAniso : register(s0);
 
@@ -364,11 +365,12 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     payload.normal = N;
     payload.depth++;
 
-    Material mat = materials[materialIndex];
+    Material mat = materials[matIndices[triIndex]];
     
     payload.emission = 0.0f;
     
-    mat.DiffuseAlbedo = textures[16].SampleLevel(sampAniso, uv, 0);
+    if (mat.TexIndex >= 0)
+        mat.DiffuseAlbedo = textures[].SampleLevel(sampAniso, uv, 0);
     
     // Refractive materials (glass) – handle with dedicated BSDF
     if (mat.IsRefractive != 0)

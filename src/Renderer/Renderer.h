@@ -295,11 +295,13 @@ private:
 
 	void CreatePerInstanceBuffers();
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_PerInstanceCBs;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_TriMatIndexCB;
 	UINT m_PerInstanceCBCount = 6;
 	UINT m_SkullCount = 4;
 	UINT m_SphereCount = 1;
 	void LoadTextures(Model& model);
 	std::vector<std::unique_ptr<Texture>> m_Textures;
+	std::vector<int> matIndices;
 
 	void CreateFrameIndexRNGCBuffer();
 	void UpdateFrameIndexRNGCBuffer();

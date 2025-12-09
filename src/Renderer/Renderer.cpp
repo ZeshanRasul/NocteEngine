@@ -299,7 +299,7 @@ void Renderer::Draw(bool useRaster)
 	else
 	{
 
-		std::vector<ID3D12DescriptorHeap*> heaps = { m_SrvUavHeap.Get(), m_SamplerHeap.Get()};
+		std::vector<ID3D12DescriptorHeap*> heaps = { m_SrvUavHeap.Get(), m_SamplerHeap.Get() };
 		m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
 
 		CD3DX12_RESOURCE_BARRIER transition;
@@ -1678,8 +1678,8 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 5);
 	rsc.AddHeapRangesParameter(
 		{ { 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2},
-		{ 4, 54, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 15},
-
+		{ 4, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 15},
+		{ 5, 54, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 16},
 		});
 	rsc.AddHeapRangesParameter(
 		{
@@ -1791,7 +1791,7 @@ void Renderer::CreateSamplerHeap()
 
 void Renderer::CreateShaderResourceHeap()
 {
-	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 69, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 70, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -1921,14 +1921,33 @@ void Renderer::CreateShaderResourceHeap()
 	m_AccumulationBuffer->SetName(L"Accumulation Buffer SRV");
 	m_Device->CreateShaderResourceView(m_AccumulationBuffer.Get(), &srvDesc, srvHandle);
 
-	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
-	
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	srvDesc = {};
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+	srvDesc.Buffer.FirstElement = 0;
+	srvDesc.Buffer.NumElements = static_cast<UINT>(matIndices.size());
+	srvDesc.Buffer.StructureByteStride = sizeof(int);
+	srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+
+	m_Device->CreateShaderResourceView(m_TriMatIndexCB.Get(), &srvDesc, srvHandle);
+
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> tex2DList;
 
 	for (auto& tex : m_Textures)
 	{
 		tex2DList.push_back(tex->Resource);
 	}
+	srvDesc = {};
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = 1;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
 	for (UINT i = 0; i < (UINT)tex2DList.size(); ++i)
 	{
@@ -2670,7 +2689,7 @@ void Renderer::CreatePerInstanceBuffers()
 		m_PerInstanceCBs[i]->Unmap(0, nullptr);
 	}
 
-	m_MaterialsGPU.reserve(m_PerInstanceCBCount);
+	m_MaterialsGPU.reserve(m_PerInstanceCBCount + m_DragonModel.materials.size());
 
 	for (auto& m : m_Materials)
 	{
@@ -2688,7 +2707,27 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.isReflective = mat->IsReflective;
 		matGpu.isRefractive = mat->IsRefractive;
 		matGpu.pad3 = 0.0f;
-		matGpu.TexIndex = mat->DiffuseTextureFilePath != "" ? mat->DiffuseSrvHeapIndex : -1;
+		matGpu.TexIndex = mat->DiffuseSrvHeapIndex;
+		m_MaterialsGPU.push_back(std::move(matGpu));
+	}
+
+	for (auto& m : m_DragonModel.materials)
+	{
+		MaterialDataGPU matGpu{};
+		Material* mat = m;
+		matGpu.DiffuseAlbedo = m->DiffuseAlbedo;
+		matGpu.FresnelR0 = m->FresnelR0;
+		matGpu.Ior = m->Ior;
+		matGpu.Reflectivity = m->Reflectivity;
+		matGpu.Absorption = m->Absorption;
+		matGpu.Shininess = 1.0f - m->Roughness;
+		matGpu.pad = 1.0f;
+		matGpu.pad2 = 1.0f;
+		matGpu.metallic = m->metallic;
+		matGpu.isReflective = m->IsReflective;
+		matGpu.isRefractive = m->IsRefractive;
+		matGpu.pad3 = 0.0f;
+		matGpu.TexIndex = m->DiffuseSrvHeapIndex;
 		m_MaterialsGPU.push_back(std::move(matGpu));
 	}
 
@@ -2701,6 +2740,17 @@ void Renderer::CreatePerInstanceBuffers()
 	memcpy(pData, m_MaterialsGPU.data(), bufferSize);
 	m_UploadCBuffer->Unmap(0, nullptr);
 
+	for (int idx : m_DragonModel.meshMaterialIndices)
+	{
+		matIndices.push_back(5 + idx);
+	}
+
+	const uint32_t matIdxBufferSize = sizeof(int) * matIndices.size();
+	m_TriMatIndexCB = nv_helpers_dx12::CreateBuffer(m_Device.Get(), matIdxBufferSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+	uint8_t* pData2;
+	ThrowIfFailed(m_TriMatIndexCB->Map(0, nullptr, (void**)&pData2));
+	memcpy(pData2, matIndices.data(), matIdxBufferSize);
+	m_TriMatIndexCB->Unmap(0, nullptr);
 }
 
 void Renderer::LoadTextures(Model& model)
