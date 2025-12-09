@@ -974,8 +974,11 @@ void Renderer::BuildMaterials()
 	bricks0->DiffuseAlbedo = XMFLOAT4(Colors::Sienna);
 	bricks0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	bricks0->Roughness = 0.01f;
-	bricks0->metallic = 0.9f;
-	bricks0->IsReflective = true;
+	bricks0->metallic = 0.009f;
+	bricks0->IsReflective = false;
+	bricks0->IsRefractive = 1;
+	bricks0->Ior = 1.5f;
+
 
 
 	auto stone0 = std::make_unique<Material>();
@@ -990,14 +993,14 @@ void Renderer::BuildMaterials()
 	auto skullMat = std::make_unique<Material>();
 	skullMat->Name = "skullMat";
 	skullMat->MatCBIndex = 3;
-	skullMat->DiffuseSrvHeapIndex = 3;
+	skullMat->DiffuseSrvHeapIndex = 1;
 	skullMat->DiffuseAlbedo = XMFLOAT4(Colors::Sienna);
-	skullMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05);
-	skullMat->Roughness = 0.1f;
-	skullMat->metallic = 0.9f;
-	skullMat->Ior = 1.0f;
-	skullMat->IsReflective = true;
-
+	skullMat->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+	skullMat->Roughness = 0.01f;
+	skullMat->metallic = 0.009f;
+	skullMat->IsReflective = false;
+	skullMat->IsRefractive = 1;
+	skullMat->Ior = 1.5f;
 
 	auto tile0 = std::make_unique<Material>();
 	tile0->Name = "tile0";
@@ -1307,6 +1310,8 @@ void Renderer::BuildSkullGeometry()
 	{
 		fin >> vertices[i].Pos.x >> vertices[i].Pos.y >> vertices[i].Pos.z;
 		fin >> vertices[i].Normal.x >> vertices[i].Normal.y >> vertices[i].Normal.z;
+		//vertices[i].UV.x = 0.0f;
+		//vertices[i].UV.y = 0.0f;
 	}
 
 	fin >> ignore;

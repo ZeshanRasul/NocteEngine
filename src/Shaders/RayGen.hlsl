@@ -140,9 +140,10 @@ void RayGen()
 
             payload.throughput /= pCont;
         }
-
-        // Set up next ray
-        ray.Origin = payload.hitPos + payload.normal * 0.001f;
+        float3 offsetDir = (dot(payload.wi, payload.normal) > 0.0f)
+         ? payload.normal   // going to the “outside” side of the surface
+         : -payload.normal; // going inside
+        ray.Origin = payload.hitPos + offsetDir * 0.001f;
         ray.Direction = normalize(payload.wi);
         ray.TMin = 0.001f;
         ray.TMax = 1e38f;
