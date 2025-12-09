@@ -248,6 +248,10 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_PresentUAV;
 
 	int m_DenoiseStep = 1;
+	int m_DenoisePasses = 5;
+	float m_SigmaColor = 4.0f;
+	float m_SigmaNormal = 128.0f;
+	float m_SigmaDepth = 1.0f;
 
 	void CreateDenoiseConstantBuffer();
 	void UpdateDenoiseConstantBuffer(int step, int pass);
@@ -323,7 +327,7 @@ private:
 	D3D12_CPU_DESCRIPTOR_HANDLE imguiCpuStart;
 	D3D12_GPU_DESCRIPTOR_HANDLE imguiGpuStart;
 	void RenderImGuiDebugWindow();
-
+	
 	
 	std::vector<bool> m_IsInstanceReflective;
 

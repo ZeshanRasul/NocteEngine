@@ -412,7 +412,7 @@ void Renderer::Draw(bool useRaster)
 
 		ID3D12Resource* src = nullptr;
 		ID3D12Resource* dest = nullptr;
-		const int numPasses = 4;
+		const int numPasses = m_DenoisePasses;
 
 		for (int pass = 0; pass < numPasses; pass++)
 		{
@@ -2157,9 +2157,9 @@ void Renderer::UpdateDenoiseConstantBuffer(int step, int pass)
 	const float minScale = 0.25f;
 	const float scale = std::max(invStep, minScale);
 
-	const float baseSigmaColor = 6.0f;
-	const float baseSigmaNormal = 4.0f;
-	const float baseSigmaDepth = 1.0f;
+	const float baseSigmaColor = m_SigmaColor;
+	const float baseSigmaNormal = m_SigmaNormal;
+	const float baseSigmaDepth = m_SigmaDepth;
 
 	DenoiseConstants denoiseConstants = {};
 	denoiseConstants.sigmaColor = baseSigmaColor;
@@ -2826,15 +2826,25 @@ void Renderer::RenderImGuiDebugWindow()
 	ImGui::Begin("Denoising Settings");
 	ImGui::Text("Step Size");
 	ImGui::SliderInt("Step Size", &m_DenoiseStep, 0, 8);
+	ImGui::Text("Number of Passess");
+	ImGui::SliderInt("Number of Passess", &m_DenoisePasses, 1, 10);
+	ImGui::Text("Sigma Color");
+	ImGui::SliderFloat("Sigma Color", &m_SigmaColor, 0.1f, 80.0f);
+	ImGui::Text("Sigma Normal");
+	ImGui::SliderFloat("Sigma Normal", &m_SigmaNormal, 0.1f, 128.0f);
+	ImGui::Text("Sigma Depth");
+	ImGui::SliderFloat("Sigma Depth", &m_SigmaDepth, 0.1f, 128.0f);
 	ImGui::End();
 
 	ImGui::Begin("Area Light Settings");
 	ImGui::Text("Area Light Position");
-	ImGui::SliderFloat("Area Light Position X", &m_AreaLightData.Position.y, 100.0f, 300.0f);
-	ImGui::SliderFloat("Area Light Position Y", &m_AreaLightData.Position.y, 100.0f, 300.0f);
-	ImGui::SliderFloat("Area Light Position Z", &m_AreaLightData.Position.y, 100.0f, 300.0f);
+	ImGui::SliderFloat("Area Light Position X", &m_AreaLightData.Position.x, 0.0f, 300.0f);
+	ImGui::SliderFloat("Area Light Position Y", &m_AreaLightData.Position.y, 0.0f, 300.0f);
+	ImGui::SliderFloat("Area Light Position Z", &m_AreaLightData.Position.z, 0.0f, 300.0f);
 	ImGui::Text("Area Light Radiance");
-	ImGui::SliderFloat3("Area Light Radiance", &m_AreaLightData.Radiance.x, 0.0f, 100.0f);
+	ImGui::SliderFloat3("Area Light Radiance R", &m_AreaLightData.Radiance.x, 0.0f, 100.0f);
+	ImGui::SliderFloat3("Area Light Radiance G", &m_AreaLightData.Radiance.y, 0.0f, 100.0f);
+	ImGui::SliderFloat3("Area Light Radiance B", &m_AreaLightData.Radiance.z, 0.0f, 100.0f);
 	ImGui::Text("Area Light U Vector");
 	ImGui::SliderFloat3("Area Light U", &m_AreaLightData.U.x, 0.0f, 200.0f);
 	ImGui::Text("Area Light V Vector");
