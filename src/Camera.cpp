@@ -178,6 +178,7 @@ XMFLOAT4X4 Camera::GetProj4x4f()const
 
 void Camera::Strafe(float d)
 {
+	d *= 3.0f;
 	// mPosition += d*mRight
 	XMVECTOR s = XMVectorReplicate(d);
 	XMVECTOR r = XMLoadFloat3(&mRight);
@@ -189,6 +190,7 @@ void Camera::Strafe(float d)
 
 void Camera::Walk(float d)
 {
+	d *= 3.0f;
 	// mPosition += d*mLook
 	XMVECTOR s = XMVectorReplicate(d);
 	XMVECTOR l = XMLoadFloat3(&mLook);

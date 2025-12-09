@@ -334,6 +334,7 @@ void Renderer::Draw(bool useRaster)
 		{
 			hasViewChanged = false;
 		}
+
 		if (m_FrameIndex != 0 && m_FrameIndex != 1)
 		{
 			D3D12_RESOURCE_BARRIER barriers[2];
@@ -2056,13 +2057,6 @@ void Renderer::CreateDenoisingResources()
 
 void Renderer::CreateComputeRootSignature()
 {
-	//nv_helpers_dx12::RootSignatureGenerator rsc;
-	//rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 0); // Denoise constants
-
-	//rsc.AddHeapRangesParameter({
-	//	{0, 3, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 7}, // Output: denoise ping, denoise pong
-	//	{0, 3, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 10}, // Input: accumulation, normal, depth
-	//	});
 	CD3DX12_DESCRIPTOR_RANGE table = {};
 	table.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, 7);
 	CD3DX12_DESCRIPTOR_RANGE table2 = {};
@@ -2643,9 +2637,9 @@ void Renderer::CreatePostProcessConstantBuffer()
 void Renderer::CreateAreaLightConstantBuffer()
 {
 	m_AreaLightData.Position = XMFLOAT3(0.0f, 209.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(85.0f, 85.0f, 85.0f);
-	m_AreaLightData.U = XMFLOAT3(50.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 50.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(85.0f, 85.0f, 65.0f);
+	m_AreaLightData.U = XMFLOAT3(100.0f, 0.0f, 0.0f);
+	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 100.0f);
 
 	float lenU = sqrtf(m_AreaLightData.U.x * m_AreaLightData.U.x +
 		m_AreaLightData.U.y * m_AreaLightData.U.y +
