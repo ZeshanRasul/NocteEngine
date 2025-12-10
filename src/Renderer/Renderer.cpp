@@ -2680,10 +2680,10 @@ void Renderer::UpdatePostProcessConstantBuffer()
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 409.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(25.0f, 25.0f, 15.0f);
-	m_AreaLightData.U = XMFLOAT3(80.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 80.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 1109.0f, 0.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(32.0f, 31.0f, 30.0f);
+	m_AreaLightData.U = XMFLOAT3(150.0f, 0.0f, 0.0f);
+	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 150.0f);
 
 	float lenU = sqrtf(m_AreaLightData.U.x * m_AreaLightData.U.x +
 		m_AreaLightData.U.y * m_AreaLightData.U.y +
@@ -2879,17 +2879,17 @@ void Renderer::RenderImGuiDebugWindow()
 
 	ImGui::Begin("Area Light Settings");
 	ImGui::Text("Area Light Position");
-	ImGui::SliderFloat("Area Light Position X", &m_AreaLightData.Position.x, 0.0f, 300.0f);
-	ImGui::SliderFloat("Area Light Position Y", &m_AreaLightData.Position.y, 0.0f, 300.0f);
-	ImGui::SliderFloat("Area Light Position Z", &m_AreaLightData.Position.z, 0.0f, 300.0f);
+	ImGui::SliderFloat("Area Light Position X", &m_AreaLightData.Position.x, 0.0f, 2000.0f);
+	ImGui::SliderFloat("Area Light Position Y", &m_AreaLightData.Position.y, 0.0f, 2000.0f);
+	ImGui::SliderFloat("Area Light Position Z", &m_AreaLightData.Position.z, 0.0f, 2000.0f);
 	ImGui::Text("Area Light Radiance");
-	ImGui::SliderFloat("Area Light Radiance R", &m_AreaLightData.Radiance.x, 0.0f, 100.0f);
-	ImGui::SliderFloat("Area Light Radiance G", &m_AreaLightData.Radiance.y, 0.0f, 100.0f);
-	ImGui::SliderFloat("Area Light Radiance B", &m_AreaLightData.Radiance.z, 0.0f, 100.0f);
+	ImGui::SliderFloat("Area Light Radiance R", &m_AreaLightData.Radiance.x, 0.0f, 200.0f);
+	ImGui::SliderFloat("Area Light Radiance G", &m_AreaLightData.Radiance.y, 0.0f, 200.0f);
+	ImGui::SliderFloat("Area Light Radiance B", &m_AreaLightData.Radiance.z, 0.0f, 200.0f);
 	ImGui::Text("Area Light U Vector");
-	ImGui::SliderFloat3("Area Light U", &m_AreaLightData.U.x, 0.0f, 200.0f);
+	ImGui::SliderFloat3("Area Light U", &m_AreaLightData.U.x, 0.0f, 1000.0f);
 	ImGui::Text("Area Light V Vector");
-	ImGui::SliderFloat3("Area Light V", &m_AreaLightData.V.x, 0.0f, 200.0f);
+	ImGui::SliderFloat3("Area Light V", &m_AreaLightData.V.x, 0.0f, 1000.0f);
 	ImGui::End();
 
 }

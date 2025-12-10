@@ -437,6 +437,9 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         }
     }
       
+    float3 ambient = float3(0.02, 0.02, 0.02);
+    payload.emission += ambient;
+    
     BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);
     
     if (!bsdf.valid || all(bsdf.fOverPdf == 0.0f))

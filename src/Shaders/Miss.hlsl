@@ -16,7 +16,7 @@ void Miss(inout PathPayload payload)
 
     float3 envColor = SampleEnvironment(dir);
 
-    float maxEnvLum = 10.0f;
+    float maxEnvLum = 22.0f;
     float lum = dot(envColor, float3(0.2126, 0.7152, 0.0722));
 
     if (lum > maxEnvLum)
