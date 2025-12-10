@@ -297,6 +297,7 @@ private:
 	int m_Exposure = 0;
 	int m_ToneMapMode = 2;
 	int m_DebugMode = 0;
+	int m_IsLastPass = 0;
 
 
 	void CreateAreaLightConstantBuffer();

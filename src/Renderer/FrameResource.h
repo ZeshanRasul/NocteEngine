@@ -72,7 +72,7 @@ struct PostProcessData
 	float Exposure = 1.0f;
 	int ToneMapMode = 2;
 	int DebugMode = 0;
-	float pad;
+	int IsLastPass;
 };
 
 struct AreaLight

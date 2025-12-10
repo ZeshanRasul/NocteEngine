@@ -23,6 +23,7 @@ void Miss(inout PathPayload payload)
     {
         envColor *= maxEnvLum / lum;
     }
+    
     payload.bsdfOverPdf = 0.0f;
     payload.pdf = 1.0f;
     payload.done = 1;

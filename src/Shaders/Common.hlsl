@@ -8,7 +8,7 @@ cbuffer PostProcess : register(b3)
     float Exposure;
     int ToneMapMode;
     int DebugMode;
-    float pad;
+    int IsLastPass;
 }
 
 struct Material

@@ -9,6 +9,14 @@ cbuffer DenoiseParams : register(b0)
     int pad;
 }
 
+cbuffer PostProcess : register(b1)
+{
+    float Exposure;
+    int ToneMapMode;
+    int DebugMode;
+    int IsLastPass;
+}
+
 Texture2D<float4> Input : register(t0);
 Texture2D<float4> Normal : register(t1);
 Texture2D<float> Depth : register(t2);
@@ -20,8 +28,64 @@ RWTexture2D<float4> Output : register(u0);
 static const float gKernel[5] = { 1.0 / 16.0, 1.0 / 4.0, 3.0 / 8.0, 1.0 / 4.0, 1.0 / 16.0 };
 static const int gOffsets[5] = { -2, -1, 0, 1, 2 };
 
+float3 LinearToSRGB(float3 x)
+{
+    const float a = 0.055f;
+    const float threshold = 0.0031308f;
+
+    // Clamp to [0, +inf) to avoid weirdness with negative values
+    x = max(x, 0.0f.xxx);
+
+    float3 lo = 12.92f * x;
+    float3 hi = (1.0f + a) * pow(x, 1.0f / 2.4f) - a;
+
+    // step(edge, x) returns 0.0 if x < edge, 1.0 otherwise, per component
+    float3 mask = step(threshold.xxx, x);
+
+    // For each channel: x < threshold ? lo : hi
+    return lerp(lo, hi, mask);
+}
+
+float3 ApplyExposure(float3 color, float exposure)
+{
+    return color * exp2(exposure);
+}
+
+float3 ToneMapReinhard(float3 x)
+{
+    return x / (1.0f + x);
+}
+
+float3 RRTAndODTFit(float3 v)
+{
+    float3 a = v * (v + 0.0245786f) - 0.000090537f;
+    float3 b = v * (0.983729f * v + 0.4329510f) + 0.238081f;
+    return a / b;
+}
+
+float3 ToneMapACES(float3 color)
+{
+    color = RRTAndODTFit(color);
+    return saturate(color);
+
+}
+
+float3 PostProcessColor(float3 hdrColor)
+{
+    float3 color = ApplyExposure(hdrColor, Exposure);
+
+    color = ToneMapACES(color);
+
+    color = LinearToSRGB(color);
+    
+    return color;
+}
+
 [numthreads(8, 8, 1)]
-void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
+
+    void CSMain
+    (
+    uint3 dispatchThreadId : SV_DispatchThreadID)
 {
     int2 coord = int2(dispatchThreadId.xy);
 
@@ -94,6 +158,11 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     float3 result = (wsum > 0.0f) ? (sum / wsum) : centerColor.rgb;
 
-  Output[coord] = float4(result, centerColor.a);
+    if (IsLastPass == 1)
+    {
+        result = PostProcessColor(result);
+    }
+    
+    Output[coord] = float4(result, centerColor.a);
 }
 

@@ -156,7 +156,7 @@ void RayGen()
         finalRadiance *= maxRadianceLum / lum;
     }
     
-    float3 finalColor = PostProcessColor(finalRadiance);
+    float3 finalColor = finalRadiance;
      
     float4 prev = gAccumBuf[launchIndex];
     float4 current = float4(finalColor, 1.0f);

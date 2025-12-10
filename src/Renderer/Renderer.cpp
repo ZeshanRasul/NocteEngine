@@ -523,8 +523,14 @@ void Renderer::Draw(bool useRaster)
 			srvOffsetFromStart = 1;
 		}
 
+		if (pass == numPasses)
+		{
+			m_IsLastPass = 1;
+		}
+
 		const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, offsetFromStart, m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootConstantBufferView(3, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
+		m_CommandList->SetComputeRootConstantBufferView(4, m_PostProcessConstantBuffer->GetGPUVirtualAddress()); // denoise step
 		m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
 		const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvOffsetFromStart, m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
@@ -537,6 +543,7 @@ void Renderer::Draw(bool useRaster)
 		UINT gy = (m_ClientHeight + 7) / 8;
 		m_CommandList->Dispatch(gx, gy, 1);
 
+		m_IsLastPass = 0;
 
 		if (pass == numPasses - 1)
 		{
@@ -2094,14 +2101,15 @@ void Renderer::CreateComputeRootSignature()
 	CD3DX12_DESCRIPTOR_RANGE table3 = {};
 	table3.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 1, 0, 10);
 
-	CD3DX12_ROOT_PARAMETER slotRootParameter[4];
+	CD3DX12_ROOT_PARAMETER slotRootParameter[5];
 	slotRootParameter[0].InitAsDescriptorTable(1, &table);
 	slotRootParameter[1].InitAsDescriptorTable(1, &table2);
 	slotRootParameter[2].InitAsDescriptorTable(1, &table3);
 	slotRootParameter[3].InitAsConstantBufferView(0);
+	slotRootParameter[4].InitAsConstantBufferView(1);
 
 
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(4, slotRootParameter,
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(5, slotRootParameter,
 		0, nullptr,
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
@@ -2192,7 +2200,7 @@ void Renderer::UpdateDenoiseConstantBuffer(int step, int pass)
 	denoiseConstants.sigmaColor = baseSigmaColor;
 	denoiseConstants.sigmaNormal = baseSigmaNormal;
 	denoiseConstants.sigmaDepth = baseSigmaDepth;
-	denoiseConstants.stepWidth = m_DenoiseStep; // 1
+	denoiseConstants.stepWidth = 1 << pass; // 1
 	denoiseConstants.invResolution = m_MainPassCB.InvRenderTargetSize;
 	denoiseConstants.pass = pass;
 	denoiseConstants.pad = 0;
@@ -2446,7 +2454,7 @@ void Renderer::CreateAccelerationStructures()
 
 		{ dragonBottomLevelBuffers.pResult,
 		  XMMatrixScaling(105.0f, 105.0f, 105.0f) *
-		  XMMatrixTranslation(0.0f, 20.0f, -405.0f)},
+		  XMMatrixTranslation(0.0f, 33.0f, -405.0f)},
 
 		{ bottomLevelBuffers.pResult,
 		  XMMatrixScaling(1.0f, 1.0f, 1.0f) *
@@ -2662,7 +2670,7 @@ void Renderer::CreatePostProcessConstantBuffer()
 	m_PostProcessData.Exposure = m_Exposure;
 	m_PostProcessData.ToneMapMode = m_ToneMapMode;
 	m_PostProcessData.DebugMode = m_DebugMode;
-	m_PostProcessData.pad = 1.0f;
+	m_PostProcessData.IsLastPass = m_IsLastPass;
 
 	m_PostProcessConstantBuffer = nv_helpers_dx12::CreateBuffer(
 		m_Device.Get(), sizeof(m_PostProcessData), D3D12_RESOURCE_FLAG_NONE,
@@ -2680,7 +2688,7 @@ void Renderer::UpdatePostProcessConstantBuffer()
 	m_PostProcessData.Exposure = m_Exposure;
 	m_PostProcessData.ToneMapMode = m_ToneMapMode;
 	m_PostProcessData.DebugMode = m_DebugMode;
-	m_PostProcessData.pad = 1.0f;
+	m_PostProcessData.IsLastPass = m_IsLastPass;
 
 	uint8_t* pData;
 	ThrowIfFailed(m_PostProcessConstantBuffer->Map(0, nullptr, (void**)&pData));
@@ -2690,10 +2698,10 @@ void Renderer::UpdatePostProcessConstantBuffer()
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 940.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(58.0f, 58.0f, 58.0f);
-	m_AreaLightData.U = XMFLOAT3(165.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 165.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 640.0f, 0.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(100.0f, 100.0f, 100.0f);
+	m_AreaLightData.U = XMFLOAT3(105.0f, 0.0f, 0.0f);
+	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 105.0f);
 
 	XMVECTOR U = XMLoadFloat3(&m_AreaLightData.U);
 	XMVECTOR V = XMLoadFloat3(&m_AreaLightData.V);
