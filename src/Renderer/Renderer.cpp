@@ -415,6 +415,94 @@ void Renderer::Draw(bool useRaster)
 
 	}
 
+	{
+		// 1. Transition resources to correct states
+// - Current HDR (m_FinalDenoiseBuffer) -> SRV
+// - Accumulation (m_AccumulationBuffer) -> UAV
+// - OldFirstMoment/OldSecondMoment -> SRV
+// - FirstMoment/SecondMoment -> UAV
+
+		std::vector<D3D12_RESOURCE_BARRIER> barriers;
+		if (m_FrameIndex != 0 && m_FrameIndex != 1)
+		{
+			barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+				m_FinalDenoiseBuffer,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+		}
+
+		//barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+		//	m_AccumulationBuffer.Get(),
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS)); // staying UAV, just clarifying
+
+		barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+			m_OldFirstMomentBuffer.Get(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+
+		barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+			m_OldSecondMomentBuffer.Get(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+
+		//barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+		//	m_FirstMomentBuffer.Get(),
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+
+		//barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+		//	m_SecondMomentBuffer.Get(),
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+
+		m_CommandList->ResourceBarrier((UINT)barriers.size(), barriers.data());
+
+		// 2. Set PSO + root sig
+		m_CommandList->SetPipelineState(m_TemporalAccumulationPSO.Get());
+		m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
+
+		// 3. Set descriptor heap
+		ID3D12DescriptorHeap* heaps[] = { m_SrvUavHeap.Get() };
+		m_CommandList->SetDescriptorHeaps(_countof(heaps), heaps);
+
+		// 4. Bind root parameters (indices are those you tracked when creating views)
+
+		// RootParam[0]: UAV u0 (Output = m_AccumulationBuffer)
+		auto u0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+			0,
+			m_CbvSrvUavDescriptorSize);
+		m_CommandList->SetComputeRootDescriptorTable(0, u0Handle);
+
+		// RootParam[1]: SRV t0 (Input = m_FinalDenoiseBuffer)
+		auto t0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+			0,
+			m_CbvSrvUavDescriptorSize);
+		m_CommandList->SetComputeRootDescriptorTable(1, t0Handle);
+
+		// RootParam[4]: SRV t3..t6 (FirstMomentOld, SecondMomentOld)
+		auto t3Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+			0, // t3
+			m_CbvSrvUavDescriptorSize);
+		m_CommandList->SetComputeRootDescriptorTable(4, t3Handle);
+
+		// RootParam[3]: UAV u1..u4 (FirstMomentNew, SecondMomentNew)
+		auto u1Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+			0, // u1
+			m_CbvSrvUavDescriptorSize);
+		m_CommandList->SetComputeRootDescriptorTable(3, u1Handle);
+
+		// Set CBVs (slots 5 and 6) if you want to reuse DenoiseParams/PostProcess
+		m_CommandList->SetComputeRootConstantBufferView(5, m_DenoiseCB->GetGPUVirtualAddress());
+		m_CommandList->SetComputeRootConstantBufferView(6, m_PostProcessConstantBuffer->GetGPUVirtualAddress());
+
+		// 5. Dispatch
+		UINT gx = (m_ClientWidth + 7) / 8;
+		UINT gy = (m_ClientHeight + 7) / 8;
+		m_CommandList->Dispatch(gx, gy, 1);
+
+	}
+
 	//ID3D12Resource* ping = m_DenoisePing.Get();
 	//ID3D12Resource* pong = m_DenoisePong.Get();
 
@@ -600,6 +688,9 @@ void Renderer::Draw(bool useRaster)
 			D3D12_RESOURCE_STATE_COPY_DEST,
 			D3D12_RESOURCE_STATE_RENDER_TARGET));
 	}
+
+	std::swap(m_FirstMomentBuffer, m_OldFirstMomentBuffer);
+	std::swap(m_SecondMomentBuffer, m_OldSecondMomentBuffer);
 
 	{
 		D3D12_RESOURCE_BARRIER barriers[3];
@@ -967,6 +1058,7 @@ void Renderer::BuildShadersAndInputLayout()
 	m_VsByteCode = d3dUtil::CompileShader(L"Shaders\\vertex.hlsl", nullptr, "VS", "vs_5_0");
 	m_PsByteCode = d3dUtil::CompileShader(L"Shaders\\pixel.hlsl", nullptr, "PS", "ps_5_0");
 	m_CsByteCode = d3dUtil::CompileShader(L"Shaders\\Denoise.hlsl", nullptr, "CSMain", "cs_5_0");
+	m_TACsByteCode = d3dUtil::CompileShader(L"Shaders\\TemporalAccumulation.hlsl", nullptr, "CSMain", "cs_5_0");
 
 	m_InputLayoutDescs =
 	{
@@ -2020,7 +2112,7 @@ void Renderer::CreateShaderResourceHeap()
 	m_SecondMomentBuffer->SetName(L"Second Moment SRV");
 	m_Device->CreateShaderResourceView(m_SecondMomentBuffer.Get(), &srvDesc, srvHandle);
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	
+
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc.Texture2D.MostDetailedMip = 0;
@@ -2151,7 +2243,7 @@ void Renderer::CreateDenoisingResources()
 
 
 	ThrowIfFailed(m_Device->CreateCommittedResource(&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&m_DenoisePong)));
-	
+
 	resDesc = {};
 
 	resDesc.DepthOrArraySize = 1;
@@ -2169,7 +2261,7 @@ void Renderer::CreateDenoisingResources()
 
 
 	ThrowIfFailed(m_Device->CreateCommittedResource(&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&m_FirstMomentBuffer)));
-	
+
 	resDesc = {};
 
 	resDesc.DepthOrArraySize = 1;
@@ -2187,7 +2279,7 @@ void Renderer::CreateDenoisingResources()
 
 
 	ThrowIfFailed(m_Device->CreateCommittedResource(&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&m_SecondMomentBuffer)));
-	
+
 	resDesc = {};
 
 	resDesc.DepthOrArraySize = 1;
@@ -2233,10 +2325,10 @@ void Renderer::CreateComputeRootSignature()
 	table2.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, 12);
 	CD3DX12_DESCRIPTOR_RANGE table3 = {};
 	table3.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 1, 0, 10);
-	
+
 	CD3DX12_DESCRIPTOR_RANGE table4 = {};
 	table4.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 4, 1, 0, 16);
-	
+
 
 	CD3DX12_DESCRIPTOR_RANGE table5 = {};
 	table5.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 3, 0, 18);
@@ -2282,6 +2374,16 @@ void Renderer::CreateComputePipelineStateObjects()
 	computePsoDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
 	ThrowIfFailed(m_Device->CreateComputePipelineState(&computePsoDesc, IID_PPV_ARGS(&m_DenoisePSO)));
+
+	D3D12_COMPUTE_PIPELINE_STATE_DESC TAPsoDesc = {};
+	TAPsoDesc.pRootSignature = m_DenoiseRootSignature.Get();
+	TAPsoDesc.CS = {
+		reinterpret_cast<BYTE*>(m_TACsByteCode->GetBufferPointer()),
+		m_TACsByteCode->GetBufferSize()
+	};
+	TAPsoDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+
+	ThrowIfFailed(m_Device->CreateComputePipelineState(&TAPsoDesc, IID_PPV_ARGS(&m_TemporalAccumulationPSO)));
 }
 
 void Renderer::CreatePresentUAV()

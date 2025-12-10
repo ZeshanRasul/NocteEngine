@@ -243,7 +243,9 @@ private:
 	void CreateComputePipelineStateObjects();
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_DenoiseRootSignature;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_DenoisePSO;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_TemporalAccumulationPSO;
 	Microsoft::WRL::ComPtr<ID3DBlob> m_CsByteCode;
+	Microsoft::WRL::ComPtr<ID3DBlob> m_TACsByteCode;
 	void CreateComputeShaderResourceHeap();
 	D3D12_GPU_DESCRIPTOR_HANDLE m_ComputeSrvHandle;
 	D3D12_GPU_DESCRIPTOR_HANDLE m_ComputeUavHandle;
