@@ -232,6 +232,8 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_DenoisePong;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_DenoiseCB;
 	ID3D12Resource* m_FinalDenoiseBuffer = m_AccumulationBuffer.Get();
+	ID3D12Resource* m_CurrentOldMoment = m_OldFirstMomentBuffer.Get();
+	ID3D12Resource* m_CurrentNewMoment = m_FirstMomentBuffer.Get();
 	XMFLOAT3 m_PrevCamPos = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	D3D12_CPU_DESCRIPTOR_HANDLE m_AccumulationBufferSrvHandleCPU;
 	D3D12_CPU_DESCRIPTOR_HANDLE m_AccumulationBufferUavHandleCPU;
@@ -363,4 +365,27 @@ struct PerInstanceData
 {
 	int materialIndex;
 	float pad[3];
+};
+
+enum DescriptorIndex {
+	// UAVs
+	UAV_Accumulation = 4,
+	UAV_Normal = 5,
+	UAV_Depth = 6,
+	UAV_DenoisePing = 7,
+	UAV_DenoisePong = 8,
+	UAV_Present = 9,
+
+	// SRVs
+	SRV_Normal = 10,
+	SRV_Depth = 11,
+	SRV_DenoisePing = 12,
+	SRV_DenoisePong = 13,
+	SRV_Accumulation = 14,
+	SRV_TriMatIndex = 15,
+
+	UAV_FirstMoment = 16,
+	UAV_OldFirstMoment = 18,
+	SRV_FirstMoment = 20,
+	SRV_OLD_FirstMoment = 22,
 };
