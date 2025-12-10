@@ -254,7 +254,7 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_PresentUAV;
 
 	int m_DenoiseStep = 1;
-	int m_DenoisePasses = 3;
+	int m_DenoisePasses = 4;
 	float m_SigmaColor = 5.0f;
 	float m_SigmaNormal = 40.0f;
 	float m_SigmaDepth = 60.0f;
