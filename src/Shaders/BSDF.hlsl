@@ -47,7 +47,7 @@ void EvaluateDisneyGGX(
         return;
     }
 
-    float roughness = saturate(1.0f - mat.Shininess);
+    float roughness = saturate(mat.Roughness);
 
     // Disney metal workflow helpers
     float3 Cd, F0;
@@ -91,7 +91,7 @@ BSDFSample SampleDisneyGGX(
     s.fOverPdf = 0.0;
     s.pdf = 1.0;
 
-    float roughness = saturate(1.0f - mat.Shininess);
+    float roughness = saturate(mat.Roughness);
 
     // Compute weights for picking a lobe.
     // This does NOT change energy, only affects variance.
@@ -176,7 +176,7 @@ float PdfDisneyBRDF(
     float3 V,
     float3 L)
 {
-    float roughness = saturate(1.0f - mat.Shininess);
+    float roughness = saturate(mat.Roughness);
     // Disney metal workflow helpers
     float3 Cd, F0;
     ComputeDisneyMetalWorkflow(mat.DiffuseAlbedo.xyz, mat.Metallic, Cd, F0);

@@ -2746,7 +2746,7 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.Ior = mat->Ior;
 		matGpu.Reflectivity = mat->Reflectivity;
 		matGpu.Absorption = mat->Absorption;
-		matGpu.Shininess = 1.0f - mat->Roughness;
+		matGpu.Roughness = mat->Roughness;
 		matGpu.pad = 1.0f;
 		matGpu.pad2 = 1.0f;
 		matGpu.metallic = mat->metallic;
@@ -2766,7 +2766,7 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.Ior = m->Ior;
 		matGpu.Reflectivity = m->Reflectivity;
 		matGpu.Absorption = m->Absorption;
-		matGpu.Shininess = 1.0f - m->Roughness;
+		matGpu.Roughness = m->Roughness;
 		matGpu.pad = 1.0f;
 		matGpu.pad2 = 1.0f;
 		matGpu.metallic = m->metallic;

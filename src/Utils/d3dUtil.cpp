@@ -226,7 +226,11 @@ void d3dUtil::LoadObjModel(const std::string& filepath, Model& model)
 			mat.specular[0],
 			mat.specular[1],
 			mat.specular[2]);
-		material->Roughness = mat.shininess / 256.0f;
+
+		float Ns = mat.shininess;
+		float spec = Ns / 256.0f;
+		spec = DirectX::XMMin(spec, 0.999f);
+		material->Roughness = 1.0f - spec;
 		material->DiffuseSrvHeapIndex = matCounter;
 
 		model.materials.push_back(material);

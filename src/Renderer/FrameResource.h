@@ -94,7 +94,7 @@ struct MaterialDataGPU
 	float Ior;
 	float Reflectivity;
 	DirectX::XMFLOAT3 Absorption;
-	float Shininess;
+	float Roughness;
 	float pad;
 	float pad2;
 	float metallic;

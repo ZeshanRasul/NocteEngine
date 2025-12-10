@@ -18,7 +18,7 @@ struct Material
     float Ior;
     float Reflectivity;
     float3 Absorption;
-    float Shininess;
+    float Roughness;
     float pad;
     float pad1;
     float Metallic;
