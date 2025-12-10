@@ -69,6 +69,16 @@ Renderer::Renderer(HWND& windowHandle, UINT width, UINT height)
 
 Renderer::~Renderer()
 {
+	ThrowIfFailed(m_CommandList->Close());
+	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
+	m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+
+	ThrowIfFailed(m_SwapChain->Present(0, 0));
+	m_CurrentBackBuffer = (m_CurrentBackBuffer + 1) % SwapChainBufferCount;
+
+	m_CurrentFrameResource->Fence = ++m_CurrentFence;
+
+	m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence);
 	m_Device->Release();
 	ImGui_ImplDX12_Shutdown();
 	ImGui_ImplWin32_Shutdown();
