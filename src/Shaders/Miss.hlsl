@@ -14,8 +14,15 @@ void Miss(inout PathPayload payload)
 {
     float3 dir = normalize(WorldRayDirection());
 
-    payload.emission = SampleEnvironment(dir);
-    //payload.emission = float3(0, 0, 0);
+    float3 envColor = SampleEnvironment(dir);
+
+    float maxEnvLum = 10.0f;
+    float lum = dot(envColor, float3(0.2126, 0.7152, 0.0722));
+
+    if (lum > maxEnvLum)
+    {
+        envColor *= maxEnvLum / lum;
+    }
     payload.bsdfOverPdf = 0.0f;
     payload.pdf = 1.0f;
     payload.done = 1;
