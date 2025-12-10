@@ -101,7 +101,7 @@ BSDFSample SampleDisneyGGX(
     float diffWeight = max(Cd.r, max(Cd.g, Cd.b)) * (1.0f - mat.Metallic);
     float sum = specWeight + diffWeight + 1e-6f;
     float specProb = saturate(specWeight / sum);
-    specProb = clamp(specProb, 0.1f, 0.9f);
+    //specProb = clamp(specProb, 0.1f, 0.9f);
 
     float2 xiRemap;
     float3 L;
@@ -185,7 +185,7 @@ float PdfDisneyBRDF(
     float diffWeight = max(Cd.r, max(Cd.g, Cd.b)) * (1.0f - mat.Metallic);
     float sum = specWeight + diffWeight + 1e-6f;
     float specProb = saturate(specWeight / sum);
-    specProb = clamp(specProb, 0.1f, 0.9f);
+  //  specProb = clamp(specProb, 0.1f, 0.9f);
     // PDFs
     float pdfSpec = GGX_PDF(N, V, L, roughness);
     float NdotL = saturate(dot(N, L));

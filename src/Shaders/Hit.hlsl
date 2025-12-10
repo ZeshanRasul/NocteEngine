@@ -159,6 +159,13 @@ void HandleRefractiveHit(
     // Tint the glass by base color
     weight *= mat.DiffuseAlbedo.rgb;
 
+    float maxGlassLum = 20.0f;
+    float lum = dot(weight, float3(0.2126, 0.7152, 0.0722));
+    if (lum > maxGlassLum)
+    {
+        weight *= maxGlassLum / lum;
+    }
+    
     payload.wi = dir;
     payload.bsdfOverPdf = weight; // f * cos / pdf collapsed into this scalar weight
     payload.pdf = 1.0f; // implicit delta BSDF
@@ -438,6 +445,15 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         return;
     }
 
+    float3 fOverPdf = bsdf.fOverPdf;
+    float maxBsdfLum = 20.0f; // try 10–50, tweak later
+
+    float lum = dot(fOverPdf, float3(0.2126, 0.7152, 0.0722));
+    if (lum > maxBsdfLum)
+    {
+        fOverPdf *= maxBsdfLum / lum;
+    }
+    
     payload.wi = bsdf.wi;
     payload.bsdfOverPdf = bsdf.fOverPdf;
     payload.pdf = bsdf.pdf;

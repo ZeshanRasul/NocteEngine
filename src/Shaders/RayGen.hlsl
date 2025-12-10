@@ -149,6 +149,13 @@ void RayGen()
         ray.TMax = 1e38f;
     }
     
+    float maxRadianceLum = 50.0f; // try 20–100 depending on your scene
+    float lum = dot(finalRadiance, float3(0.2126, 0.7152, 0.0722));
+    if (lum > maxRadianceLum)
+    {
+        finalRadiance *= maxRadianceLum / lum;
+    }
+    
     float3 finalColor = PostProcessColor(finalRadiance);
      
     float4 prev = gAccumBuf[launchIndex];
