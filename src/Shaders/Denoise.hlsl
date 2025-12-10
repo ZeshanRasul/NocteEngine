@@ -20,8 +20,12 @@ cbuffer PostProcess : register(b1)
 Texture2D<float4> Input : register(t0);
 Texture2D<float4> Normal : register(t1);
 Texture2D<float> Depth : register(t2);
+Texture2D<float> FirstMomentOld : register(t3);
+Texture2D<float> SecondMomentOld : register(t4);
 
 RWTexture2D<float4> Output : register(u0);
+RWTexture2D<float4> FirstMomentNew : register(u1);
+RWTexture2D<float4> SecondMomentNew : register(u2);
 //RWTexture2D<float4> PongOut : register(u1);
 //RWTexture2D<float4> PresentOut : register(u2);
 

@@ -211,6 +211,8 @@ private:
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_OutputResource;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_AccumulationBuffer;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_FirstMomentBuffer;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_SecondMomentBuffer;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_SrvUavHeap;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_SrvUavCPUHeap;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_SamplerHeap;
