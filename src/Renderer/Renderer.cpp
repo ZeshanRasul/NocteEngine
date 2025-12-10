@@ -538,7 +538,7 @@ void Renderer::Draw(bool useRaster)
 		m_CommandList->SetComputeRootDescriptorTable(2, heapStart);
 		const auto motionBuffers = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, 16, m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(3, heapStart);
-		const auto motionBuffers2 = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, 18, m_CbvSrvUavDescriptorSize);
+		const auto motionBuffers2 = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, 20, m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(4, heapStart);
 
 
@@ -1721,7 +1721,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 	rsc.AddHeapRangesParameter(
 		{ { 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2},
 		{ 4, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 15},
-		{ 5, 54, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 20},
+		{ 5, 54, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 24},
 		});
 	rsc.AddHeapRangesParameter(
 		{
@@ -1992,6 +1992,20 @@ void Renderer::CreateShaderResourceHeap()
 
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
+	uavDesc = {};
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+	m_OldFirstMomentBuffer->SetName(L"Old First Moment UAV");
+	m_Device->CreateUnorderedAccessView(m_OldFirstMomentBuffer.Get(), nullptr, &uavDesc, srvHandle);
+
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	uavDesc = {};
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+	m_OldSecondMomentBuffer->SetName(L"Old Second Moment UAV");
+	m_Device->CreateUnorderedAccessView(m_OldSecondMomentBuffer.Get(), nullptr, &uavDesc, srvHandle);
+
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
 	srvDesc = {};
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -2005,6 +2019,20 @@ void Renderer::CreateShaderResourceHeap()
 
 	m_SecondMomentBuffer->SetName(L"Second Moment SRV");
 	m_Device->CreateShaderResourceView(m_SecondMomentBuffer.Get(), &srvDesc, srvHandle);
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = 1;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+	srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	m_OldFirstMomentBuffer->SetName(L"Old First Moment SRV");
+	m_Device->CreateShaderResourceView(m_OldFirstMomentBuffer.Get(), &srvDesc, srvHandle);
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	m_OldSecondMomentBuffer->SetName(L"Old Second Moment SRV");
+	m_Device->CreateShaderResourceView(m_OldSecondMomentBuffer.Get(), &srvDesc, srvHandle);
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 
@@ -2159,6 +2187,41 @@ void Renderer::CreateDenoisingResources()
 
 
 	ThrowIfFailed(m_Device->CreateCommittedResource(&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&m_SecondMomentBuffer)));
+	
+	resDesc = {};
+
+	resDesc.DepthOrArraySize = 1;
+	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	resDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+
+	resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+	resDesc.Width = m_ClientWidth;
+	resDesc.Height = m_ClientHeight;
+	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	resDesc.MipLevels = 1;
+	resDesc.SampleDesc.Count = 1;
+	resDesc.SampleDesc.Quality = 0;
+	resDesc.Alignment = 0;
+
+
+	ThrowIfFailed(m_Device->CreateCommittedResource(&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&m_OldFirstMomentBuffer)));
+	resDesc = {};
+
+	resDesc.DepthOrArraySize = 1;
+	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	resDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+
+	resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+	resDesc.Width = m_ClientWidth;
+	resDesc.Height = m_ClientHeight;
+	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	resDesc.MipLevels = 1;
+	resDesc.SampleDesc.Count = 1;
+	resDesc.SampleDesc.Quality = 0;
+	resDesc.Alignment = 0;
+
+
+	ThrowIfFailed(m_Device->CreateCommittedResource(&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&m_OldSecondMomentBuffer)));
 
 }
 
@@ -2172,11 +2235,11 @@ void Renderer::CreateComputeRootSignature()
 	table3.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 1, 0, 10);
 	
 	CD3DX12_DESCRIPTOR_RANGE table4 = {};
-	table4.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 2, 1, 0, 16);
+	table4.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 4, 1, 0, 16);
 	
 
 	CD3DX12_DESCRIPTOR_RANGE table5 = {};
-	table5.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 3, 0, 18);
+	table5.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 3, 0, 18);
 
 	CD3DX12_ROOT_PARAMETER slotRootParameter[7];
 	slotRootParameter[0].InitAsDescriptorTable(1, &table);
