@@ -87,7 +87,7 @@ void RayGen()
     bool primarySet = false;
 
     
-    const int MaxBounces = 8;
+    const int MaxBounces = 12;
 
     for (int bounce = 0; bounce < MaxBounces; ++bounce)
     {

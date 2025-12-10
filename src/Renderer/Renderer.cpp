@@ -1756,7 +1756,7 @@ void Renderer::CreateRaytracingPipeline()
 
 	pipeline.SetMaxPayloadSize(48 * sizeof(float));
 	pipeline.SetMaxAttributeSize(2 * sizeof(float));
-	pipeline.SetMaxRecursionDepth(8);
+	pipeline.SetMaxRecursionDepth(16);
 
 	m_RtStateObject = pipeline.Generate();
 
@@ -2690,19 +2690,17 @@ void Renderer::UpdatePostProcessConstantBuffer()
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 930.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(52.0f, 51.0f, 50.0f);
-	m_AreaLightData.U = XMFLOAT3(150.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 150.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 940.0f, 0.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(58.0f, 58.0f, 58.0f);
+	m_AreaLightData.U = XMFLOAT3(165.0f, 0.0f, 0.0f);
+	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 165.0f);
 
-	float lenU = sqrtf(m_AreaLightData.U.x * m_AreaLightData.U.x +
-		m_AreaLightData.U.y * m_AreaLightData.U.y +
-		m_AreaLightData.U.z * m_AreaLightData.U.z);
-	float lenV = sqrtf(m_AreaLightData.V.x * m_AreaLightData.V.x +
-		m_AreaLightData.V.y * m_AreaLightData.V.y +
-		m_AreaLightData.V.z * m_AreaLightData.V.z);
+	XMVECTOR U = XMLoadFloat3(&m_AreaLightData.U);
+	XMVECTOR V = XMLoadFloat3(&m_AreaLightData.V);
 
-	m_AreaLightData.Area = lenU * lenV;
+	XMVECTOR crossUV = (XMVector3Cross(U, V));
+	float area = XMVectorGetX(XMVector3Length(crossUV));
+	m_AreaLightData.Area = area;
 
 	m_AreaLightConstantBuffer = nv_helpers_dx12::CreateBuffer(
 		m_Device.Get(), sizeof(m_AreaLightData), D3D12_RESOURCE_FLAG_NONE,
@@ -2717,6 +2715,14 @@ void Renderer::CreateAreaLightConstantBuffer()
 
 void Renderer::UpdateAreaLightConstantBuffer()
 {
+	//	m_AreaLightData.Area = lenU * lenV;
+	XMVECTOR U = XMLoadFloat3(&m_AreaLightData.U);
+	XMVECTOR V = XMLoadFloat3(&m_AreaLightData.V);
+
+	XMVECTOR crossUV = (XMVector3Cross(U, V));
+	float area = XMVectorGetX(XMVector3Length(crossUV));
+	m_AreaLightData.Area = area;
+
 	uint8_t* pData;
 	ThrowIfFailed(m_AreaLightConstantBuffer->Map(0, nullptr, (void**)&pData));
 	memcpy(pData, (void*)&m_AreaLightData, sizeof(m_AreaLightData));

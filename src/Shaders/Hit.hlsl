@@ -147,7 +147,7 @@ void HandleRefractiveHit(
             float transProb = max(1.0f - reflProb, 1e-4f);
             weight = oneMinusF / transProb;
 
-            float thickness = 0.1f; 
+            float thickness = 0.1f;
             float3 sigmaA = float3(0.02, 0.01, 0.01);
             weight *= exp(-sigmaA * thickness);
 
@@ -322,8 +322,9 @@ LightSample SampleAreaLight(float3 p, float3 n, inout uint seed)
     s.dir = L;
     s.dist = d;
     s.Li = gAreaLight.Radiance;
-    s.pdf = pdf;
-
+//    s.pdf = pdf;
+    s.pdf = max(pdf, 1e-6f);
+    
     return s;
 }
 
@@ -357,7 +358,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         v2.Normal * bary.z
     );
 
-    float2 uv = 
+    float2 uv =
         v0.UV * bary.x +
         v1.UV * bary.y +
         v2.UV * bary.z;
@@ -426,18 +427,29 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
                 float3 f = EvaluateDisneyBRDF(mat, N, V, L);
                 float pdfBSDF = PdfDisneyBRDF(mat, N, V, L);
                 
-                // Multiple importance sampling weight (balance heuristic)
-                float pdfLight = lightSample.pdf;
-                float pdfL2 = pdfLight * pdfLight;
-                float pdfBSDF2 = pdfBSDF * pdfBSDF;
-                float wLight = pdfL2 / max(pdfL2 + pdfBSDF2, 1e-4f);
+                if (pdfBSDF <= 0.0f)
+                {
+                    pdfBSDF = 0.0f;
+                }
+                if (pdfBSDF > 0.0f)
+                {
+                    // Multiple importance sampling weight (balance heuristic)
+                    float pdfLight = lightSample.pdf;
+                    float pdfL2 = pdfLight * pdfLight;
+                    float pdfBSDF2 = pdfBSDF * pdfBSDF;
                 
-                LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
+                    float wLight = pdfL2 / max(pdfL2 + pdfBSDF2, 1e-4f);
+                
+                    wLight = saturate(wLight);
+                    wLight = lerp(0.01f, 0.99f, wLight);
+                
+                    LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
+                }
             }
         }
     }
       
-    float3 ambient = float3(0.02, 0.02, 0.02);
+    float3 ambient = float3(0.04, 0.04, 0.04);
     payload.emission += ambient;
     
     BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);

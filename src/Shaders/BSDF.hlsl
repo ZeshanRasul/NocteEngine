@@ -192,7 +192,8 @@ float PdfDisneyBRDF(
     float pdfDiff = NdotL / PI;
     // Mixture
     float pdfTotal = specProb * pdfSpec + (1.0f - specProb) * pdfDiff;
-    return pdfTotal;
+    //return pdfTotal;
+    return max(pdfTotal, 1e-6f);
 }
 
 #endif // BSDF_HLSL
