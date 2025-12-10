@@ -2421,8 +2421,8 @@ void Renderer::CreateAccelerationStructures()
 		// ----------------------------------------------------
 
 		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(6.0f, 1.0f, 6.0f) *
-		  XMMatrixTranslation(12.0f, 0.0f, 8.0f) },
+		  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.U.z) *
+		  XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z) },
 
 		// Sphere on the left: radius ~3 at y = 3
 		{ sphereBottomLevelBuffers.pResult,
@@ -2498,10 +2498,10 @@ void Renderer::CreatePlaneGeometry()
 	// 4 unique vertices for the plane
 	Vertex planeVertices[] =
 	{
-		{{-1.5f, -0.8f,  1.5f}, { 0.0f, -1.0f, 0.0f }}, // 0
-		{{-1.5f, -0.8f, -1.5f}, { 0.0f, -1.0f, 0.0f }}, // 1
-		{{ 1.5f, -0.8f,  1.5f}, { 0.0f, -1.0f, 0.0f }}, // 2
-		{{ 1.5f, -0.8f, -1.5f}, { 0.0f, -1.0f, 0.0f }}, // 3
+		{{-1.0f, -1.0f,  1.0f}, { 0.0f, -1.0f, 0.0f }}, // 0
+		{{-1.0f, -1.0f, -1.0f}, { 0.0f, -1.0f, 0.0f }}, // 1
+		{{ 1.0f, -1.0f,  1.0f}, { 0.0f, -1.0f, 0.0f }}, // 2
+		{{ 1.0f, -1.0f, -1.0f}, { 0.0f, -1.0f, 0.0f }}, // 3
 	};
 
 	// Two triangles: (0,1,2) and (2,1,3) – matches your original winding
@@ -2690,8 +2690,8 @@ void Renderer::UpdatePostProcessConstantBuffer()
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 1109.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(32.0f, 31.0f, 30.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 930.0f, 0.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(52.0f, 51.0f, 50.0f);
 	m_AreaLightData.U = XMFLOAT3(150.0f, 0.0f, 0.0f);
 	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 150.0f);
 
@@ -2897,9 +2897,9 @@ void Renderer::RenderImGuiDebugWindow()
 	ImGui::SliderFloat("Area Light Radiance G", &m_AreaLightData.Radiance.y, 0.0f, 200.0f);
 	ImGui::SliderFloat("Area Light Radiance B", &m_AreaLightData.Radiance.z, 0.0f, 200.0f);
 	ImGui::Text("Area Light U Vector");
-	ImGui::SliderFloat3("Area Light U", &m_AreaLightData.U.x, 0.0f, 1000.0f);
+	ImGui::SliderFloat("Area Light U", &m_AreaLightData.U.x, 0.0f, 1000.0f);
 	ImGui::Text("Area Light V Vector");
-	ImGui::SliderFloat3("Area Light V", &m_AreaLightData.V.x, 0.0f, 1000.0f);
+	ImGui::SliderFloat("Area Light V", &m_AreaLightData.V.z, 0.0f, 1000.0f);
 	ImGui::End();
 
 }
