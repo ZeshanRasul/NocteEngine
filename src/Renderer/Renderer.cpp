@@ -406,25 +406,26 @@ void Renderer::Draw(bool useRaster)
 	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
 	m_CommandList->DispatchRays(&desc);
 
-	D3D12_RESOURCE_BARRIER barriers[3];
+	{
+		D3D12_RESOURCE_BARRIER barriers[3];
 
-	barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_AccumulationBuffer.Get(),
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_AccumulationBuffer.Get(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
-	barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_NormalTex.Get(),
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_NormalTex.Get(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
-	barriers[2] = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_DepthTex.Get(),
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		barriers[2] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_DepthTex.Get(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
-	m_CommandList->ResourceBarrier(_countof(barriers), barriers);
-
+		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+	}
 	{
 		// 1. Transition resources to correct states
 // - Current HDR (m_FinalDenoiseBuffer) -> SRV
@@ -496,7 +497,7 @@ void Renderer::Draw(bool useRaster)
 				srvOffsetFromStart = 1;
 			}
 
-			UpdateDenoiseConstantBuffer(0, 0);
+			//		UpdateDenoiseConstantBuffer(0, 0);
 
 
 
@@ -573,6 +574,29 @@ void Renderer::Draw(bool useRaster)
 	ID3D12Resource* dest = nullptr;
 	const int numPasses = m_DenoisePasses;
 
+	D3D12_RESOURCE_BARRIER barriers[2];
+	barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_FinalDenoiseBuffer,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		D3D12_RESOURCE_STATE_COPY_DEST);
+	barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_TemporalRadianceBuffer.Get(),
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		D3D12_RESOURCE_STATE_COPY_SOURCE);
+	m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+
+	m_CommandList->CopyResource(m_FinalDenoiseBuffer, m_TemporalRadianceBuffer.Get());
+
+	D3D12_RESOURCE_BARRIER barriers2[2];
+	barriers2[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_FinalDenoiseBuffer,
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	barriers2[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_TemporalRadianceBuffer.Get(),
+		D3D12_RESOURCE_STATE_COPY_SOURCE,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
 	for (int pass = 0; pass < numPasses; ++pass)
 	{
 		UpdateDenoiseConstantBuffer(1 << pass, pass);
@@ -590,7 +614,7 @@ void Renderer::Draw(bool useRaster)
 			//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // or SRV from previous frame
 			//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 		//	m_CommandList->ResourceBarrier(_countof(barriers), barriers);
-			
+
 			//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
 			//	dest,
 			//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, // or SRV from previous frame
@@ -609,7 +633,7 @@ void Renderer::Draw(bool useRaster)
 			// Transition src to SRV (read)
 			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 				src, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
-//			 Transition dest to UAV (write)
+			//			 Transition dest to UAV (write)
 
 			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 				dest, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
