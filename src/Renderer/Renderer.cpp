@@ -605,7 +605,7 @@ void Renderer::Draw(bool useRaster)
 		if (pass == 0)
 		{
 			// First pass: read from accumulation, write to ping.
-			src = m_TemporalRadianceBuffer.Get();
+			src = m_FinalDenoiseBuffer;
 			dest = m_FinalDenoiseBuffer == m_DenoisePing.Get() ? m_DenoisePong.Get() : m_DenoisePing.Get();
 			//dest = m_DenoisePing.Get();
 			D3D12_RESOURCE_BARRIER barriers[1];
@@ -1937,7 +1937,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 	rsc.AddHeapRangesParameter(
 		{ { 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2},
 		{ 4, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 15},
-		{ 5, 54, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 24},
+		{ 5, 54, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 26},
 		});
 	rsc.AddHeapRangesParameter(
 		{
