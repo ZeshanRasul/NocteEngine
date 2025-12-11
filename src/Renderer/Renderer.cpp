@@ -2568,7 +2568,7 @@ void Renderer::UpdateDenoiseConstantBuffer(int step, int pass)
 	denoiseConstants.sigmaColor = baseSigmaColor;
 	denoiseConstants.sigmaNormal = baseSigmaNormal;
 	denoiseConstants.sigmaDepth = baseSigmaDepth;
-	denoiseConstants.stepWidth = 1 << pass; // 1
+	denoiseConstants.stepWidth = m_DenoiseStep; // 1
 	denoiseConstants.invResolution = m_MainPassCB.InvRenderTargetSize;
 	denoiseConstants.pass = pass;
 	denoiseConstants.pad = 0;
