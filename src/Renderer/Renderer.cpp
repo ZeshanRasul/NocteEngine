@@ -429,28 +429,28 @@ void Renderer::Draw(bool useRaster)
 		std::vector<D3D12_RESOURCE_BARRIER> barriers;
 		if (m_FrameIndex != 0)
 		{
-			barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
-				m_FinalDenoiseBuffer,
-				D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+			//barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+			//	m_FinalDenoiseBuffer,
+			//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
 
-			barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
-				m_CurrentOldMoment,
-				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-				D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+		//	barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+		//		m_CurrentOldMoment,
+		//		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+		//		D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 
-			barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
-				m_CurrentNewMoment,
-				D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+		//	barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+		//		m_CurrentNewMoment,
+		//		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		//		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
 		}
 		else
 		{
 
-			barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
-				m_CurrentOldMoment,
-				D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+			//barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+			//	m_CurrentOldMoment,
+			//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
 
 			//barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
 			//	m_CurrentNewMoment,
@@ -472,6 +472,15 @@ void Renderer::Draw(bool useRaster)
 		//	m_SecondMomentBuffer.Get(),
 		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+
+
+		std::vector<D3D12_RESOURCE_BARRIER> taBarriers;
+		taBarriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+			m_CurrentOldMoment, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+		taBarriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+			m_CurrentNewMoment, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+		m_CommandList->ResourceBarrier((UINT)taBarriers.size(), taBarriers.data());
+
 
 		m_CommandList->ResourceBarrier((UINT)barriers.size(), barriers.data());
 
@@ -551,8 +560,8 @@ void Renderer::Draw(bool useRaster)
 
 			if (m_FrameIndex != 0)
 			{
-				m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-					src, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+				/*			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+								src, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));*/
 			}
 
 
@@ -570,10 +579,10 @@ void Renderer::Draw(bool useRaster)
 				src, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
 			// Transition dest to UAV (write)
 
-			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-				dest, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 			if (pass != 1)
 			{
+				m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+					dest, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 				//	D3D12_RESOURCE_BARRIER barriers[1];
 					//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
 					//	dest,
@@ -690,20 +699,20 @@ void Renderer::Draw(bool useRaster)
 	{
 		ID3D12Resource* finalSrc = src;
 		ID3D12Resource* prevSrc = src == m_DenoisePing.Get() ? m_DenoisePong.Get() : m_DenoisePing.Get();
-		//	D3D12_RESOURCE_BARRIER barriers[2];
-			//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-			//	src,
-			//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-			//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
-			//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-			//	src,
-			//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-			//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
-			//barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
-			//	m_DenoisePong.Get(),
-			//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-			//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
-		//	m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+		D3D12_RESOURCE_BARRIER barriers[1];
+		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			src,
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
+		//barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+		//	dest,
+		//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
+		//barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+		//	m_DenoisePong.Get(),
+		//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
+		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 	}
 	{
 
@@ -737,20 +746,33 @@ void Renderer::Draw(bool useRaster)
 	std::swap(m_FirstMomentBuffer, m_OldFirstMomentBuffer);
 	std::swap(m_SecondMomentBuffer, m_OldSecondMomentBuffer);
 
-	{
-		D3D12_RESOURCE_BARRIER barriers[2];
+	ID3D12Resource* secondOldMoment = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get()) ? m_OldSecondMomentBuffer.Get() : m_SecondMomentBuffer.Get();
+	ID3D12Resource* secondNewMoment = (m_CurrentNewMoment == m_FirstMomentBuffer.Get()) ? m_SecondMomentBuffer.Get() : m_OldSecondMomentBuffer.Get();
 
-		//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-		//	m_AccumulationBuffer.Get(),
-		//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    {
+        D3D12_RESOURCE_BARRIER barriers[4] = {
+            CD3DX12_RESOURCE_BARRIER::Transition(m_CurrentOldMoment, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS),
+            CD3DX12_RESOURCE_BARRIER::Transition(secondNewMoment, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS),
+            CD3DX12_RESOURCE_BARRIER::Transition(m_CurrentNewMoment, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
+            CD3DX12_RESOURCE_BARRIER::Transition(secondOldMoment, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
+        };
+        m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+    }
+
+	{
+		D3D12_RESOURCE_BARRIER barriers[3];
 
 		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_NormalTex.Get(),
+			m_AccumulationBuffer.Get(),
 			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
 		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_NormalTex.Get(),
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+		barriers[2] = CD3DX12_RESOURCE_BARRIER::Transition(
 			m_DepthTex.Get(),
 			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
