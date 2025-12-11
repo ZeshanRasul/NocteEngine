@@ -13,7 +13,7 @@ struct DenoiseConstants
 	int stepWidth = 1;
 	XMFLOAT2 invResolution = { 0.0f, 0.0f };
 	int pass = 0;
-	int pad = 0;
+	int useHistory = 1;
 
 };
 

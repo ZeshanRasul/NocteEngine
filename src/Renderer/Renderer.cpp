@@ -354,7 +354,7 @@ void Renderer::Draw(bool useRaster)
 		m_View._31 != m_PrevView._31 || m_View._32 != m_PrevView._32 || m_View._33 != m_PrevView._33 || m_View._34 != m_PrevView._34 ||
 		m_View._41 != m_PrevView._41 || m_View._42 != m_PrevView._42 || m_View._43 != m_PrevView._43 || m_View._44 != m_PrevView._44)
 	{
-		hasViewChanged = false;
+		hasViewChanged = true;
 	}
 
 	if (m_FrameIndex != 0 && m_FrameIndex != 1)
@@ -388,7 +388,7 @@ void Renderer::Draw(bool useRaster)
 
 	if (m_PrevCamPos.x != m_EyePos.x || m_PrevCamPos.y != m_EyePos.y || m_PrevCamPos.z != m_EyePos.z || hasViewChanged)
 	{
-	//	m_FrameIndex = 0;
+		m_FrameIndex = 0;
 		m_PrevCamPos = m_EyePos;
 		XMStoreFloat4x4(&m_PrevView, XMLoadFloat4x4(&m_View));
 		float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -396,8 +396,10 @@ void Renderer::Draw(bool useRaster)
 		clearColor[1] = 0.0f;
 		clearColor[2] = 0.0f;
 		clearColor[3] = 0.0f;
-	//	m_AccumulationBufferUavHandleGPU = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), 7, m_CbvSrvUavDescriptorSize);
-	//	m_CommandList->ClearUnorderedAccessViewFloat(m_AccumulationBufferUavHandleGPU, m_AccumulationBufferUavHandleCPU, m_AccumulationBuffer.Get(), clearColor, 0, nullptr);
+		m_AccumulationBufferUavHandleGPU = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), UAV_Accumulation, m_CbvSrvUavDescriptorSize);
+		m_CommandList->ClearUnorderedAccessViewFloat(m_AccumulationBufferUavHandleGPU, m_AccumulationBufferUavHandleCPU, m_AccumulationBuffer.Get(), clearColor, 0, nullptr);
+
+		useHistory = 0;
 
 	}
 
@@ -486,6 +488,7 @@ void Renderer::Draw(bool useRaster)
 			{
 				// Denoise Ping SRV
 				srvOffsetFromStart = 0;
+				srvOffsetFromStart = 0;
 			}
 			else if (src == m_DenoisePong.Get())
 			{
@@ -502,7 +505,7 @@ void Renderer::Draw(bool useRaster)
 			m_CommandList->SetComputeRootDescriptorTable(0, u0Handle);
 
 
-			int inputIndex = m_FinalDenoiseBuffer == m_AccumulationBuffer.Get() ? SRV_Accumulation : m_DenoisePing.Get() ? SRV_DenoisePing : SRV_DenoisePong;
+			int inputIndex = m_FinalDenoiseBuffer == m_AccumulationBuffer.Get() ? SRV_Accumulation : m_FinalDenoiseBuffer == m_DenoisePing.Get() ? SRV_DenoisePing : SRV_DenoisePong;
 			// RootParam[1]: SRV t0 (Input = m_FinalDenoiseBuffer)
 			auto t0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
 				SRV_Accumulation,
@@ -558,6 +561,7 @@ void Renderer::Draw(bool useRaster)
 			// First pass: read from accumulation, write to ping.
 			src = m_AccumulationBuffer.Get();
 			dest = m_FinalDenoiseBuffer == m_DenoisePing.Get() ? m_DenoisePong.Get() : m_DenoisePing.Get();
+			dest = m_DenoisePing.Get();
 			D3D12_RESOURCE_BARRIER barriers[1];
 			barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
 				src,
@@ -753,6 +757,7 @@ void Renderer::Draw(bool useRaster)
 
 
 	UpdateFrameIndexRNGCBuffer();
+	useHistory = 1;
 
 	heaps = { m_ImGuiSrvHeap.Get() };
 	m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
@@ -2450,7 +2455,7 @@ void Renderer::CreateDenoiseConstantBuffer()
 	denoiseConstants.stepWidth = 1;
 	denoiseConstants.invResolution = { 0.0f, 0.0f };
 	denoiseConstants.pass = 0;
-	denoiseConstants.pad = 0;
+	denoiseConstants.useHistory = useHistory;
 
 	const uint32_t bufferSize = sizeof(DenoiseConstants);
 
@@ -2483,7 +2488,7 @@ void Renderer::UpdateDenoiseConstantBuffer(int step, int pass)
 	denoiseConstants.stepWidth = m_DenoiseStep; // 1
 	denoiseConstants.invResolution = m_MainPassCB.InvRenderTargetSize;
 	denoiseConstants.pass = pass;
-	denoiseConstants.pad = 0;
+	denoiseConstants.useHistory = useHistory;
 
 	const uint32_t bufferSize = sizeof(DenoiseConstants);
 	uint8_t* pData = nullptr;

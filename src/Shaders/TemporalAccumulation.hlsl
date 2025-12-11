@@ -6,7 +6,7 @@ cbuffer DenoiseParams : register(b0)
     int gStepSize;
     float2 invResolution;
     int passNum;
-    int pad;
+    int useHistory;
 }
 
 cbuffer PostProcess : register(b1)
@@ -42,6 +42,9 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     bool hasHistory = any(m1Prev != 0.0.xxx);
 
+    if (useHistory == 0)
+        hasHistory = false;
+    
     if (!hasHistory)
     {
         m1Prev = C;
@@ -56,7 +59,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 
         float3 sigma = sqrt(variance + 1e-6.xxx); // avoid zero
 
-        float k = gColorSigma; // set from CPU, e.g. 2.0f or 3.0f
+        float k = gColorSigma;
 
         float3 lo = mean - k * sigma;
         float3 hi = mean + k * sigma;

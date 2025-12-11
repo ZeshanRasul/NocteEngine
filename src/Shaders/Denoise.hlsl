@@ -6,7 +6,7 @@ cbuffer DenoiseParams : register(b0)
     int gStepSize;
     float2 invResolution;
     int passNum;
-    int pad;
+    int useHistory;
 }
 
 cbuffer PostProcess : register(b1)
