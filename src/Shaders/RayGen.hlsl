@@ -163,7 +163,7 @@ void RayGen()
     
     float a = (frameIndex == 0) ? 1.0f : 1.0f / (frameIndex + 1);
     
-    gAccumBuf[launchIndex] = lerp(prev, current, a);
+    gAccumBuf[launchIndex] = float4(finalColor, 1.0);
     
     float3 nEncoded = primarySet ? (primaryNormal * 0.5f + 0.5f) : float3(0.5f, 0.5f, 1.0f);
     gNormal[launchIndex] = float4(nEncoded, 1.0f);

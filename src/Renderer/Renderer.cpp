@@ -1239,8 +1239,6 @@ void Renderer::BuildMaterials()
 	skullMat->Roughness = 0.01f;
 	skullMat->metallic = 0.009f;
 	skullMat->IsReflective = false;
-	skullMat->IsRefractive = 1;
-	skullMat->Ior = 1.5f;
 
 	auto tile0 = std::make_unique<Material>();
 	tile0->Name = "tile0";
@@ -3067,8 +3065,8 @@ void Renderer::UpdatePostProcessConstantBuffer()
 void Renderer::CreateAreaLightConstantBuffer()
 {
 	m_AreaLightData.Position = XMFLOAT3(0.0f, 640.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(100.0f, 100.0f, 100.0f);
-	m_AreaLightData.U = XMFLOAT3(105.0f, 0.0f, 0.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(80.0f, 80.0f, 80.0f);
+	m_AreaLightData.U = XMFLOAT3(405.0f, 0.0f, 0.0f);
 	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 105.0f);
 
 	XMVECTOR U = XMLoadFloat3(&m_AreaLightData.U);
