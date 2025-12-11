@@ -505,7 +505,7 @@ void Renderer::Draw(bool useRaster)
 			int inputIndex = m_FinalDenoiseBuffer == m_AccumulationBuffer.Get() ? SRV_Accumulation : m_DenoisePing.Get() ? SRV_DenoisePing : SRV_DenoisePong;
 			// RootParam[1]: SRV t0 (Input = m_FinalDenoiseBuffer)
 			auto t0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
-				inputIndex,
+				SRV_Accumulation,
 				m_CbvSrvUavDescriptorSize);
 			m_CommandList->SetComputeRootDescriptorTable(1, t0Handle);
 
@@ -556,7 +556,7 @@ void Renderer::Draw(bool useRaster)
 		if (pass == 0)
 		{
 			// First pass: read from accumulation, write to ping.
-			src = m_FinalDenoiseBuffer;
+			src = m_AccumulationBuffer.Get();
 			dest = m_FinalDenoiseBuffer == m_DenoisePing.Get() ? m_DenoisePong.Get() : m_DenoisePing.Get();
 			D3D12_RESOURCE_BARRIER barriers[1];
 			barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
