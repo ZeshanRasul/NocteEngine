@@ -727,13 +727,13 @@ void Renderer::Draw(bool useRaster)
 			(src == m_DenoisePing.Get()) ? SRV_DenoisePing :
 			SRV_DenoisePong;
 
-		const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, uavIndex, m_CbvSrvUavDescriptorSize);
+		const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, offsetFromStart, m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootConstantBufferView(5, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
 		m_CommandList->SetComputeRootConstantBufferView(6, m_PostProcessConstantBuffer->GetGPUVirtualAddress()); // denoise step
 		m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
-		const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvIndex, m_CbvSrvUavDescriptorSize);
+		const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvOffsetFromStart, m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
-		const auto pingpongSrvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, SRV_Normal, m_CbvSrvUavDescriptorSize);
+		const auto pingpongSrvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvOffsetFromStart, m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(2, pingpongSrvTableBase);
 		const auto motionBuffers = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, 16, m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(3, motionBuffers);
