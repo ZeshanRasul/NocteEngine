@@ -564,6 +564,10 @@ void Renderer::Draw(bool useRaster)
 		m_TemporalRadianceBuffer.Get(),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		m_DenoisePong.Get(),
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
 
 	ID3D12Resource* src = nullptr;
 	ID3D12Resource* dest = nullptr;
