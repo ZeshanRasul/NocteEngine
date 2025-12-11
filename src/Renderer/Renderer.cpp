@@ -506,8 +506,8 @@ void Renderer::Draw(bool useRaster)
 
 		// 4. Bind root parameters (indices are those you tracked when creating views)
 		{
-			ID3D12Resource* src = m_FinalDenoiseBuffer;
-			ID3D12Resource* dest = m_AccumulationBuffer.Get();
+			ID3D12Resource* src = m_AccumulationBuffer.Get();
+			ID3D12Resource* dest = m_FinalDenoiseBuffer;
 
 			int offsetFromStart = 0;
 
@@ -606,8 +606,8 @@ void Renderer::Draw(bool useRaster)
 		if (pass == 0)
 		{
 			// First pass: read from accumulation, write to ping.
-			src = m_AccumulationBuffer.Get();
-			dest = m_DenoisePing.Get();
+			src = m_FinalDenoiseBuffer;
+			dest = m_FinalDenoiseBuffer == m_DenoisePing.Get() ? m_DenoisePong.Get() : m_DenoisePing.Get();
 			D3D12_RESOURCE_BARRIER barriers[1];
 			barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
 				src,
