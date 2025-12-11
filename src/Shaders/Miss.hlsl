@@ -17,13 +17,15 @@ void Miss(inout PathPayload payload)
     float3 envColor = SampleEnvironment(dir);
    // envColor = float3(0.0f, 0.0f, 0.0f);
 
-    float maxEnvLum = 22.0f;
-    float lum = dot(envColor, float3(0.2126, 0.7152, 0.0722));
+    //float maxEnvLum = 22.0f;
+    //float lum = dot(envColor, float3(0.2126, 0.7152, 0.0722));
 
-    if (lum > maxEnvLum)
-    {
-        envColor *= maxEnvLum / lum;
-    }
+    //if (lum > maxEnvLum)
+    //{
+    //    envColor *= maxEnvLum / lum;
+    //}
+    
+    payload.emission = envColor;
     
     payload.bsdfOverPdf = 0.0f;
     payload.pdf = 1.0f;

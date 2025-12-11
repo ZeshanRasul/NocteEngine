@@ -47,9 +47,24 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
         m1Prev = C;
         m2Prev = C * C;
     }
+    else
+    {
+        float3 mean = m1Prev;
 
-    // Exponential moving average factor
-    float alpha = 0.1f; // tune in 0.05-0.2 range
+        float3 variance = m2Prev - mean * mean;
+        variance = max(variance, 0.0.xxx); // numerical safety
+
+        float3 sigma = sqrt(variance + 1e-6.xxx); // avoid zero
+
+        float k = gColorSigma; // set from CPU, e.g. 2.0f or 3.0f
+
+        float3 lo = mean - k * sigma;
+        float3 hi = mean + k * sigma;
+
+        C = clamp(C, lo, hi);
+    }
+
+    float alpha = 0.05f; // tune in 0.05-0.2 range
 
     float3 m1 = lerp(m1Prev, C, alpha);
     float3 m2 = lerp(m2Prev, C * C, alpha);
