@@ -367,25 +367,31 @@ struct PerInstanceData
 	float pad[3];
 };
 
-enum DescriptorIndex {
-	// UAVs
+enum
+{
+	UAV_Output = 0,
+	SRV_TLAS = 1,
+	SRV_Materials = 2,
+	CBV_Pass = 3,
 	UAV_Accumulation = 4,
 	UAV_Normal = 5,
 	UAV_Depth = 6,
 	UAV_DenoisePing = 7,
 	UAV_DenoisePong = 8,
 	UAV_Present = 9,
-
-	// SRVs
 	SRV_Normal = 10,
 	SRV_Depth = 11,
 	SRV_DenoisePing = 12,
 	SRV_DenoisePong = 13,
 	SRV_Accumulation = 14,
 	SRV_TriMatIndex = 15,
-
 	UAV_FirstMoment = 16,
+	UAV_SecondMoment = 17,
 	UAV_OldFirstMoment = 18,
+	UAV_OldSecondMoment = 19,
 	SRV_FirstMoment = 20,
-	SRV_OLD_FirstMoment = 22,
+	SRV_SecondMoment = 21,
+	SRV_OldFirstMoment = 22,
+	SRV_OldSecondMoment = 23,
 };
+;
