@@ -178,14 +178,14 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	//	m_DenoisePong.Get(),
 	//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 	//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
-	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		m_OldFirstMomentBuffer.Get(),
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
-	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		m_SecondMomentBuffer.Get(),
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+	//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+	//	m_OldFirstMomentBuffer.Get(),
+	//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+	//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+	//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+	//	m_SecondMomentBuffer.Get(),
+	//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+	//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
 
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
@@ -886,13 +886,13 @@ void Renderer::Draw(bool useRaster)
 	m_CurrentNewMoment = (m_CurrentNewMoment == m_FirstMomentBuffer.Get()) ? m_SecondMomentBuffer.Get() : m_FirstMomentBuffer.Get();
 
 	{
-		D3D12_RESOURCE_BARRIER barriers[2] = {
-		//	CD3DX12_RESOURCE_BARRIER::Transition(m_CurrentOldMoment, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS),
-			CD3DX12_RESOURCE_BARRIER::Transition(m_OldSecondMomentBuffer.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS),
-		//	CD3DX12_RESOURCE_BARRIER::Transition(m_CurrentNewMoment, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
-			CD3DX12_RESOURCE_BARRIER::Transition(m_SecondMomentBuffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
-		};
-		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+		//D3D12_RESOURCE_BARRIER barriers[] = {
+		////	CD3DX12_RESOURCE_BARRIER::Transition(m_CurrentOldMoment, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS),
+		//	//CD3DX12_RESOURCE_BARRIER::Transition(m_OldSecondMomentBuffer.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS),
+		////	CD3DX12_RESOURCE_BARRIER::Transition(m_CurrentNewMoment, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
+		//	//CD3DX12_RESOURCE_BARRIER::Transition(m_SecondMomentBuffer.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
+		//};
+		//m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 	}
 
 	{
@@ -2083,7 +2083,7 @@ void Renderer::CreateRaytracingOutputBuffer()
 
 void Renderer::CreateShaderResourceCPUHeap()
 {
-	m_SrvUavCPUHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 6, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+	m_SrvUavCPUHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 6, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, false);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavCPUHeap->GetCPUDescriptorHandleForHeapStart();
 
