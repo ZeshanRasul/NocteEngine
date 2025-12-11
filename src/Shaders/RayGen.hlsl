@@ -162,7 +162,7 @@ void RayGen()
     float4 prev = gAccumHistory[launchIndex];
     float4 current = float4(finalColor, 1.0f);
     
-    float blend = (frameIndex == 0) ? 1.0f : 0.1f;
+    float blend = (frameIndex == 0) ? 1.0f : 1.0f / (frameIndex + 1);
 
     float3 nEncoded = primarySet ? (primaryNormal * 0.5f + 0.5f) : float3(0.5f, 0.5f, 1.0f);
     gNormal[launchIndex] = float4(nEncoded, 1.0f);
@@ -172,5 +172,11 @@ void RayGen()
     gDepth[launchIndex] = saturate(d);
     
     gAccumBuf[launchIndex] = lerp(prev, current, blend);
+    
+    if (frameIndex < 5)
+    {
+        gOutput[launchIndex] = float4(1, 0, 0, 1); // pure red = using history
+        return;
+    }
 }
 
