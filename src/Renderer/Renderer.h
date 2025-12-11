@@ -211,6 +211,7 @@ private:
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_OutputResource;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_AccumulationBuffer;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_AccumulationHistoryBuffer;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_TemporalRadianceBuffer;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_FirstMomentBuffer;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_OldFirstMomentBuffer;
@@ -238,6 +239,8 @@ private:
 	XMFLOAT3 m_PrevCamPos = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	D3D12_CPU_DESCRIPTOR_HANDLE m_AccumulationBufferSrvHandleCPU;
 	D3D12_CPU_DESCRIPTOR_HANDLE m_AccumulationBufferUavHandleCPU;
+	D3D12_CPU_DESCRIPTOR_HANDLE m_OldFirstMomentBufferUavHandleCPU;
+	D3D12_CPU_DESCRIPTOR_HANDLE m_OldSecondMomentBufferUavHandleCPU;
 	D3D12_GPU_DESCRIPTOR_HANDLE m_AccumulationBufferSrvHandleGPU;
 	D3D12_GPU_DESCRIPTOR_HANDLE m_AccumulationBufferUavHandleGPU;
 	UINT m_AccumulationBufferUavHeapIndex = 0;

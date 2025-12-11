@@ -11,6 +11,7 @@ RWTexture2D<float> gDepth : register(u3);
 
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0);
+Texture2D<float4> gAccumHistory : register(t1);
 
 cbuffer cbPass : register(b0)
 {
@@ -158,13 +159,11 @@ void RayGen()
     
     float3 finalColor = finalRadiance;
      
-    float4 prev = gAccumBuf[launchIndex];
+    float4 prev = gAccumHistory[launchIndex];
     float4 current = float4(finalColor, 1.0f);
     
-    float a = (frameIndex == 0) ? 1.0f : 1.0f / (frameIndex + 1);
-    
-    gAccumBuf[launchIndex] = float4(finalColor, 1.0);
-    
+    float blend = (frameIndex == 0) ? 1.0f : 0.1f;
+
     float3 nEncoded = primarySet ? (primaryNormal * 0.5f + 0.5f) : float3(0.5f, 0.5f, 1.0f);
     gNormal[launchIndex] = float4(nEncoded, 1.0f);
     
@@ -172,6 +171,6 @@ void RayGen()
     float d = primarySet ? (primaryDepth / gFarZ) : 1.0f;
     gDepth[launchIndex] = saturate(d);
     
-    gOutput[launchIndex] = gAccumBuf[launchIndex];
+    gAccumBuf[launchIndex] = lerp(prev, current, blend);
 }
 

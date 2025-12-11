@@ -68,7 +68,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
         C = clamp(C, lo, hi);
     }
 
-    float alpha = 0.05f; // tune in 0.05-0.2 range
+    float alpha = 0.02f; // tune in 0.05-0.2 range
 
     float3 m1 = lerp(m1Prev, C, alpha);
     float3 m2 = lerp(m2Prev, C * C, alpha);
