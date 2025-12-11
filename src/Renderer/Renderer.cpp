@@ -174,10 +174,10 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	m_CurrentNewMoment = m_FirstMomentBuffer.Get();
 	m_FinalDenoiseBuffer = m_AccumulationBuffer.Get();
 
-	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		m_DenoisePong.Get(),
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+	//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+	//	m_DenoisePong.Get(),
+	//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+	//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
 	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 		m_OldFirstMomentBuffer.Get(),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
@@ -587,11 +587,11 @@ void Renderer::Draw(bool useRaster)
 			//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 		//	m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 			
-			barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-				dest,
-				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, // or SRV from previous frame
-				D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-			m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+			//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			//	dest,
+			//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, // or SRV from previous frame
+			//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			//m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 
 		}
 		else if (pass < numPasses - 1)
@@ -605,7 +605,7 @@ void Renderer::Draw(bool useRaster)
 			// Transition src to SRV (read)
 			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 				src, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
-			// Transition dest to UAV (write)
+//			 Transition dest to UAV (write)
 
 			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 				dest, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
@@ -679,6 +679,16 @@ void Renderer::Draw(bool useRaster)
 			(src == m_DenoisePing.Get()) ? SRV_DenoisePing :
 			SRV_DenoisePong;
 
+		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		//	dest,
+		//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+
+		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		//	src,
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+
 		int motionIndexStart = m_CurrentNewMoment == m_FirstMomentBuffer.Get() ? SRV_FirstMoment : SRV_FirstMoment;
 		int motionIndexStart2 = m_CurrentOldMoment == m_OldFirstMomentBuffer.Get() ? SRV_OldFirstMoment : SRV_FirstMoment;
 
@@ -720,14 +730,22 @@ void Renderer::Draw(bool useRaster)
 		ID3D12Resource* finalSrc = src;
 		ID3D12Resource* prevSrc = src == m_DenoisePing.Get() ? m_DenoisePong.Get() : m_DenoisePing.Get();
 		D3D12_RESOURCE_BARRIER barriers[1];
-		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-			src,
-			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
-		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+		//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+		//	src,
+		//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
+		//m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 	}
 	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 		m_TemporalRadianceBuffer.Get(),
+		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		m_DenoisePing.Get(),
+		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		m_DenoisePong.Get(),
 		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 

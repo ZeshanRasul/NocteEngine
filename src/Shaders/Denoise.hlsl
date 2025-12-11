@@ -96,7 +96,7 @@ float3 PostProcessColor(float3 hdrColor)
 
     
     int2 dim;
-    if (passNum == 1)        
+    if (passNum == 0)        
         TARadiance.GetDimensions(dim.x, dim.y);
     else
         Input.GetDimensions(dim.x, dim.y);
@@ -105,7 +105,7 @@ float3 PostProcessColor(float3 hdrColor)
         return;
     
     float4 centerColor = Input[coord];
-    if (passNum == 1)
+    if (passNum == 0)
         centerColor = TARadiance[coord];
     
     
@@ -135,7 +135,7 @@ float3 PostProcessColor(float3 hdrColor)
                 continue;
 
             float4 c = Input[p];
-            if (passNum == 1)
+            if (passNum == 0)
                 c = TARadiance[p];
             
             float4 n = Normal[p];
