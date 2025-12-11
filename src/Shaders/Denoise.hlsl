@@ -22,6 +22,7 @@ Texture2D<float4> Normal : register(t1);
 Texture2D<float> Depth : register(t2);
 Texture2D<float4> FirstMomentOld : register(t3);
 Texture2D<float4> SecondMomentOld : register(t4);
+Texture2D<float4> TARadiance : register(t7);
 
 RWTexture2D<float4> Output : register(u0);
 RWTexture2D<float4> FirstMomentNew : register(u1);
@@ -93,12 +94,21 @@ float3 PostProcessColor(float3 hdrColor)
 {
     int2 coord = int2(dispatchThreadId.xy);
 
+    
     int2 dim;
-    Input.GetDimensions(dim.x, dim.y);
+    if (passNum == 1)        
+        TARadiance.GetDimensions(dim.x, dim.y);
+    else
+        Input.GetDimensions(dim.x, dim.y);
+    
     if (coord.x < 0 || coord.y < 0 || coord.x >= dim.x || coord.y >= dim.y)
         return;
     
     float4 centerColor = Input[coord];
+    if (passNum == 1)
+        centerColor = TARadiance[coord];
+    
+    
     float4 centerN = Normal[coord];
     float centerDepth = Depth[coord];
 
@@ -125,6 +135,9 @@ float3 PostProcessColor(float3 hdrColor)
                 continue;
 
             float4 c = Input[p];
+            if (passNum == 1)
+                c = TARadiance[p];
+            
             float4 n = Normal[p];
             float z = Depth[p];
 

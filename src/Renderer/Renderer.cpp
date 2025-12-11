@@ -496,18 +496,31 @@ void Renderer::Draw(bool useRaster)
 				srvOffsetFromStart = 1;
 			}
 
+			UpdateDenoiseConstantBuffer(0, 0);
+
+
+
 			ID3D12Resource* currentOutput = m_FinalDenoiseBuffer == m_AccumulationBuffer.Get() ? m_DenoisePong.Get() : m_AccumulationBuffer.Get();
 			int offSet = currentOutput == m_AccumulationBuffer.Get() ? UAV_Accumulation : (currentOutput == m_DenoisePing.Get() ? UAV_DenoisePing : UAV_DenoisePong);
 			// RootParam[0]: UAV u0 (Output = m_AccumulationBuffer)
 			auto u0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
-				offSet,
+				UAV_Accumulation,
 				m_CbvSrvUavDescriptorSize);
 			m_CommandList->SetComputeRootDescriptorTable(0, u0Handle);
 
+			u0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+				24,
+				m_CbvSrvUavDescriptorSize);
+			m_CommandList->SetComputeRootDescriptorTable(5, u0Handle);
+
+			auto t0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+				25,
+				m_CbvSrvUavDescriptorSize);
+			m_CommandList->SetComputeRootDescriptorTable(6, t0Handle);
 
 			int inputIndex = m_FinalDenoiseBuffer == m_AccumulationBuffer.Get() ? SRV_Accumulation : m_FinalDenoiseBuffer == m_DenoisePing.Get() ? SRV_DenoisePing : SRV_DenoisePong;
 			// RootParam[1]: SRV t0 (Input = m_FinalDenoiseBuffer)
-			auto t0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+			t0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
 				SRV_Accumulation,
 				m_CbvSrvUavDescriptorSize);
 			m_CommandList->SetComputeRootDescriptorTable(1, t0Handle);
@@ -528,8 +541,8 @@ void Renderer::Draw(bool useRaster)
 			m_CommandList->SetComputeRootDescriptorTable(3, u1Handle);
 
 			// Set CBVs (slots 5 and 6) if you want to reuse DenoiseParams/PostProcess
-			m_CommandList->SetComputeRootConstantBufferView(5, m_DenoiseCB->GetGPUVirtualAddress());
-			m_CommandList->SetComputeRootConstantBufferView(6, m_PostProcessConstantBuffer->GetGPUVirtualAddress());
+			m_CommandList->SetComputeRootConstantBufferView(7, m_DenoiseCB->GetGPUVirtualAddress());
+			m_CommandList->SetComputeRootConstantBufferView(8, m_PostProcessConstantBuffer->GetGPUVirtualAddress());
 
 			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 				m_AccumulationBuffer.Get(),
@@ -547,6 +560,11 @@ void Renderer::Draw(bool useRaster)
 	//ID3D12Resource* ping = m_DenoisePing.Get();
 	//ID3D12Resource* pong = m_DenoisePong.Get();
 
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		m_TemporalRadianceBuffer.Get(),
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+
 	ID3D12Resource* src = nullptr;
 	ID3D12Resource* dest = nullptr;
 	const int numPasses = m_DenoisePasses;
@@ -559,14 +577,20 @@ void Renderer::Draw(bool useRaster)
 		if (pass == 0)
 		{
 			// First pass: read from accumulation, write to ping.
-			src = m_AccumulationBuffer.Get();
+			src = m_TemporalRadianceBuffer.Get();
 			dest = m_FinalDenoiseBuffer == m_DenoisePing.Get() ? m_DenoisePong.Get() : m_DenoisePing.Get();
-			dest = m_DenoisePing.Get();
+			//dest = m_DenoisePing.Get();
 			D3D12_RESOURCE_BARRIER barriers[1];
+			//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			//	src,
+			//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // or SRV from previous frame
+			//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		//	m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+			
 			barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-				src,
-				D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // or SRV from previous frame
-				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+				dest,
+				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, // or SRV from previous frame
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 			m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 
 		}
@@ -659,8 +683,8 @@ void Renderer::Draw(bool useRaster)
 		int motionIndexStart2 = m_CurrentOldMoment == m_OldFirstMomentBuffer.Get() ? SRV_OldFirstMoment : SRV_FirstMoment;
 
 		const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, uavIndex, m_CbvSrvUavDescriptorSize);
-		m_CommandList->SetComputeRootConstantBufferView(5, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
-		m_CommandList->SetComputeRootConstantBufferView(6, m_PostProcessConstantBuffer->GetGPUVirtualAddress()); // denoise step
+		m_CommandList->SetComputeRootConstantBufferView(7, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
+		m_CommandList->SetComputeRootConstantBufferView(8, m_PostProcessConstantBuffer->GetGPUVirtualAddress()); // denoise step
 		m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
 		const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvIndex, m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
@@ -671,7 +695,15 @@ void Renderer::Draw(bool useRaster)
 		const auto motionBuffers2 = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart2, m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(4, motionBuffers2);
 
+		auto u0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+			24,
+			m_CbvSrvUavDescriptorSize);
+		m_CommandList->SetComputeRootDescriptorTable(5, u0Handle);
 
+		auto t0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+			25,
+			m_CbvSrvUavDescriptorSize);
+		m_CommandList->SetComputeRootDescriptorTable(6, t0Handle);
 
 		UINT gx = (m_ClientWidth + 7) / 8;
 		UINT gy = (m_ClientHeight + 7) / 8;
@@ -694,6 +726,11 @@ void Renderer::Draw(bool useRaster)
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
 		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 	}
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		m_TemporalRadianceBuffer.Get(),
+		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+
 	{
 
 		D3D12_RESOURCE_BARRIER barriers[2];
@@ -784,8 +821,8 @@ void Renderer::Draw(bool useRaster)
 
 	m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence);
 
-
 }
+
 void Renderer::CreateDebugController()
 {
 	ThrowIfFailed(D3D12GetDebugInterface(IID_PPV_ARGS(&m_DebugController)));
@@ -1046,7 +1083,7 @@ void Renderer::CreateConstantBufferViews()
 void Renderer::CreateRootSignature()
 {
 	CD3DX12_DESCRIPTOR_RANGE texTable;
-	texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 54, 0, 0, 15);
+	texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 55, 0, 0, 25);
 
 	CD3DX12_ROOT_PARAMETER slotRootParameter[5];
 
@@ -1966,7 +2003,7 @@ void Renderer::CreateSamplerHeap()
 
 void Renderer::CreateShaderResourceHeap()
 {
-	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 78, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 80, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -2168,6 +2205,23 @@ void Renderer::CreateShaderResourceHeap()
 	m_Device->CreateShaderResourceView(m_OldSecondMomentBuffer.Get(), &srvDesc, srvHandle);
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
+	uavDesc = {};
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+	m_TemporalRadianceBuffer->SetName(L"TA Radiance Buffer UAV");
+	m_Device->CreateUnorderedAccessView(m_TemporalRadianceBuffer.Get(), nullptr, &uavDesc, srvHandle);
+
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	srvDesc = {};
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = 1;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+	srvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	m_TemporalRadianceBuffer->SetName(L"Temporal Radiance SRV");
+	m_Device->CreateShaderResourceView(m_TemporalRadianceBuffer.Get(), &srvDesc, srvHandle);
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> tex2DList;
 
@@ -2210,6 +2264,21 @@ void Renderer::CreateAccumulationBuffer()
 	resDesc.SampleDesc.Count = 1;
 
 	ThrowIfFailed(m_Device->CreateCommittedResource(&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&m_AccumulationBuffer)));
+
+	resDesc = {};
+
+	resDesc.DepthOrArraySize = 1;
+	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	resDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+
+	resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+	resDesc.Width = m_ClientWidth;
+	resDesc.Height = m_ClientHeight;
+	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	resDesc.MipLevels = 1;
+	resDesc.SampleDesc.Count = 1;
+
+	ThrowIfFailed(m_Device->CreateCommittedResource(&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&m_TemporalRadianceBuffer)));
 
 }
 
@@ -2374,17 +2443,24 @@ void Renderer::CreateComputeRootSignature()
 	CD3DX12_DESCRIPTOR_RANGE table5 = {};
 	table5.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 3, 0, 0);
 
-	CD3DX12_ROOT_PARAMETER slotRootParameter[7];
+	CD3DX12_DESCRIPTOR_RANGE table6 = {};
+	table6.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 5, 0, 0);
+	CD3DX12_DESCRIPTOR_RANGE table7 = {};
+	table7.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 7, 0, 0);
+
+	CD3DX12_ROOT_PARAMETER slotRootParameter[9];
 	slotRootParameter[0].InitAsDescriptorTable(1, &table);
 	slotRootParameter[1].InitAsDescriptorTable(1, &table2);
 	slotRootParameter[2].InitAsDescriptorTable(1, &table3);
 	slotRootParameter[3].InitAsDescriptorTable(1, &table4);
 	slotRootParameter[4].InitAsDescriptorTable(1, &table5);
-	slotRootParameter[5].InitAsConstantBufferView(0);
-	slotRootParameter[6].InitAsConstantBufferView(1);
+	slotRootParameter[5].InitAsDescriptorTable(1, &table6);
+	slotRootParameter[6].InitAsDescriptorTable(1, &table7);
+	slotRootParameter[7].InitAsConstantBufferView(0);
+	slotRootParameter[8].InitAsConstantBufferView(1);
 
 
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(7, slotRootParameter,
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(9, slotRootParameter,
 		0, nullptr,
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 

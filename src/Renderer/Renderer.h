@@ -211,6 +211,7 @@ private:
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_OutputResource;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_AccumulationBuffer;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_TemporalRadianceBuffer;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_FirstMomentBuffer;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_OldFirstMomentBuffer;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_SecondMomentBuffer;

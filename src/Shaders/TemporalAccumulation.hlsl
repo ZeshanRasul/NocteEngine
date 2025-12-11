@@ -23,6 +23,7 @@ Texture2D<float4> FirstMomentOld : register(t3);
 Texture2D<float4> SecondMomentOld : register(t4);
 
 RWTexture2D<float4> Output : register(u0);
+RWTexture2D<float4> TARadiance : register(u5);
 RWTexture2D<float4> FirstMomentNew : register(u1); 
 RWTexture2D<float4> SecondMomentNew : register(u2);
 
@@ -74,7 +75,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     float3 newHistory = m1; // use mean as temporally filtered color
 
-    Output[coord] = float4(newHistory, 1.0f);
+    TARadiance[coord] = float4(newHistory, 1.0f);
     FirstMomentNew[coord] = float4(m1, 1.0f);
     SecondMomentNew[coord] = float4(m2, 1.0f);
 }
