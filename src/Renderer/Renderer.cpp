@@ -482,7 +482,7 @@ void Renderer::Draw(bool useRaster)
 		m_CommandList->ResourceBarrier((UINT)taBarriers.size(), taBarriers.data());
 
 
-		m_CommandList->ResourceBarrier((UINT)barriers.size(), barriers.data());
+		//m_CommandList->ResourceBarrier((UINT)barriers.size(), barriers.data());
 
 		// 2. Set PSO + root sig
 		m_CommandList->SetPipelineState(m_TemporalAccumulationPSO.Get());
@@ -579,10 +579,10 @@ void Renderer::Draw(bool useRaster)
 				src, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
 			// Transition dest to UAV (write)
 
-			if (pass != 1)
-			{
 				m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 					dest, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+			if (pass != 1)
+			{
 				//	D3D12_RESOURCE_BARRIER barriers[1];
 					//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
 					//	dest,
@@ -752,9 +752,9 @@ void Renderer::Draw(bool useRaster)
     {
         D3D12_RESOURCE_BARRIER barriers[4] = {
             CD3DX12_RESOURCE_BARRIER::Transition(m_CurrentOldMoment, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS),
-            CD3DX12_RESOURCE_BARRIER::Transition(secondNewMoment, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS),
+            CD3DX12_RESOURCE_BARRIER::Transition(secondOldMoment, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS),
             CD3DX12_RESOURCE_BARRIER::Transition(m_CurrentNewMoment, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
-            CD3DX12_RESOURCE_BARRIER::Transition(secondOldMoment, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
+            CD3DX12_RESOURCE_BARRIER::Transition(secondNewMoment, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE),
         };
         m_CommandList->ResourceBarrier(_countof(barriers), barriers);
     }
