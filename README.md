@@ -1,15 +1,13 @@
 # Nocte Engine - DXR Path Tracer
 
-___
 
-Nocte Engine is a real-time path tracing rendering engine build using DirectX Raytracing (DXR). The project was born out of my passion for pushing the boundaries of real-time physically accurate rendering techniques and to build a strong understanding of the real-world considerations involved in creating beautiful and realistic worlds in 3D interactive media. 
+Nocte Engine is a real-time path tracing rendering engine built using DirectX Raytracing (DXR). The project was born out of my passion for pushing the boundaries of real-time physically accurate rendering techniques and to build a strong understanding of the real-world considerations involved in creating beautiful and realistic worlds in 3D interactive media. 
 
 While I have previous experience with rasterisation-based engines made in DirectX 12 and OpenGL, my love of low-level programming along with a deep fascination of the science and mathematics behind ray tracing algorithms fueled my desire to create a real-time path tracer.
 
 
 
 ## Overview
-___
 
 Fundamentally, Nocte Engine was created not just as a learning experience in low-level graphics programming, but also as a project to demonstrate and showcase my understanding of cutting-edge rendering techniques and ability to build performant and complex architectural systems.
 
@@ -18,7 +16,6 @@ Nocte Engine gave me the opportunity to implement and experiment with advanced t
 Over the course of two months, from the first D3D12 pipeline creation to the current stage of improving the denoising and visual clarity of the path tracer, I have been able to create a renderer which is highly relevant to the modern day enginess in the AAA games industry.
 
 ## Project Goals
-___
 
 As discussed, Nocte was created wuth a number of key goals, which organically and naturally developed over time. As I have found, the more you find yourself achieving, the greater your ambitions become and nothing fuels passion more than taking incremental steps that breakdown a project from achievable (STAR like) milestones to a adcanced system of many parts.
 
@@ -31,8 +28,6 @@ The core goals I set out to achieve on this journey were:
 - Create a visually impressive piece that showcases not just my technical abilities but also my understanding of art and design principles in 3D rendering
 
 ## Key Technical Features 
-
-___
 
 My Nocte Engine development journey involved the implementation of a number of advanced technique features as well establishment of robust architectural systems. These features include:
 
@@ -78,11 +73,36 @@ In terms of acceleration structures, the engine builds a bottom level accelerati
  
 ## Lighting and Global Illumination
 
+Nocte Engine implements physically based lighting models in order to achieve realistic lighting and global illumination effects. The techniques used allow ray and path tracers to achieve high-fidelity that rasterisation alogirthms would struggle or be unable to achieve, highlighting the importance of ray tracing to the future of 3D game, film and visualisation technologies.
+The shaders utilise both direct and indirect illumination algorithms resulting in beautifully rendered scenes with diffuse interrelections, soft shadows, reflections and refractions.
+
+Direct lighting is implemented using Next Event Estimation (NEE) where the area light sources in the scene are sampled directly from the ray-surface intersection point and shadow rays are traced in order to evaluate whethere an intersection point is occluded by geometry and thus in shadow.
+
+Global illumination is achieved through path tracing with Multiple Importance Sampling (MIS). This technique allows the engine to sample both the BSDF and light sources in order to reduce variance and noise in the final render. By combining these two sampling strategies, the engine can produce high-quality images with fewer samples per pixel, making real-time path tracing feasible. As mentioned in the references section, the MIS 101 chapter of Ray Tracing Gams II was an extremely valuable resource to understanding the difference and impact of using MIS compared to solely using BSDF sampling or light sampling alone.
+
 ## Materials and Shading
+
+Material evaluation in Nocte Engine is based on the now industry standard Physically Based Rendering (PBR) techniques. The engine supports a range of material properties including albedo, roughness, metallic and will be (easily) extended to include emissive properties. These properties are used in the BSDF evaluation to calculate how light interacts with surfaces in the scene.
+
+The BSDF implementation uses Lambertian reflectange for diffuse surfaces along with the Disney GGX microfacet model for specular reflections, leveraging the Schlick Fresnel approximation. Probability density functions (PDFs) are calculated for both the BSDF and light sampling strategies resulting in improved Multiple Importance Sampling.
 
 ## Denoising and Temporal Accumulation
 
+As with all path tracers, Nocte experiences the same inherent noise at low SPP (samples per pixel) due to the lack of convergence of the algorithm. To counter this noise, Nocte has spatial denoising and work in progress temporal accumulation, used to improve the image quality and convergence.
+
+The temporal accumulation approach is to accumulate and blend between radiance values from multiple frames when the scene is stationary. The present approach resets this accumulation on camera movement in order to ensure stale radiance values from previous camera perspectives do not blend with new perspectives.
+
+The spatial denoising has been implemented an using A-Trous wavelet filter on the compute shader using normal and depth data to preserve edges while reducing noise. It is widely configurable with a multi-pass ping pong system and parameters that are exposed through the GUI. This ensures users and developers can quickly iterate and experiment with a range of parameter combinations and thus reach an optimal denoising state for their needs.
+
 ## Scene Management
+
+The scenes in Nocte consist of mesh instances, their transforms and materials as well as acceleration structure references. Meshes can either be loaded using the engines OBJ loader, leveraging the lightweight tinyobj header only library or through the engines geometry generator which leverages a system from the leading text Frank Luna's Introduction to Game Programming with DirectX 12.
+
+All instance materials are stored in a structured buffer which is accessed using a per instance material index bound to the shaders as a constant buffer. This ensures constant buffer sizers do not grow excessively as instance counts increase.
+
+The acceleration structure architecture allows for runtime updates to the TLAS known as refittin as can be demonstrated from an early development video of rotating skulls. 
+
+Furthermore, core renderer settings such as camera controls, area light parameters and the previously discussed denoising parameters are exposed to the developer through a GUI. This ensures Nocte is practical and easily modifiable by the users and demonstrates the steps taken to mirror industry standard engine workflows in debugging, feature development and the many tweaks required in a graphics engine to achieve the best possible renders.
 
 ## Performance and Profiling
 
