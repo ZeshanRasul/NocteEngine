@@ -106,7 +106,21 @@ Furthermore, core renderer settings such as camera controls, area light paramete
 
 ## Performance and Profiling
 
+When building an engine as computationally expensive as a real-time path tracer, it is essential to montior performance, design architecture in a way that results optimal efficiency and tie profiling systems and considertions within the projects core. As such, performance metrics have been monitors on both the CPU and GPU sides.
+
+Nocte records frame times, average frame times and frames per second counters to under which scenarios and setups have a meaningful impact on performance, both positive and negative. By exposing performance impacting parameters such as the number of denoising passes executed, the developer is able monitor and find balance in performance and quality of the final real-time rendered scene. Furthermore, by accessing these parameters through the GUI, quick iteration loops and subtle tuning and experimentation become easy for the developers and users.
+
+NVIDIA Nsight Graphics has been used extensively to inspect render times, GPU processing performance, shader execution times and memory access patterns. This identification and understanding of GPU bottlenecks is invaluable in confirming and validating (or refuting) developer assumptions about performance trade-offs and is an essential skill for any computationally demanding scenario particularly GPU related programming.
+
 ## Tools, Debugging and Validation
+
+Creating systems that are easy to debug and validate is just as important as building the engine core features and as such a strong emphasis was placed on debugging, whether it is through debug visualisations or tracking and exposing key parameters to the GUI. A core part of debugging included using Visual Studio's built in debugger to measure and review variables within the code, order of execution and follow the call stack in order to reason and rationalise any bugs that will inevitably arise in any computer program. 
+
+Furthermore, the D3D12 debug controllewr was enabled in all debug builds to ensure that any misuse of the DirectX API was quickly identified and solved. Such API debug tools are invaluable in any graphics project and as such it was treated as a core priority to become familiar with the various types of common (and not so common) warnings and errors and handle and solve them diligently.
+
+As mentioned earlier, Nsight Graphics was also essential in debugging GPU side computations and was deeply beneficial to monitor and confirm successful binding of buffers and resources to shaders, ensure acceleration structures were correctly built, modified and integrated into the engine and to confirm that root parameters were valid throughout the pipeline.
+
+Finally, the rendering of scenes was developed in such a way as to incrementally increase in complexity. Starting with a simply Whitted style raytracer setup with spheres, boxes, planes and in this case, the skull mesh from Luna's text it was simple to implement, test and debug the core raytracing features, from determining visibilty to tracing reflection and refraction rays. MIS and NEE were implemented using  simple Cornell box style scene which allowed for feature testing with a small number of meshes within an enclosed space with a single area light. Once these more straightforward scenes were found to be working correctly, more complex models were integrated such as the Chinese Dragon mesh and Crytek Sponza environment, both sourced from Morgan McGuire's 3D model respoitory (referenced below).
 
 ## Technical Challenges and Solutions
 
