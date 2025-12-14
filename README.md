@@ -134,21 +134,31 @@ A challenge which ties into future work is that of denoising and temporal accumu
 
 The images below showcase various visual results achieved with Nocte Engine throughout development. Each scene highlights different aspects of the engine's capabilities.
 
-[![Nocte Engine DXR Path Tracing](./docs/images/SponzaDemoWithUI.png)](./docs/images/SponzaDemoWithUI.png)
+<br>
+<br>
 
+[![Nocte Engine DXR Path Tracing](./docs/images/SponzaDemoWithUI.png)](./docs/images/SponzaDemoWithUI.png)
 Figure 1: Real-time DXR path tracing with multiple importance sampling, next event estimation and spatial denoising enabled, showcasing a refractive sphere, refractive skull and matte skull in the Crytek Sponza scene. Resizeable editor UI shown on the right exposuing key parameters to the end user.
 
-[![Nocte Engine DXR Path Tracing](./docs/images/CornellBoxStanfordBunny.png)](./docs/images/CornellBoxStanfordBunny.png)
+<br>
+<br>
 
+[![Nocte Engine DXR Path Tracing](./docs/images/CornellBoxStanfordBunny.png)](./docs/images/CornellBoxStanfordBunny.png)
 Figure 2: Cornell Box scene with Stanford Bunny model demonstrating global illumination with diffuse interreflections, soft shadows and area light sampling.
+
+<br>
+<br>
 
 [![Nocte Engine DXR Path Tracing](./docs/images/CornellBoxReflections.png)](./docs/images/CornellBoxReflections.png)
 
 Figure 3: Cornell-style scene demonstrating multi-bounce reflection paths of a rough reflective back wall. This scene highlights the recursave ray traversal, BSDF sampling for specular lobes and a physically accurate example of reflected paths with indirect illumination.
 
+<br>
+<br>
+
 [![Watch the video](https://img.youtube.com/vi/AWzmRLeegWA/hqdefault.jpg)](https://youtu.be/AWzmRLeegWA)
 
-Figure 4: YouTube Demo Video showcasing a flythrough of the Crytek Sponza scene rendered with Nocte Engine, highlighting global illumination, refractions, and denoising effects.
+Figure 4: Clickable image link YouTube demo video showcasing a flythrough of the Crytek Sponza scene rendered with Nocte Engine, highlighting global illumination, refractions, and denoising effects.
 
 ## Build and Run Instructions
 
