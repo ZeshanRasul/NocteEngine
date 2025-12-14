@@ -124,6 +124,12 @@ Finally, the rendering of scenes was developed in such a way as to incrementally
 
 ## Technical Challenges and Solutions
 
+Technical challenges are present in all complex graphics projects and working on Nocte was not an exception to this rule. The majority of challenges arose from the complexity of low-level APIs such as DirectX 12 and DXR and were important learning experiences that have bolstered my toolkit of software skills and allowed me tobe well preapred when working with these APIs in future, to both plan in advance for some challenges and to know how to deal with other challenges when they inevitably arise.
+
+An early difficulty was structuring the Shader Binding Table in a way that is easy to extend and modify and the interaction of descriptor heaps with the SBT. I do not feel alone in this challenge given Ray Tracing Gems II has a whole chapter dedicated to "Demystifying the Shader Binding Table". This resource and others online, including the highly useful Microsoft DXR documentation proved invaluable in allowing me to fully understand the SBT and structure it in such a way that reduced duplication of code. These references and a calm and determined demeanour helped me break the challenge down into smaller pieces and gradually create a more extensible system with an incremental approach.
+
+A challenge which ties in to future work is that of denoising and temporal accumulation. While the A-Trous denoiser is implemented and functioning well, with a noticable difference when it is enabled, the temporal accumulation still needs some further development time to be functioning and noticable. Central to this challenge is the complex and sometimes initially fragile approach of transitioning multiple resources across a complex pipeline and ensuring that they are always in the correct state defined by their location in the rendering pipeline. Again this has been a strong learning experience and I have definitely developed a deeper unstanding of resource states, the state relevance to different uses within a pipeline and how best to structure a pipeline and choose the right resources for various scenarios.
+
 ## Visual Results
 
 ## Build and Run Instructions
