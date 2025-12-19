@@ -3,7 +3,7 @@
 
 Nocte Engine is a real-time path tracing rendering engine built using DirectX Raytracing (DXR). The project was born out of my passion for pushing the boundaries of real-time physically accurate rendering techniques and to build a strong understanding of the real-world considerations involved in creating beautiful and realistic worlds in 3D interactive media. 
 
-While I have previous experience with rasterisation-based engines made in DirectX 12 and OpenGL, my love of low-level programming along with a deep fascination of the science and mathematics behind ray tracing algorithms fuelled my desire to create a real-time path tracer.
+While I have previous experience with rasterization-based engines made in DirectX 12 and OpenGL, my love of low-level programming along with a deep fascination of the science and mathematics behind ray tracing algorithms fueled my desire to create a real-time path tracer.
 
 
 
@@ -17,7 +17,7 @@ Over the course of two months, from the first D3D12 pipeline creation to the cur
 
 ## Project Goals
 
-As discussed, Nocte was created with a number of key goals, which organically and naturally developed over time. As I have found, the more you find yourself achieving, the greater your ambitions become and nothing fuels passion more than taking incremental steps that breakdown a project from achievable (STAR like) milestones to a advanced system of many parts.
+As discussed, Nocte was created with a number of key goals, which organically and naturally developed over time. As I have found, the more you find yourself achieving, the greater your ambitions become and nothing fuels passion more than taking incremental steps that breakdown a project from achievable (STAR-like) milestones to a advanced system of many parts.
 
 The core goals I set out to achieve on this journey were:
 
@@ -33,7 +33,7 @@ My Nocte Engine development journey involved the implementation of a number of a
 
 - Robust DXR Ray Tracing Pipeline using Acceleration Structures, ray tracing shaders, well defined shader binding tables and complex multi-pass rendering for path tracing, temporal accumulation and denoising
 - Path tracing with Multiple Importance Sampling and Next Event Estimation for realistic lighting and global illumination building upon foundational Whitted style ray tracing
-- Robust denoising in a compute pass with the A-Trous ping pong algorithm that is customisable during runtime with an in engine GUI
+- Robust denoising in a compute pass with the A-Trous ping pong algorithm that is customizable during runtime with an in engine GUI
 - Support for .obj model loading, multiple texture binding, and material use
 - Performance measurement including FPS counter, average frame time, and extensive GPU profiling with Nvidia Nsight Graphics
 - Internal geometry creation tools for sphere, cubes, and other primitives
@@ -67,18 +67,18 @@ The pipeline consists of the following shaders:
 - Miss Shader: This shader is invoked when a ray does not intersect any geometry in the scene. It currently returns a background gradient and will be extended to sample environment map for more realistic lighting effects.
 - Closest Hit shader: This shader is one of the most interesting parts of the pipeline. When a ray intersects with geometry in the acceleration structure this shader is executed and populates the ray payload with a breadth of information after sampling area lights, checking whether a pixel is occluded (and thus in shadow) and whether a reflection or refraction ray should be dispatched.
 
-A number of helpers are also used for path tracing to evaluation the BSDF, sample lights and perform MIS calculations.
+A number of helpers are also used for path tracing to evaluate the BSDF, sample lights and perform MIS calculations.
 
 In terms of acceleration structures, the engine builds a bottom level acceleration structure (BLAS) for each mesh in the scene and top level acceleration structure (TLAS) that contains the entire scene. The TLAS creation is set up in such a way that it is possible to refit the TLAS at runtime if necessary. There is an example of this in practice in the visual demonstration section, and TLAS refitting was used in the Whitted style phase of development.
  
 ## Lighting and Global Illumination
 
-Nocte Engine implements physically based lighting models in order to achieve realistic lighting and global illumination effects. The techniques used allow ray and path tracers to achieve high-fidelity that rasterisation algorithms would struggle or be unable to achieve, highlighting the importance of ray tracing to the future of 3D game, film and visualisation technologies.
+Nocte Engine implements physically based lighting models in order to achieve realistic lighting and global illumination effects. The techniques used allow ray and path tracers to achieve high-fidelity that rasterization algorithms would struggle or be unable to achieve, highlighting the importance of ray tracing to the future of 3D game, film and visualisation technologies.
 The shaders utilise both direct and indirect illumination algorithms resulting in beautifully rendered scenes with diffuse interreflections, soft shadows, reflections and refractions.
 
 Direct lighting is implemented using Next Event Estimation (NEE) where the area light sources in the scene are sampled directly from the ray-surface intersection point and shadow rays are traced in order to evaluate whether an intersection point is occluded by geometry and thus in shadow.
 
-Global illumination is achieved through path tracing with Multiple Importance Sampling (MIS). This technique allows the engine to sample both the BSDF and light sources in order to reduce variance and noise in the final render. By combining these two sampling strategies, the engine can produce high-quality images with fewer samples per pixel, making real-time path tracing feasible. As mentioned in the references section, the MIS 101 chapter of Ray Tracing Gams II was an extremely valuable resource to understanding the difference and impact of using MIS compared to solely using BSDF sampling or light sampling alone.
+Global illumination is achieved through path tracing with Multiple Importance Sampling (MIS). This technique allows the engine to sample both the BSDF and light sources in order to reduce variance and noise in the final render. By combining these two sampling strategies, the engine can produce high-quality images with fewer samples per pixel, making real-time path tracing feasible. As mentioned in the references section, the MIS 101 chapter of Ray Tracing Gems II was an extremely valuable resource to understanding the difference and impact of using MIS compared to solely using BSDF sampling or light sampling alone.
 
 ## Materials and Shading
 
@@ -106,7 +106,7 @@ Furthermore, core renderer settings such as camera controls, area light paramete
 
 ## Performance and Profiling
 
-When building an engine as computationally expensive as a real-time path tracer, it is essential to monitor performance, design architecture in a way that results optimal efficiency and tie profiling systems and considerations within the projects core. As such, performance metrics have been monitors on both the CPU and GPU sides.
+When building an engine as computationally expensive as a real-time path tracer, it is essential to monitor performance, design architecture in a way that results optimal efficiency and tie profiling systems and considerations within the projects core. As such, performance metrics have been monitored on both the CPU and GPU side.
 
 Nocte records frame times, average frame times and frames per second counters to under which scenarios and setups have a meaningful impact on performance, both positive and negative. By exposing performance impacting parameters such as the number of denoising passes executed, the developer is able monitor and find balance in performance and quality of the final real-time rendered scene. Furthermore, by accessing these parameters through the GUI, quick iteration loops and subtle tuning and experimentation become easy for the developers and users.
 
@@ -138,7 +138,7 @@ The images below showcase various visual results achieved with Nocte Engine thro
 <br>
 
 [![Nocte Engine DXR Path Tracing](./docs/images/SponzaDemoWithUI.png)](./docs/images/SponzaDemoWithUI.png)
-Figure 1: Real-time DXR path tracing with multiple importance sampling, next event estimation and spatial denoising enabled, showcasing a refractive sphere, refractive skull and matte skull in the Crytek Sponza scene. Resizeable editor UI shown on the right exposuing key parameters to the end user.
+Figure 1: Real-time DXR path tracing with multiple importance sampling, next event estimation and spatial denoising enabled, showcasing a refractive sphere, refractive skull and matte skull in the Crytek Sponza scene.
 
 <br>
 <br>
@@ -151,7 +151,7 @@ Figure 2: Cornell Box scene with Stanford Bunny model demonstrating global illum
 
 [![Nocte Engine DXR Path Tracing](./docs/images/CornellBoxReflections.png)](./docs/images/CornellBoxReflections.png)
 
-Figure 3: Cornell-style scene demonstrating multi-bounce reflection paths of a rough reflective back wall. This scene highlights the recursave ray traversal, BSDF sampling for specular lobes and a physically accurate example of reflected paths with indirect illumination.
+Figure 3: Cornell-style scene demonstrating multi-bounce reflection paths of a rough reflective back wall. This scene highlights the recursive ray traversal, BSDF sampling for specular lobes and a physically accurate example of reflected paths with indirect illumination.
 
 <br>
 <br>
@@ -162,6 +162,74 @@ Figure 4: Clickable image link YouTube demo video showcasing a flythrough of the
 
 ## Build and Run Instructions
 
+Nocte Engine is CMake-based project and targets modern Windows systems with DirectX 12 and DirectX Raytracing support.
+
+### Prerequisites
+- Windows 10 or later
+- Visual Studio 2022 or later with C++ development workload
+- CMake 3.15 or later
+- DirectX 12 SDK
+- NVIDIA GPU with DXR support (e.g., RTX series)
+- Git for cloning the repository
+
+### Building the Project
+
+Clone and build the project as follows:
+   ```bash
+	git clone https://github.com/ZeshanRasul/NocteEngine
+	cd NocteEngine
+	mkdir build
+	cd build
+	cmake ..
+   ```
+
+This will generate the Visual Studio solution files in the build directory after which you can use Visual Studio to build the executable in either Debug or Release mode.
+   
+### Running the Engine
+
+To run the engine, simply execute the generated NocteEngine.exe file from the build directory. Ensure that the working directory is set correctly so that the engine can locate shader and asset files correctly. The engine launches into the Sponza scene shown in the video demo with an interactive camera which can be controlled with the WASD keys.
+
 ## Future Work
 
+Nocte Engine is a continually evolving project, and below a number of future developments and enhancements are listed:
+	
+- Improved temporal accumulation
+	- Finalising and refining the temporal accumulation pass to effectively denoise and converge over time.
+	- Use of motion vectors and reprojection in order to improve accumulation during camera and scene movement.
+- Advanced denoising techniques
+	- Experimenting with machine learning based denoising methods for improved render quality at low spp.
+	- Utilising hybrid denoising approaches combining spatial and temporal methods.
+	- Exploring the use of third-party denoising libraries such as NVIDIA OptiX or Intel Open Image Denoise.
+- Environment mapping
+	- Implementing HDR environment maps for realistic lighting and reflections.
+	- Importance sampling of environment maps to improve lighting quality.
+- Material  system enhancements
+	- Adding support for emissive materials to allow for self-illuminating objects.
+	- Implementing subsurface scattering for more realistic skin and organic materials.
+- Engine and Tooling Enhancements:
+	- Developing an industry standard scene editor for easier scene creation and modification.
+	- Supporting additional model formats and material types beyond .obj models.
+ 
+These enhancements outline exciting directions for Nocte Engine to continue to develop and evolve, ensuring it utilises cutting-edge techniques and truly demonstrates the beauty and elegance of ray and path tracing to users and end players.
+
 ## Acknowledgments, References, and Resources
+
+While all development on Nocte has been carried out solely by myself, as with any modern day graphics project, we as developers stand on the shoulders of giants. Giants for whom I am extremely grateful. Below are a number of references and resources I utilised during my development. As I continue to work on Nocte, it's likely this list will grow and I will ensure to keep it updated so that those with a similar passion for learning can easily find useful resources.
+
+### Books
+ - Ray Tracing Gems II - Eric Haines and Tomas Akenine-Moller (Editors)
+ - Introduction to Game Programming with DirectX 12 - Frank Luna
+ - Physically Based Rendering: From Theory to Implementation - Matt Pharr, Wenzel Jakob, and Greg Humphreys
+ - Real-Time Rendering, Fourth Edition - Tomas Akenine-Moller, Eric Haines, Naty Hoffman
+	
+### Documentation and Online Resources
+ - Microsoft DirectX 12 Documentation: https://learn.microsoft.com/en-us/windows/win32/direct3d12/directx-12-graphics
+ - Microsoft DirectX Raytracing (DXR) Documentation: https://learn.microsoft.com/en-us/windows/win32/direct3d12/directx-raytracing
+ - NVIDIA Developer Blog - Real-Time Ray Tracing: https://developer.nvidia.com/rtx/raytracing
+ - Morgan McGuire's 3D Model Repository: https://casual-effects.com/g3d/data10/index.html
+
+### Tools and Libraries
+ - DirectX 12 and DXR
+ - NVIDIA Nsight Graphics
+ - TinyOBJLoader
+ - ImGui
