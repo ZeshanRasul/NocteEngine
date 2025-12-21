@@ -158,7 +158,7 @@ Figure 3: Cornell-style scene demonstrating multi-bounce reflection paths of a r
 
 [![Watch the video](https://img.youtube.com/vi/AWzmRLeegWA/hqdefault.jpg)](https://youtu.be/AWzmRLeegWA)
 
-Figure 4: Clickable image link YouTube demo video showcasing a flythrough of the Crytek Sponza scene rendered with Nocte Engine, highlighting global illumination, refractions, and denoising effects.
+Figure 4: Clickable image link to YouTube demo video showcasing a flythrough of the Crytek Sponza scene rendered with Nocte Engine, highlighting global illumination, refractions, and soft shadows.
 
 ## Build and Run Instructions
 
