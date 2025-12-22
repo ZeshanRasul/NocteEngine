@@ -2782,30 +2782,23 @@ void Renderer::CreateShaderBindingTable()
 		D3D12_GPU_VIRTUAL_ADDRESS vb = 0;
 		D3D12_GPU_VIRTUAL_ADDRESS ib = 0;
 		D3D12_GPU_VIRTUAL_ADDRESS perInstanceCB = m_PerInstanceCBs[i]->GetGPUVirtualAddress();
-
-		/*	if (i == 0)
-			{
-				vb = boxSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
-				ib = boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
-			}
-			else */
-		if (i >= 3 && i < 5)
+		
+		if (i == 0)
 		{
-			vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
-			ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
-
+			vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
+			ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
 		}
 		else if (i >= 1 && i < 3)
-
 		{
 			vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
 			ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 
 		}
-		else if (i == 0)
+		else if (i >= 3 && i < 5)
 		{
-			vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
-			ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
+			vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
+			ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
+
 		}
 		else if (i == 5)
 		{
