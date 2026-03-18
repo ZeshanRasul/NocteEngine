@@ -3,9 +3,37 @@
 
 Nocte Engine is a real-time path tracing rendering engine built using DirectX Raytracing (DXR). The project was born out of my passion for pushing the boundaries of real-time physically accurate rendering techniques and to build a strong understanding of the real-world considerations involved in creating beautiful and realistic worlds in 3D interactive media. 
 
-While I have previous experience with rasterization-based engines made in DirectX 12 and OpenGL, my love of low-level programming along with a deep fascination of the science and mathematics behind ray tracing algorithms fueled my desire to create a real-time path tracer.
+While I have previous experience with rasterization-based engines made in DirectX 12 and OpenGL, my love of low-level programming along with a deep fascination of the science and mathematics behind ray tracing algorithms fueled my desire to create a real-time path tracer. The video demonstration of the engine can be found here: https://youtu.be/AWzmRLeegWA
 
+## Visual Results
 
+The images below showcase various visual results achieved with Nocte Engine throughout development. Each scene highlights different aspects of the engine's capabilities.
+
+<br>
+<br>
+
+[![Nocte Engine DXR Path Tracing](./docs/images/SponzaDemoWithUI.png)](./docs/images/SponzaDemoWithUI.png)
+Figure 1: Real-time DXR path tracing with multiple importance sampling, next event estimation and spatial denoising enabled, showcasing a refractive sphere, refractive skull and matte skull in the Crytek Sponza scene.
+
+<br>
+<br>
+
+[![Nocte Engine DXR Path Tracing](./docs/images/CornellBoxStanfordBunny.png)](./docs/images/CornellBoxStanfordBunny.png)
+Figure 2: Cornell Box scene with Stanford Bunny model demonstrating global illumination with diffuse interreflections, soft shadows and area light sampling.
+
+<br>
+<br>
+
+[![Nocte Engine DXR Path Tracing](./docs/images/CornellBoxReflections.png)](./docs/images/CornellBoxReflections.png)
+
+Figure 3: Cornell-style scene demonstrating multi-bounce reflection paths of a rough reflective back wall. This scene highlights the recursive ray traversal, BSDF sampling for specular lobes and a physically accurate example of reflected paths with indirect illumination.
+
+<br>
+<br>
+
+[![Watch the video](https://img.youtube.com/vi/AWzmRLeegWA/hqdefault.jpg)](https://youtu.be/AWzmRLeegWA)
+
+Figure 4: Clickable image link to YouTube demo video showcasing a flythrough of the Crytek Sponza scene rendered with Nocte Engine, highlighting global illumination, refractions, and soft shadows.
 
 ## Overview
 
@@ -129,36 +157,6 @@ Technical challenges are present in all complex graphics projects and working on
 An early difficulty was structuring the Shader Binding Table in a way that is easy to extend and modify and the interaction of descriptor heaps with the SBT. I do not feel alone in this challenge given Ray Tracing Gems II has a whole chapter dedicated to "Demystifying the Shader Binding Table". This resource and others online, including the incredibly useful Microsoft DXR documentation proved invaluable in allowing me to fully understand the SBT and structure it in such a way that reduced duplication of code. These references and a calm and determined demeanour helped me break the challenge down into smaller pieces and gradually create a more extensible system with an incremental approach.
 
 A challenge which ties into future work is that of denoising and temporal accumulation. While the A-Trous denoiser is implemented and functioning well, with a noticeable difference when it is enabled, the temporal accumulation still needs some further development time to be functioning and noticeable. Central to this challenge is the complex and sometimes initially fragile approach of transitioning multiple resources across a complex pipeline and ensuring that they are always in the correct state defined by their location in the rendering pipeline. Again this has been a strong learning experience, and I have developed a deeper understanding of resource states, the state relevance to different uses within a pipeline and how best to structure a pipeline and choose the right resources for various scenarios.
-
-## Visual Results
-
-The images below showcase various visual results achieved with Nocte Engine throughout development. Each scene highlights different aspects of the engine's capabilities.
-
-<br>
-<br>
-
-[![Nocte Engine DXR Path Tracing](./docs/images/SponzaDemoWithUI.png)](./docs/images/SponzaDemoWithUI.png)
-Figure 1: Real-time DXR path tracing with multiple importance sampling, next event estimation and spatial denoising enabled, showcasing a refractive sphere, refractive skull and matte skull in the Crytek Sponza scene.
-
-<br>
-<br>
-
-[![Nocte Engine DXR Path Tracing](./docs/images/CornellBoxStanfordBunny.png)](./docs/images/CornellBoxStanfordBunny.png)
-Figure 2: Cornell Box scene with Stanford Bunny model demonstrating global illumination with diffuse interreflections, soft shadows and area light sampling.
-
-<br>
-<br>
-
-[![Nocte Engine DXR Path Tracing](./docs/images/CornellBoxReflections.png)](./docs/images/CornellBoxReflections.png)
-
-Figure 3: Cornell-style scene demonstrating multi-bounce reflection paths of a rough reflective back wall. This scene highlights the recursive ray traversal, BSDF sampling for specular lobes and a physically accurate example of reflected paths with indirect illumination.
-
-<br>
-<br>
-
-[![Watch the video](https://img.youtube.com/vi/AWzmRLeegWA/hqdefault.jpg)](https://youtu.be/AWzmRLeegWA)
-
-Figure 4: Clickable image link to YouTube demo video showcasing a flythrough of the Crytek Sponza scene rendered with Nocte Engine, highlighting global illumination, refractions, and soft shadows.
 
 ## Build and Run Instructions
 
