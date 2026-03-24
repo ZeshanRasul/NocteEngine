@@ -39,48 +39,48 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
 
     float3 C = Input[coord].rgb; // Current frame raw radiance
-    float3 history = HistoryRadiance[coord].rgb; // Previous accumulated
     
+    // CRITICAL: Check useHistory FIRST before reading any history
+    if (useHistory == 0)
+    {
+        // First frame or camera moved - use current frame directly, no blending
+        TARadiance[coord] = float4(C, 1.0f);
+        FirstMomentNew[coord] = float4(C, 1.0f);
+        SecondMomentNew[coord] = float4(C * C, 1.0f);
+        return;
+    }
+    
+    // We have valid history - read it
+    float3 history = HistoryRadiance[coord].rgb;
     float3 m1Prev = FirstMomentOld[coord].rgb;
     float3 m2Prev = SecondMomentOld[coord].rgb;
-
-    // Use the useHistory flag directly - don't rely on checking for zeros
-    bool hasHistory = (useHistory != 0);
     
-    float alpha = 0.05f; // Blend factor: lower = more temporal smoothing
+    // Compute variance-based clamping to reject outliers (fireflies)
+    float3 mean = m1Prev;
+    float3 variance = max(m2Prev - mean * mean, 0.0.xxx);
+    float3 sigma = sqrt(variance + 1e-6.xxx);
+
+    float k = max(gColorSigma, 1.0); // Controls how aggressive clamping is
+    float3 lo = mean - k * sigma;
+    float3 hi = mean + k * sigma;
+
+    // Clamp current sample to reject fireflies
+    float3 clamped = clamp(C, lo, hi);
     
-    if (!hasHistory)
-    {
-        // First frame - initialize everything
-        m1Prev = C;
-        m2Prev = C * C;
-        history = C;
-        alpha = 1.0f; // Use current frame entirely
-    }
-    else
-    {
-        // Compute variance-based clamping to reject outliers (fireflies)
-        float3 mean = m1Prev;
-        float3 variance = max(m2Prev - mean * mean, 0.0.xxx);
-        float3 sigma = sqrt(variance + 1e-6.xxx);
-
-        float k = gColorSigma; // Controls how aggressive clamping is (2-4 typical)
-        float3 lo = mean - k * sigma;
-        float3 hi = mean + k * sigma;
-
-        // Clamp current sample to reject fireflies
-        C = clamp(C, lo, hi);
-    }
-
-    // Update moments with exponential moving average
-    float3 m1 = lerp(m1Prev, C, alpha);
-    float3 m2 = lerp(m2Prev, C * C, alpha);
-
+    // Blend factor: lower = more temporal smoothing
+    float alpha = 0.05f;
+    
     // Blend history with clamped current sample
-    float3 accumulated = lerp(history, C, alpha);
+    float3 accumulated = lerp(history, clamped, alpha);
+    
+    // Update moments with exponential moving average
+    float3 m1 = lerp(m1Prev, clamped, alpha);
+    float3 m2 = lerp(m2Prev, clamped * clamped, alpha);
 
-    // Output
+    history = HistoryRadiance[coord].rgb;
+    alpha = 0.05f;
+    accumulated = lerp(history, C, alpha);
     TARadiance[coord] = float4(accumulated, 1.0f);
-    FirstMomentNew[coord] = float4(m1, 1.0f);
-    SecondMomentNew[coord] = float4(m2, 1.0f);
+    FirstMomentNew[coord] = float4(C, 1.0f);
+    SecondMomentNew[coord] = float4(C * C, 1.0f);
 }

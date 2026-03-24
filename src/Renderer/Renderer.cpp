@@ -374,7 +374,13 @@ void Renderer::Draw(bool useRaster)
 		int oldMomentUAVIndex = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get()) ? UAV_OldFirstMoment : UAV_OldSecondMoment;
 
 		int cpuOldMomentCpuIndex = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get()) ? 1 : 2;
-
+		m_CommandList->ClearUnorderedAccessViewFloat(
+			CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), 24, m_CbvSrvUavDescriptorSize),
+			CD3DX12_CPU_DESCRIPTOR_HANDLE(m_SrvUavCPUHeap->GetCPUDescriptorHandleForHeapStart(), 5, m_CbvSrvUavDescriptorSize),
+			m_TemporalRadianceBuffer.Get(),
+			clearColor,
+			0,
+			nullptr);
 		m_CommandList->ClearUnorderedAccessViewFloat(
 			CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), UAV_OldFirstMoment, m_CbvSrvUavDescriptorSize),
 			CD3DX12_CPU_DESCRIPTOR_HANDLE(m_SrvUavCPUHeap->GetCPUDescriptorHandleForHeapStart(), 1, m_CbvSrvUavDescriptorSize),
@@ -2330,13 +2336,12 @@ void Renderer::CreateAccumulationBuffer()
 	resDesc.SampleDesc.Count = 1;
 
 	ThrowIfFailed(m_Device->CreateCommittedResource(&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&m_AccumulationBuffer)));
-	resDesc = {};
 
+	resDesc = {};
 	resDesc.DepthOrArraySize = 1;
 	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 	resDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-
-	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+	resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS; // Changed from NONE
 	resDesc.Width = m_ClientWidth;
 	resDesc.Height = m_ClientHeight;
 	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
@@ -2346,11 +2351,9 @@ void Renderer::CreateAccumulationBuffer()
 	ThrowIfFailed(m_Device->CreateCommittedResource(&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, nullptr, IID_PPV_ARGS(&m_AccumulationHistoryBuffer)));
 
 	resDesc = {};
-
 	resDesc.DepthOrArraySize = 1;
 	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 	resDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-
 	resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 	resDesc.Width = m_ClientWidth;
 	resDesc.Height = m_ClientHeight;
@@ -2359,7 +2362,6 @@ void Renderer::CreateAccumulationBuffer()
 	resDesc.SampleDesc.Count = 1;
 
 	ThrowIfFailed(m_Device->CreateCommittedResource(&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&m_TemporalRadianceBuffer)));
-
 }
 
 void Renderer::CreateDenoisingResources()
