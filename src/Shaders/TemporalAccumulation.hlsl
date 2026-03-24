@@ -1,8 +1,8 @@
 cbuffer DenoiseParams : register(b0)
 {
-    float gColorSigma; 
+    float gColorSigma;
     float gNormalSigma;
-    float gDepthSigma; 
+    float gDepthSigma;
     int gStepSize;
     float2 invResolution;
     int passNum;
@@ -17,14 +17,15 @@ cbuffer PostProcess : register(b1)
     int IsLastPass;
 }
 
-Texture2D<float4> Input : register(t0); // current HDR
+Texture2D<float4> Input : register(t0); // Current frame raw radiance
+Texture2D<float4> HistoryRadiance : register(t7); // Previous accumulated result
 
-Texture2D<float4> FirstMomentOld : register(t3); 
+Texture2D<float4> FirstMomentOld : register(t3);
 Texture2D<float4> SecondMomentOld : register(t4);
 
 RWTexture2D<float4> Output : register(u0);
 RWTexture2D<float4> TARadiance : register(u5);
-RWTexture2D<float4> FirstMomentNew : register(u1); 
+RWTexture2D<float4> FirstMomentNew : register(u1);
 RWTexture2D<float4> SecondMomentNew : register(u2);
 
 [numthreads(8, 8, 1)]
@@ -37,45 +38,49 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     if (coord.x < 0 || coord.y < 0 || coord.x >= dim.x || coord.y >= dim.y)
         return;
 
-    float3 C = Input[coord].rgb;
-    float3 m1Prev = FirstMomentOld[coord].rgb; 
+    float3 C = Input[coord].rgb; // Current frame raw radiance
+    float3 history = HistoryRadiance[coord].rgb; // Previous accumulated
+    
+    float3 m1Prev = FirstMomentOld[coord].rgb;
     float3 m2Prev = SecondMomentOld[coord].rgb;
 
-    bool hasHistory = any(m1Prev != 0.0.xxx);
-
-    if (useHistory == 0)
-        hasHistory = false;
+    // Use the useHistory flag directly - don't rely on checking for zeros
+    bool hasHistory = (useHistory != 0);
+    
+    float alpha = 0.05f; // Blend factor: lower = more temporal smoothing
     
     if (!hasHistory)
     {
+        // First frame - initialize everything
         m1Prev = C;
         m2Prev = C * C;
+        history = C;
+        alpha = 1.0f; // Use current frame entirely
     }
     else
     {
+        // Compute variance-based clamping to reject outliers (fireflies)
         float3 mean = m1Prev;
+        float3 variance = max(m2Prev - mean * mean, 0.0.xxx);
+        float3 sigma = sqrt(variance + 1e-6.xxx);
 
-        float3 variance = m2Prev - mean * mean;
-        variance = max(variance, 0.0.xxx); // numerical safety
-
-        float3 sigma = sqrt(variance + 1e-6.xxx); // avoid zero
-
-        float k = gColorSigma;
-
+        float k = gColorSigma; // Controls how aggressive clamping is (2-4 typical)
         float3 lo = mean - k * sigma;
         float3 hi = mean + k * sigma;
 
+        // Clamp current sample to reject fireflies
         C = clamp(C, lo, hi);
     }
 
-    float alpha = 0.02f; // tune in 0.05-0.2 range
-
+    // Update moments with exponential moving average
     float3 m1 = lerp(m1Prev, C, alpha);
     float3 m2 = lerp(m2Prev, C * C, alpha);
 
-    float3 newHistory = m1; // use mean as temporally filtered color
+    // Blend history with clamped current sample
+    float3 accumulated = lerp(history, C, alpha);
 
-    TARadiance[coord] = float4(newHistory, 1.0f);
+    // Output
+    TARadiance[coord] = float4(accumulated, 1.0f);
     FirstMomentNew[coord] = float4(m1, 1.0f);
     SecondMomentNew[coord] = float4(m2, 1.0f);
 }
