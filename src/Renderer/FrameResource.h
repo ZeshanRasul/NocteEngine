@@ -14,6 +14,7 @@ struct DenoiseConstants
 	XMFLOAT2 invResolution = { 0.0f, 0.0f };
 	int pass = 0;
 	int useHistory = 1;
+	int frameindex = 0;	
 
 };
 

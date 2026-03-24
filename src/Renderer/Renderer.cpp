@@ -369,7 +369,7 @@ void Renderer::Draw(bool useRaster)
 			break;
 		}
 	}
-	if (camPosChanged || hasViewChanged || m_FrameIndex == 0)
+	if (camPosChanged || hasViewChanged)
 	{
 		m_FrameIndex = 0;
 		m_PrevCamPos = m_EyePos;
@@ -429,7 +429,7 @@ void Renderer::Draw(bool useRaster)
 			0,
 			nullptr);
 
-		useHistory = 1;
+		useHistory = 0;
 
 	}
 	else
@@ -2693,6 +2693,8 @@ void Renderer::CreateDenoiseConstantBuffer()
 	denoiseConstants.invResolution = { 0.0f, 0.0f };
 	denoiseConstants.pass = 0;
 	denoiseConstants.useHistory = useHistory;
+	denoiseConstants.frameindex = m_FrameIndex;
+
 
 	const uint32_t bufferSize = sizeof(DenoiseConstants);
 
@@ -2726,6 +2728,7 @@ void Renderer::UpdateDenoiseConstantBuffer(int step, int pass)
 	denoiseConstants.invResolution = m_MainPassCB.InvRenderTargetSize;
 	denoiseConstants.pass = pass;
 	denoiseConstants.useHistory = useHistory;
+	denoiseConstants.frameindex = m_FrameIndex;
 
 	const uint32_t bufferSize = sizeof(DenoiseConstants);
 	uint8_t* pData = nullptr;
@@ -3461,9 +3464,9 @@ void Renderer::RenderImGuiDebugWindow()
 	ImGui::SliderFloat("Area Light Position Y", &m_AreaLightData.Position.y, 0.0f, 2000.0f);
 	ImGui::SliderFloat("Area Light Position Z", &m_AreaLightData.Position.z, 0.0f, 2000.0f);
 	ImGui::Text("Area Light Radiance");
-	ImGui::SliderFloat("Area Light Radiance R", &m_AreaLightData.Radiance.x, 0.0f, 200.0f);
-	ImGui::SliderFloat("Area Light Radiance G", &m_AreaLightData.Radiance.y, 0.0f, 200.0f);
-	ImGui::SliderFloat("Area Light Radiance B", &m_AreaLightData.Radiance.z, 0.0f, 200.0f);
+	ImGui::SliderFloat("Area Light Radiance R", &m_AreaLightData.Radiance.x, 0.0f, 600.0f);
+	ImGui::SliderFloat("Area Light Radiance G", &m_AreaLightData.Radiance.y, 0.0f, 600.0f);
+	ImGui::SliderFloat("Area Light Radiance B", &m_AreaLightData.Radiance.z, 0.0f, 600.0f);
 	ImGui::Text("Area Light U Vector");
 	ImGui::SliderFloat("Area Light U", &m_AreaLightData.U.x, 0.0f, 1000.0f);
 	ImGui::Text("Area Light V Vector");

@@ -443,14 +443,23 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
                     wLight = saturate(wLight);
                     wLight = lerp(0.01f, 0.99f, wLight);
                 
+                    //LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
+                    
                     LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
+
+                    float maxDirectLum = 20.0f;
+                    float directLum = dot(LdContrib, float3(0.2126, 0.7152, 0.0722));
+                    if (directLum > maxDirectLum)
+                    {
+                        LdContrib *= maxDirectLum / directLum;
+                    }
                 }
             }
         }
     }
       
     float3 ambient = float3(0.04, 0.04, 0.04);
-    payload.emission += ambient;
+    payload.emission += 0.0;
     
     BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);
     
