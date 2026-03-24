@@ -50,9 +50,8 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     }
 
     float3 history = HistoryRadiance[coord].rgb;
-    float n = max((float) frameIndex, 1.0f);
-    float alpha = 1.0f / (n + 1.0f);
-
+    float alpha = 0.1f;
+    
     float3 accumulated = lerp(history, C, alpha);
     TARadiance[coord] = float4(accumulated, 1.0f);
     FirstMomentNew[coord] = float4(accumulated, 1.0f);
