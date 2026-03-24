@@ -78,9 +78,10 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     float3 m2 = lerp(m2Prev, clamped * clamped, alpha);
 
     history = HistoryRadiance[coord].rgb;
-    alpha = 0.05f;
+    alpha = 0.1f;
     accumulated = lerp(history, C, alpha);
+
     TARadiance[coord] = float4(accumulated, 1.0f);
-    FirstMomentNew[coord] = float4(C, 1.0f);
-    SecondMomentNew[coord] = float4(C * C, 1.0f);
+    FirstMomentNew[coord] = float4(accumulated, 1.0f);
+    SecondMomentNew[coord] = float4(accumulated * accumulated, 1.0f);
 }
