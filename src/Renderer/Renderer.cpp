@@ -3217,9 +3217,9 @@ void Renderer::UpdatePostProcessConstantBuffer()
 void Renderer::CreateAreaLightConstantBuffer()
 {
 	m_AreaLightData.Position = XMFLOAT3(0.0f, 640.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(200.0f, 200.0f, 200.0f);
-	m_AreaLightData.U = XMFLOAT3(405.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 405.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(90.0f, 90.0f, 90.0f);
+	m_AreaLightData.U = XMFLOAT3(215.0f, 0.0f, 0.0f);
+	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 115.0f);
 
 	XMVECTOR U = XMLoadFloat3(&m_AreaLightData.U);
 	XMVECTOR V = XMLoadFloat3(&m_AreaLightData.V);

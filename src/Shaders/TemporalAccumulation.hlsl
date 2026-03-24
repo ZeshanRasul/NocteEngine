@@ -50,7 +50,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     }
 
     float3 history = HistoryRadiance[coord].rgb;
-    float alpha = 0.1f;
+    float alpha = 0.05f;
     
     float3 accumulated = lerp(history, C, alpha);
     TARadiance[coord] = float4(accumulated, 1.0f);
