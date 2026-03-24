@@ -166,5 +166,6 @@ void RayGen()
     gDepth[launchIndex] = saturate(d);
     
     gAccumBuf[launchIndex] = float4(finalColor, 1.0f);
+    
 }
 

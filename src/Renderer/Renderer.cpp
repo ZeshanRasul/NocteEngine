@@ -170,8 +170,8 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateShaderBindingTable();
 	CreateImGuiDescriptorHeap();
 
-	m_CurrentOldMoment = m_OldFirstMomentBuffer.Get();
-	m_CurrentNewMoment = m_FirstMomentBuffer.Get();
+	//m_CurrentOldMoment = m_OldFirstMomentBuffer.Get();
+	//m_CurrentNewMoment = m_FirstMomentBuffer.Get();
 	m_FinalDenoiseBuffer = m_AccumulationBuffer.Get();
 
 	//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
@@ -369,7 +369,7 @@ void Renderer::Draw(bool useRaster)
 			break;
 		}
 	}
-	if (camPosChanged || hasViewChanged)
+	if (camPosChanged || hasViewChanged || m_FrameIndex == 0)
 	{
 		m_FrameIndex = 0;
 		m_PrevCamPos = m_EyePos;
@@ -511,14 +511,14 @@ void Renderer::Draw(bool useRaster)
 			m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(4, t3Handle);
 
-		// RootParam[4]: SRV t3-t6 (Moment buffers input - old moments)
-		int momentIndexSRV = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get())
-			? SRV_OldFirstMoment : SRV_FirstMoment;
-		t3Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
-			m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
-			momentIndexSRV,
-			m_CbvSrvUavDescriptorSize);
-		m_CommandList->SetComputeRootDescriptorTable(4, t3Handle);
+		//// RootParam[4]: SRV t3-t6 (Moment buffers input - old moments)
+		//int momentIndexSRV = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get())
+		//	? SRV_OldFirstMoment : SRV_FirstMoment;
+		//t3Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
+		//	m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+		//	momentIndexSRV,
+		//	m_CbvSrvUavDescriptorSize);
+		//m_CommandList->SetComputeRootDescriptorTable(4, t3Handle);
 
 		// RootParam[5]: UAV u5 - TARadiance output (index 24)
 		auto u5Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
@@ -716,8 +716,8 @@ void Renderer::Draw(bool useRaster)
 			(src == m_DenoisePing.Get()) ? SRV_DenoisePing :
 			SRV_DenoisePong;
 
-		int motionIndexStart = m_CurrentNewMoment == m_FirstMomentBuffer.Get() ? SRV_FirstMoment : SRV_FirstMoment;
-		int motionIndexStart2 = m_CurrentOldMoment == m_OldFirstMomentBuffer.Get() ? SRV_OldFirstMoment : SRV_FirstMoment;
+		//int motionIndexStart = m_CurrentNewMoment == m_FirstMomentBuffer.Get() ? SRV_FirstMoment : SRV_FirstMoment;
+		//int motionIndexStart2 = m_CurrentOldMoment == m_OldFirstMomentBuffer.Get() ? SRV_OldFirstMoment : SRV_FirstMoment;
 
 		const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, uavIndex, m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootConstantBufferView(7, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
@@ -727,10 +727,10 @@ void Renderer::Draw(bool useRaster)
 		m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
 		const auto pingpongSrvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, SRV_Normal, m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(2, pingpongSrvTableBase);
-		const auto motionBuffers = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart, m_CbvSrvUavDescriptorSize);
-		m_CommandList->SetComputeRootDescriptorTable(3, motionBuffers);
-		const auto motionBuffers2 = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart2, m_CbvSrvUavDescriptorSize);
-		m_CommandList->SetComputeRootDescriptorTable(4, motionBuffers2);
+		//const auto motionBuffers = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart, m_CbvSrvUavDescriptorSize);
+		//m_CommandList->SetComputeRootDescriptorTable(3, motionBuffers);
+		//const auto motionBuffers2 = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart2, m_CbvSrvUavDescriptorSize);
+		//m_CommandList->SetComputeRootDescriptorTable(4, motionBuffers2);
 
 		auto u0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
 			24,
@@ -2745,8 +2745,8 @@ void Renderer::CreateShaderBindingTable()
 	auto samplerHeapPointer = reinterpret_cast<void*>(samplerHeapHandle.ptr);
 
 	m_SbtHelper.AddRayGenerationProgram(L"RayGen", {
-				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
 				(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
+				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
 				heapPointer,
 		});
 
@@ -3214,9 +3214,9 @@ void Renderer::UpdatePostProcessConstantBuffer()
 void Renderer::CreateAreaLightConstantBuffer()
 {
 	m_AreaLightData.Position = XMFLOAT3(0.0f, 640.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(80.0f, 80.0f, 80.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(200.0f, 200.0f, 200.0f);
 	m_AreaLightData.U = XMFLOAT3(405.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 105.0f);
+	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 405.0f);
 
 	XMVECTOR U = XMLoadFloat3(&m_AreaLightData.U);
 	XMVECTOR V = XMLoadFloat3(&m_AreaLightData.V);
@@ -3355,28 +3355,67 @@ void Renderer::LoadTextures(Model& model)
 	}
 }
 
+//void Renderer::CreateFrameIndexRNGCBuffer()
+//{
+//	const uint32_t bufferSize = sizeof(UINT);
+//
+//
+//	m_RNGUploadCBuffer = nv_helpers_dx12::CreateBuffer(m_Device.Get(), bufferSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+//
+//	uint8_t* pData;
+//	ThrowIfFailed(m_RNGUploadCBuffer->Map(0, nullptr, (void**)&pData));
+//	memcpy(pData, &m_FrameIndex, bufferSize);
+//	m_RNGUploadCBuffer->Unmap(0, nullptr);
+//}
+//
+//void Renderer::UpdateFrameIndexRNGCBuffer()
+//{
+//	const uint32_t bufferSize = sizeof(UINT);
+//
+//	m_FrameIndex = m_FrameIndex + 1;
+//	uint8_t* pData;
+//
+//	m_RNGUploadCBuffer->Map(0, nullptr, (void**)&pData);
+//	memcpy(pData, &m_FrameIndex, bufferSize);
+//	m_RNGUploadCBuffer->Unmap(0, nullptr);
+//}
+
+struct alignas(256) FrameIndexCB
+{
+	UINT FrameIndex;
+	UINT Padding[63];
+};
+
 void Renderer::CreateFrameIndexRNGCBuffer()
 {
-	const uint32_t bufferSize = sizeof(UINT);
+	const uint32_t bufferSize = sizeof(FrameIndexCB);
 
+	m_RNGUploadCBuffer = nv_helpers_dx12::CreateBuffer(
+		m_Device.Get(),
+		bufferSize,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nv_helpers_dx12::kUploadHeapProps);
 
-	m_RNGUploadCBuffer = nv_helpers_dx12::CreateBuffer(m_Device.Get(), bufferSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+	FrameIndexCB data = {};
+	data.FrameIndex = m_FrameIndex;
 
-	uint8_t* pData;
-	ThrowIfFailed(m_RNGUploadCBuffer->Map(0, nullptr, (void**)&pData));
-	memcpy(pData, &m_FrameIndex, bufferSize);
+	uint8_t* pData = nullptr;
+	ThrowIfFailed(m_RNGUploadCBuffer->Map(0, nullptr, reinterpret_cast<void**>(&pData)));
+	memcpy(pData, &data, sizeof(data));
 	m_RNGUploadCBuffer->Unmap(0, nullptr);
 }
 
 void Renderer::UpdateFrameIndexRNGCBuffer()
 {
-	const uint32_t bufferSize = sizeof(UINT);
+	m_FrameIndex += 1;
 
-	m_FrameIndex++;
-	uint8_t* pData;
+	FrameIndexCB data = {};
+	data.FrameIndex = m_FrameIndex;
 
-	m_RNGUploadCBuffer->Map(0, nullptr, (void**)&pData);
-	memcpy(pData, &m_FrameIndex, bufferSize);
+	uint8_t* pData = nullptr;
+	ThrowIfFailed(m_RNGUploadCBuffer->Map(0, nullptr, reinterpret_cast<void**>(&pData)));
+	memcpy(pData, &data, sizeof(data));
 	m_RNGUploadCBuffer->Unmap(0, nullptr);
 }
 

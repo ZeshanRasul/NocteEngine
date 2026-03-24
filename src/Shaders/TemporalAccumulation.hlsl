@@ -40,14 +40,32 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     float3 C = Input[coord].rgb;
 
+    //if (useHistory == 0)
+    //{
+    //    TARadiance[coord] = float4(C, 1.0f);
+    //    FirstMomentNew[coord] = float4(C, 1.0f);
+    //    SecondMomentNew[coord] = float4(C * C, 1.0f);
+    //    return;
+    //}
+
     if (useHistory == 0)
     {
-        TARadiance[coord] = float4(C, 1.0f);
+        TARadiance[coord] = float4(float3(1, 0, 0), 1); // red
         FirstMomentNew[coord] = float4(C, 1.0f);
         SecondMomentNew[coord] = float4(C * C, 1.0f);
         return;
     }
+    else
+    {
+        float3 history = HistoryRadiance[coord].rgb;
+        float alpha = 0.1f;
+        float3 accumulated = lerp(history, C, alpha);
 
+        TARadiance[coord] = float4(accumulated, 1.0f);
+        FirstMomentNew[coord] = float4(accumulated, 1.0f);
+        SecondMomentNew[coord] = float4(accumulated * accumulated, 1.0f);
+    }
+    
     float3 history = HistoryRadiance[coord].rgb;
     float alpha = 0.1f;
     float3 accumulated = lerp(history, C, alpha);
