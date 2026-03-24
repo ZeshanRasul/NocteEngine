@@ -134,7 +134,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	BuildRenderItems();
 
 
-
+	m_FrameIndex = 0;
 
 	vp.TopLeftX = 0.0f;
 	vp.TopLeftY = 0.0f;
@@ -347,18 +347,29 @@ void Renderer::Draw(bool useRaster)
 	desc.Height = m_ClientHeight;
 	desc.Depth = 1;
 
+	auto nearlyEqual = [](float a, float b, float eps = 1e-4f)
+		{
+			return fabsf(a - b) < eps;
+		};
+
+	bool camPosChanged =
+		!nearlyEqual(m_PrevCamPos.x, m_EyePos.x) ||
+		!nearlyEqual(m_PrevCamPos.y, m_EyePos.y) ||
+		!nearlyEqual(m_PrevCamPos.z, m_EyePos.z);
+	
 	bool hasViewChanged = false;
+	const float* curr = &m_View._11;
+	const float* prev = &m_PrevView._11;
 
-	if (m_View._11 != m_PrevView._11 || m_View._12 != m_PrevView._12 || m_View._13 != m_PrevView._13 || m_View._14 != m_PrevView._14 ||
-		m_View._21 != m_PrevView._21 || m_View._22 != m_PrevView._22 || m_View._23 != m_PrevView._23 || m_View._24 != m_PrevView._24 ||
-		m_View._31 != m_PrevView._31 || m_View._32 != m_PrevView._32 || m_View._33 != m_PrevView._33 || m_View._34 != m_PrevView._34 ||
-		m_View._41 != m_PrevView._41 || m_View._42 != m_PrevView._42 || m_View._43 != m_PrevView._43 || m_View._44 != m_PrevView._44)
+	for (int i = 0; i < 16; ++i)
 	{
-		hasViewChanged = true;
+		if (fabsf(curr[i] - prev[i]) > 1e-4f)
+		{
+			hasViewChanged = true;
+			break;
+		}
 	}
-
-
-	if (m_PrevCamPos.x != m_EyePos.x || m_PrevCamPos.y != m_EyePos.y || m_PrevCamPos.z != m_EyePos.z || hasViewChanged)
+	if (camPosChanged || hasViewChanged)
 	{
 		m_FrameIndex = 0;
 		m_PrevCamPos = m_EyePos;
@@ -371,9 +382,9 @@ void Renderer::Draw(bool useRaster)
 		m_AccumulationBufferUavHandleGPU = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), UAV_Accumulation, m_CbvSrvUavDescriptorSize);
 		m_CommandList->ClearUnorderedAccessViewFloat(m_AccumulationBufferUavHandleGPU, m_AccumulationBufferUavHandleCPU, m_AccumulationBuffer.Get(), clearColor, 0, nullptr);
 
-		int oldMomentUAVIndex = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get()) ? UAV_OldFirstMoment : UAV_OldSecondMoment;
+		//int oldMomentUAVIndex = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get()) ? UAV_OldFirstMoment : UAV_OldSecondMoment;
 
-		int cpuOldMomentCpuIndex = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get()) ? 1 : 2;
+		//int cpuOldMomentCpuIndex = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get()) ? 1 : 2;
 		m_CommandList->ClearUnorderedAccessViewFloat(
 			CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), 24, m_CbvSrvUavDescriptorSize),
 			CD3DX12_CPU_DESCRIPTOR_HANDLE(m_SrvUavCPUHeap->GetCPUDescriptorHandleForHeapStart(), 5, m_CbvSrvUavDescriptorSize),
@@ -418,7 +429,7 @@ void Renderer::Draw(bool useRaster)
 			0,
 			nullptr);
 
-		useHistory = 0;
+		useHistory = 1;
 
 	}
 	else
@@ -478,19 +489,32 @@ void Renderer::Draw(bool useRaster)
 			m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(2, t1Handle);
 
-		// RootParam[3]: UAV u1-u4 (Moment buffers output)
-		int momentIndexUAV = (m_CurrentNewMoment == m_FirstMomentBuffer.Get())
-			? UAV_FirstMoment : UAV_OldFirstMoment;
+		//// RootParam[3]: UAV u1-u4 (Moment buffers output)
+		//int momentIndexUAV = (m_CurrentNewMoment == m_FirstMomentBuffer.Get())
+		//	? UAV_FirstMoment : UAV_OldFirstMoment;
+		//auto u1Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
+		//	m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+		//	momentIndexUAV,
+		//	m_CbvSrvUavDescriptorSize);
+		//m_CommandList->SetComputeRootDescriptorTable(3, u1Handle);
+		// RootParam[3]: UAV u1-u2 = new first/second moments
 		auto u1Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
 			m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
-			momentIndexUAV,
+			UAV_FirstMoment,
 			m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(3, u1Handle);
+
+		// RootParam[4]: SRV t3-t4 = old first/second moments
+		auto t3Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
+			m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+			SRV_OldFirstMoment,
+			m_CbvSrvUavDescriptorSize);
+		m_CommandList->SetComputeRootDescriptorTable(4, t3Handle);
 
 		// RootParam[4]: SRV t3-t6 (Moment buffers input - old moments)
 		int momentIndexSRV = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get())
 			? SRV_OldFirstMoment : SRV_FirstMoment;
-		auto t3Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
+		t3Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
 			m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
 			momentIndexSRV,
 			m_CbvSrvUavDescriptorSize);
@@ -531,7 +555,7 @@ void Renderer::Draw(bool useRaster)
 			D3D12_RESOURCE_STATE_COPY_DEST);
 		m_CommandList->ResourceBarrier(2, barriers);
 
-		m_CommandList->CopyResource(m_AccumulationHistoryBuffer.Get(), m_TemporalRadianceBuffer.Get());
+		m_CommandList->CopyResource(m_FinalDenoiseBuffer, m_TemporalRadianceBuffer.Get());
 
 		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
 			m_TemporalRadianceBuffer.Get(),
@@ -777,14 +801,12 @@ void Renderer::Draw(bool useRaster)
 			D3D12_RESOURCE_STATE_RENDER_TARGET));
 	}
 
-	std::swap(m_FirstMomentBuffer, m_OldFirstMomentBuffer);
-	std::swap(m_SecondMomentBuffer, m_OldSecondMomentBuffer);
 
-	ID3D12Resource* secondOldMoment = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get()) ? m_OldSecondMomentBuffer.Get() : m_SecondMomentBuffer.Get();
-	ID3D12Resource* secondNewMoment = (m_CurrentNewMoment == m_FirstMomentBuffer.Get()) ? m_SecondMomentBuffer.Get() : m_OldSecondMomentBuffer.Get();
+	//ID3D12Resource* secondOldMoment = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get()) ? m_OldSecondMomentBuffer.Get() : m_SecondMomentBuffer.Get();
+	//ID3D12Resource* secondNewMoment = (m_CurrentNewMoment == m_FirstMomentBuffer.Get()) ? m_SecondMomentBuffer.Get() : m_OldSecondMomentBuffer.Get();
 
-	m_CurrentOldMoment = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get()) ? m_OldSecondMomentBuffer.Get() : m_OldFirstMomentBuffer.Get();
-	m_CurrentNewMoment = (m_CurrentNewMoment == m_FirstMomentBuffer.Get()) ? m_SecondMomentBuffer.Get() : m_FirstMomentBuffer.Get();
+	//m_CurrentOldMoment = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get()) ? m_OldSecondMomentBuffer.Get() : m_OldFirstMomentBuffer.Get();
+	//m_CurrentNewMoment = (m_CurrentNewMoment == m_FirstMomentBuffer.Get()) ? m_SecondMomentBuffer.Get() : m_FirstMomentBuffer.Get();
 
 	{
 		//D3D12_RESOURCE_BARRIER barriers[] = {
@@ -811,7 +833,64 @@ void Renderer::Draw(bool useRaster)
 
 		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 	}
+	//std::swap(m_FirstMomentBuffer, m_OldFirstMomentBuffer);
+	//std::swap(m_SecondMomentBuffer, m_OldSecondMomentBuffer);
 
+	{
+		D3D12_RESOURCE_BARRIER barriers[2];
+		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_FirstMomentBuffer.Get(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_COPY_SOURCE);
+		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_OldFirstMomentBuffer.Get(),
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_COPY_DEST);
+		m_CommandList->ResourceBarrier(2, barriers);
+
+		m_CommandList->CopyResource(
+			m_OldFirstMomentBuffer.Get(),
+			m_FirstMomentBuffer.Get());
+
+		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_FirstMomentBuffer.Get(),
+			D3D12_RESOURCE_STATE_COPY_SOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_OldFirstMomentBuffer.Get(),
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		m_CommandList->ResourceBarrier(2, barriers);
+	}
+
+	{
+		D3D12_RESOURCE_BARRIER barriers[2];
+		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_SecondMomentBuffer.Get(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_COPY_SOURCE);
+		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_OldSecondMomentBuffer.Get(),
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_COPY_DEST);
+		m_CommandList->ResourceBarrier(2, barriers);
+
+		m_CommandList->CopyResource(
+			m_OldSecondMomentBuffer.Get(),
+			m_SecondMomentBuffer.Get());
+
+		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_SecondMomentBuffer.Get(),
+			D3D12_RESOURCE_STATE_COPY_SOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_OldSecondMomentBuffer.Get(),
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		m_CommandList->ResourceBarrier(2, barriers);
+	}
+
+	
 
 	UpdateFrameIndexRNGCBuffer();
 
@@ -2008,8 +2087,8 @@ void Renderer::CreateShaderResourceCPUHeap()
 
 	uavDesc = {};
 	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-	m_OldFirstMomentBuffer->SetName(L"Old First Moment Buffer CPU UAV");
-	m_Device->CreateUnorderedAccessView(m_OldFirstMomentBuffer.Get(), nullptr, &uavDesc, srvHandle);
+	m_OldSecondMomentBuffer ->SetName(L"Old First Moment Buffer CPU UAV");
+	m_Device->CreateUnorderedAccessView(m_OldSecondMomentBuffer.Get(), nullptr, &uavDesc, srvHandle);
 
 	m_OldSecondMomentBufferUavHandleCPU = srvHandle;
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
