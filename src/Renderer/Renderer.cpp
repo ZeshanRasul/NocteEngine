@@ -356,7 +356,7 @@ void Renderer::Draw(bool useRaster)
 		!nearlyEqual(m_PrevCamPos.x, m_EyePos.x) ||
 		!nearlyEqual(m_PrevCamPos.y, m_EyePos.y) ||
 		!nearlyEqual(m_PrevCamPos.z, m_EyePos.z);
-	
+
 	bool hasViewChanged = false;
 	const float* curr = &m_View._11;
 	const float* prev = &m_PrevView._11;
@@ -592,17 +592,17 @@ void Renderer::Draw(bool useRaster)
 
 	m_CommandList->CopyResource(m_FinalDenoiseBuffer, m_TemporalRadianceBuffer.Get());
 
-		//// Transition back
-		//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_TemporalRadianceBuffer.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-		//barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_AccumulationHistoryBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-		//m_CommandList->ResourceBarrier(2, barriers);
-	
+	//// Transition back
+	//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_TemporalRadianceBuffer.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	//barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_AccumulationHistoryBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	//m_CommandList->ResourceBarrier(2, barriers);
 
-	//// Transition  back to UAV state for the next frame's RayGen
-	//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-	//	m_AccumulationBuffer.Get(),
-	//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-	//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+
+//// Transition  back to UAV state for the next frame's RayGen
+//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+//	m_AccumulationBuffer.Get(),
+//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 
 	D3D12_RESOURCE_BARRIER barriers2[2];
 	barriers2[0] = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -890,7 +890,7 @@ void Renderer::Draw(bool useRaster)
 		m_CommandList->ResourceBarrier(2, barriers);
 	}
 
-	
+
 
 	UpdateFrameIndexRNGCBuffer();
 
@@ -2087,7 +2087,7 @@ void Renderer::CreateShaderResourceCPUHeap()
 
 	uavDesc = {};
 	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-	m_OldSecondMomentBuffer ->SetName(L"Old First Moment Buffer CPU UAV");
+	m_OldSecondMomentBuffer->SetName(L"Old First Moment Buffer CPU UAV");
 	m_Device->CreateUnorderedAccessView(m_OldSecondMomentBuffer.Get(), nullptr, &uavDesc, srvHandle);
 
 	m_OldSecondMomentBufferUavHandleCPU = srvHandle;
@@ -2756,38 +2756,73 @@ void Renderer::CreateShaderBindingTable()
 	m_SbtHelper.AddMissProgram(L"Miss", {});
 	m_SbtHelper.AddMissProgram(L"ShadowMiss", {});
 
+	//for (UINT i = 0; i < m_Instances.size(); i++)
+	//{
+	//	D3D12_GPU_VIRTUAL_ADDRESS vb = 0;
+	//	D3D12_GPU_VIRTUAL_ADDRESS ib = 0;
+	//	D3D12_GPU_VIRTUAL_ADDRESS perInstanceCB = m_PerInstanceCBs[i]->GetGPUVirtualAddress();
+	//	
+	//	if (i == 0)
+	//	{
+	//		vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
+	//		ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
+	//	}
+	//	else if (i >= 1 && i < 3)
+	//	{
+	//		vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
+	//		ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
+
+	//	}
+	//	else if (i >= 3 && i < 5)
+	//	{
+	//		vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
+	//		ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
+
+	//	}
+	//	else if (i == 5)
+	//	{
+	//		vb = m_DragonVertexBuffer->GetGPUVirtualAddress();
+	//		ib = m_DragonIndexBuffer->GetGPUVirtualAddress();
+	//	}
+	//	else
+	//	{
+	//		vb = m_SponzaVertexBuffer->GetGPUVirtualAddress();
+	//		ib = m_SponzaIndexBuffer->GetGPUVirtualAddress();
+	//	}
+
 	for (UINT i = 0; i < m_Instances.size(); i++)
 	{
 		D3D12_GPU_VIRTUAL_ADDRESS vb = 0;
 		D3D12_GPU_VIRTUAL_ADDRESS ib = 0;
 		D3D12_GPU_VIRTUAL_ADDRESS perInstanceCB = m_PerInstanceCBs[i]->GetGPUVirtualAddress();
-		
-		if (i == 0)
-		{
-			vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
-			ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
-		}
-		else if (i >= 1 && i < 3)
-		{
-			vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
-			ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 
-		}
-		else if (i >= 3 && i < 5)
+		/*	if (i == 0)
+			{
+				vb = boxSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
+				ib = boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
+			}
+			else */
+		if (i >= 9 && i < 11)
 		{
 			vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
 			ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
 
 		}
-		else if (i == 5)
+		else if (i >= 7 && i < 9)
 		{
-			vb = m_DragonVertexBuffer->GetGPUVirtualAddress();
-			ib = m_DragonIndexBuffer->GetGPUVirtualAddress();
+			vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
+			ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
+
+		}
+		else if (i < 7)
+		{
+			vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
+			ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
 		}
 		else
 		{
-			vb = m_SponzaVertexBuffer->GetGPUVirtualAddress();
-			ib = m_SponzaIndexBuffer->GetGPUVirtualAddress();
+			vb = m_DragonVertexBuffer->GetGPUVirtualAddress();
+			ib = m_DragonIndexBuffer->GetGPUVirtualAddress();
 		}
 
 		m_SbtHelper.AddHitGroup(L"HitGroup", { (void*)vb,(void*)ib,
@@ -2894,89 +2929,99 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<Microsoft::WRL::ComPtr<ID3
 
 void Renderer::CreateAccelerationStructures()
 {
-	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_SponzaVertexBuffer, m_SponzaModel.vertices.size()} }, { {m_SponzaIndexBuffer, m_SponzaModel.indices.size()}
+	//AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_SponzaVertexBuffer, m_SponzaModel.vertices.size()} }, { {m_SponzaIndexBuffer, m_SponzaModel.indices.size()}
+	//	});
+	//AccelerationStructureBuffers skull0BottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} }, { {m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount} });
+
+	//AccelerationStructureBuffers sphereBottomLevelBuffers = CreateBottomLevelAS({ { sphereSubmesh.VertexBufferGPU, sphereSubmesh.VertexCount} }, { {sphereSubmesh.IndexBufferGPU, sphereSubmesh.IndexCount} });
+	//AccelerationStructureBuffers boxBottomLevelBuffers = CreateBottomLevelAS({ { boxSubmesh.VertexBufferGPU, boxSubmesh.VertexCount} }, { {boxSubmesh.IndexBufferGPU, boxSubmesh.IndexCount} });
+	//AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { m_PlaneVertexBuffer, 4} }, { { m_PlaneIndexBuffer, 6 } });
+	//AccelerationStructureBuffers dragonBottomLevelBuffers = CreateBottomLevelAS({ { m_DragonVertexBuffer, m_DragonModel.vertices.size() } }, { {m_DragonIndexBuffer, m_DragonModel.indices.size() }
+	//	});
+
+
+
+	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_DragonVertexBuffer, m_DragonModel.vertices.size()} }, { {m_DragonIndexBuffer, m_DragonModel.indices.size()}
 		});
 	AccelerationStructureBuffers skull0BottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} }, { {m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount} });
 
 	AccelerationStructureBuffers sphereBottomLevelBuffers = CreateBottomLevelAS({ { sphereSubmesh.VertexBufferGPU, sphereSubmesh.VertexCount} }, { {sphereSubmesh.IndexBufferGPU, sphereSubmesh.IndexCount} });
 	AccelerationStructureBuffers boxBottomLevelBuffers = CreateBottomLevelAS({ { boxSubmesh.VertexBufferGPU, boxSubmesh.VertexCount} }, { {boxSubmesh.IndexBufferGPU, boxSubmesh.IndexCount} });
-	AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { m_PlaneVertexBuffer, 4} }, { { m_PlaneIndexBuffer, 6 } });
-	AccelerationStructureBuffers dragonBottomLevelBuffers = CreateBottomLevelAS({ { m_DragonVertexBuffer, m_DragonModel.vertices.size() } }, { {m_DragonIndexBuffer, m_DragonModel.indices.size() }
+	AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { m_PlaneVertexBuffer, 4} }, { { m_PlaneIndexBuffer, 6 }
 		});
-
 
 	m_Instances =
 	{
-		//// Floor (y = 0)
-		//{ planeBottomLevelBuffers.pResult,
-		//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-		//  XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
+		// Floor (y = 0)
+		{ planeBottomLevelBuffers.pResult,
+		  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+		  XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
 
-		//// Ceiling (y = 40)
-		//{ planeBottomLevelBuffers.pResult,
-		//  XMMatrixScaling(50.0f, 1.0f, 50.0f) *
-		//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
-		//  XMMatrixTranslation(0.0f, 60.0f, 0.0f) },
+		// Ceiling (y = 40)
+		{ planeBottomLevelBuffers.pResult,
+		  XMMatrixScaling(50.0f, 1.0f, 50.0f) *
+		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+		  XMMatrixTranslation(0.0f, 60.0f, 0.0f) },
 
-		//// Back wall (z = -20), normal pointing into the box (+Z)
-		//{ planeBottomLevelBuffers.pResult,
-		//  XMMatrixScaling(50.0f, 1.0f, 50.0f) *
-		//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(-90.0f)) *
-		//  XMMatrixTranslation(0.0f, 60.0f, -120.0f) },
+		// Back wall (z = -20), normal pointing into the box (+Z)
+		{ planeBottomLevelBuffers.pResult,
+		  XMMatrixScaling(50.0f, 1.0f, 50.0f) *
+		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(-90.0f)) *
+		  XMMatrixTranslation(0.0f, 60.0f, -120.0f) },
 
-		//// Front wall (z = +20), normal pointing into the box (-Z)
-		//{ planeBottomLevelBuffers.pResult,
-		//  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
-		//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
-		//  XMMatrixTranslation(0.0f, 60.0f, 60.0f) },
+		// Front wall (z = +20), normal pointing into the box (-Z)
+		{ planeBottomLevelBuffers.pResult,
+		  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
+		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
+		  XMMatrixTranslation(0.0f, 60.0f, 60.0f) },
 
-		//// Left wall (x = -20), normal pointing into the box (+X)
-		//{ planeBottomLevelBuffers.pResult,
-		//  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
-		//  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
-		//  XMMatrixTranslation(-60.0f, 60.0f, 0.0f) },
+		// Left wall (x = -20), normal pointing into the box (+X)
+		{ planeBottomLevelBuffers.pResult,
+		  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
+		  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
+		  XMMatrixTranslation(-60.0f, 60.0f, 0.0f) },
 
-		//// Right wall (x = +20), normal pointing into the box (-X)
-		//{ planeBottomLevelBuffers.pResult,
-		//  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
-		//  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
-		//  XMMatrixTranslation(60.0f, 60.0f, 0.0f) },
+		// Right wall (x = +20), normal pointing into the box (-X)
+		{ planeBottomLevelBuffers.pResult,
+		  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
+		  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
+		  XMMatrixTranslation(60.0f, 60.0f, 0.0f) },
 
 		// ----------------------------------------------------
 		// Objects on the floor: sphere (left) + skull (right)
 		// ----------------------------------------------------
 
 		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(5.0f, 1.0f, 5.0f) *
-		  XMMatrixTranslation(0.0f, 1.0f, 0.0f) },
+		  XMMatrixScaling(6.0f, 1.0f, 6.0f) *
+		  XMMatrixTranslation(12.0f, 0.0f, 8.0f) },
 
 		// Sphere on the left: radius ~3 at y = 3
 		{ sphereBottomLevelBuffers.pResult,
-		  XMMatrixScaling(42.0f, 42.0f, 42.0f) *
-		  XMMatrixTranslation(-37.0f, 23.0f, -175.0f) },
+		  XMMatrixScaling(6.0f, 6.0f, 6.0f) *
+		  XMMatrixTranslation(-17.0f, 3.0f, -5.0f) },
 
 		// Sphere on the right: radius ~3 at y = 3
 		{ sphereBottomLevelBuffers.pResult,
-		  XMMatrixScaling(42.0f, 42.0f, 42.0f) *
-		  XMMatrixTranslation(37.0f, 23.0f, -175.0f) },
+		  XMMatrixScaling(6.0f, 6.0f, 6.0f) *
+		  XMMatrixTranslation(25.0f, 3.0f, -5.0f) },
 
 		// Skull on the right
 		{ skull0BottomLevelBuffers.pResult,
-		  XMMatrixScaling(14.0f, 14.0f, 14.0f) *
-		  XMMatrixTranslation(50.0f, 8.0f, 15.0f) },
+		  XMMatrixScaling(4.0f, 4.0f, 4.0f) *
+		  XMMatrixTranslation(12.0f, 2.0f, 8.0f) },
 
 		// Skull on the left
 		{ skull0BottomLevelBuffers.pResult,
-		  XMMatrixScaling(14.0f, 14.0f, 14.0f) *
-		  XMMatrixTranslation(-50.0f, 8.0f, 15.0f) },
-
-		{ dragonBottomLevelBuffers.pResult,
-		  XMMatrixScaling(205.0f, 205.0f, 205.0f) *
-		  XMMatrixTranslation(0.0f, 33.0f, -405.0f)},
+		  XMMatrixScaling(4.0f, 4.0f, 4.0f) *
+		  XMMatrixTranslation(-20.0f, 2.0f, 15.0f) },
 
 		{ bottomLevelBuffers.pResult,
-		  XMMatrixScaling(1.0f, 1.0f, 1.0f) *
+		  XMMatrixScaling(10.0f, 10.0f, 10.0f) *
 		  XMMatrixTranslation(0.0f, 0.0f, -25.0f)}
+
+		//{ bottomLevelBuffers.pResult,
+		//  XMMatrixScaling(1.0f, 1.0f, 1.0f) *
+		//  XMMatrixTranslation(0.0f, 0.0f, -25.0f)}
 	};
 
 
@@ -2988,8 +3033,13 @@ void Renderer::CreateAccelerationStructures()
 		false,
 		false,
 		false,
-
+		false,
+		false,
+		false,
+		false,
+		false,
 	};
+
 
 	CreateTopLevelAS(m_Instances);
 
@@ -3021,13 +3071,12 @@ void Renderer::CreateAccelerationStructures()
 
 void Renderer::CreatePlaneGeometry()
 {
-	// 4 unique vertices for the plane
 	Vertex planeVertices[] =
 	{
-		{{-1.0f, -1.0f,  1.0f}, { 0.0f, -1.0f, 0.0f }}, // 0
-		{{-1.0f, -1.0f, -1.0f}, { 0.0f, -1.0f, 0.0f }}, // 1
-		{{ 1.0f, -1.0f,  1.0f}, { 0.0f, -1.0f, 0.0f }}, // 2
-		{{ 1.0f, -1.0f, -1.0f}, { 0.0f, -1.0f, 0.0f }}, // 3
+		{{-1.5f, -0.8f,  1.5f}, { 0.0f, -1.0f, 0.0f }}, // 0
+		{{-1.5f, -0.8f, -1.5f}, { 0.0f, -1.0f, 0.0f }}, // 1
+		{{ 1.5f, -0.8f,  1.5f}, { 0.0f, -1.0f, 0.0f }}, // 2
+		{{ 1.5f, -0.8f, -1.5f}, { 0.0f, -1.0f, 0.0f }}, // 3
 	};
 
 	// Two triangles: (0,1,2) and (2,1,3) – matches your original winding
@@ -3216,10 +3265,10 @@ void Renderer::UpdatePostProcessConstantBuffer()
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 640.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(90.0f, 90.0f, 90.0f);
-	m_AreaLightData.U = XMFLOAT3(215.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 115.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 39.0f, 0.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(35.0f, 35.0f, 35.0f);
+	m_AreaLightData.U = XMFLOAT3(10.0f, 0.0f, 0.0f);
+	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 10.0f);
 
 	XMVECTOR U = XMLoadFloat3(&m_AreaLightData.U);
 	XMVECTOR V = XMLoadFloat3(&m_AreaLightData.V);
