@@ -1258,10 +1258,10 @@ void Renderer::BuildMaterials()
 	boxMat->Name = "box";
 	boxMat->MatCBIndex = 0;
 	boxMat->DiffuseSrvHeapIndex = 0;
-	boxMat->DiffuseAlbedo = XMFLOAT4(0.75, 0.35, 0.75, 1.0);
+	boxMat->DiffuseAlbedo = XMFLOAT4(0.725f, 0.725f, 0.725f, 1.0f);
 	boxMat->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	boxMat->Roughness = 0.99f;
-	boxMat->metallic = 0.01f;
+	boxMat->Roughness = 1.0f;
+	boxMat->metallic = 0.0f;
 	boxMat->Ior = 1.0f;
 	boxMat->IsReflective = false;
 
@@ -1269,29 +1269,29 @@ void Renderer::BuildMaterials()
 	bricks0->Name = "bricks0";
 	bricks0->MatCBIndex = 1;
 	bricks0->DiffuseSrvHeapIndex = 1;
-	boxMat->DiffuseAlbedo = XMFLOAT4(0.75, 0.75, 0.35, 1.0);
+	boxMat->DiffuseAlbedo = XMFLOAT4(0.725f, 0.725f, 0.725f, 1.0f);
 	bricks0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	bricks0->Roughness = 0.9f;
-	bricks0->metallic = 0.1f;
+	bricks0->Roughness = 1.0f;
+	bricks0->metallic = 0.0f;
 	bricks0->IsReflective = false;
 
 	auto stone0 = std::make_unique<Material>();
 	stone0->Name = "stone0";
 	stone0->MatCBIndex = 2;
 	stone0->DiffuseSrvHeapIndex = 5;
-	boxMat->DiffuseAlbedo = XMFLOAT4(0.35, 0.75, 0.75, 1.0);
+	boxMat->DiffuseAlbedo = XMFLOAT4(0.725f, 0.725f, 0.725f, 1.0f);
 	stone0->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
-	stone0->Roughness = 0.9f;
-	stone0->metallic = 0.1f;
+	stone0->Roughness = 1.0f;
+	stone0->metallic = 0.0f;
 
 	auto skullMat = std::make_unique<Material>();
 	skullMat->Name = "skullMat";
 	skullMat->MatCBIndex = 3;
 	skullMat->DiffuseSrvHeapIndex = 3;
-	skullMat->DiffuseAlbedo = XMFLOAT4(Colors::BlanchedAlmond);
+	skullMat->DiffuseAlbedo = XMFLOAT4(0.63f, 0.065f, 0.05f, 1.0f);
 	skullMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05);
-	skullMat->Roughness = 0.7f;
-	skullMat->metallic = 0.1f;
+	skullMat->Roughness = 1.0f;
+	skullMat->metallic = 0.0f;
 	skullMat->Ior = 1.0f;
 	skullMat->IsReflective = false;
 
@@ -1299,10 +1299,10 @@ void Renderer::BuildMaterials()
 	tile0->Name = "tile0";
 	tile0->MatCBIndex = 4;
 	tile0->DiffuseSrvHeapIndex = 2;
-	tile0->DiffuseAlbedo = XMFLOAT4(Colors::Aquamarine);
+	tile0->DiffuseAlbedo = XMFLOAT4(0.14f, 0.45f, 0.091f, 1.0f);
 	tile0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	tile0->Roughness = 0.8f;
-	tile0->metallic = 0.05f;
+	tile0->Roughness = 1.0f;
+	tile0->metallic = 0.0f;
 	tile0->IsReflective = false;
 
 
@@ -2964,17 +2964,17 @@ void Renderer::CreateAccelerationStructures()
 		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
 		  XMMatrixTranslation(0.0f, 60.0f, 0.0f) },
 
-		// Back wall (z = -20), normal pointing into the box (+Z)
-		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(50.0f, 1.0f, 50.0f) *
-		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(-90.0f)) *
-		  XMMatrixTranslation(0.0f, 60.0f, -120.0f) },
-
-		//// Front wall (z = +20), normal pointing into the box (-Z)
+		//// Back wall (z = -20), normal pointing into the box (+Z)
 		//{ planeBottomLevelBuffers.pResult,
-		//  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
-		//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
-		//  XMMatrixTranslation(0.0f, 60.0f, 60.0f) },
+		//  XMMatrixScaling(50.0f, 1.0f, 50.0f) *
+		//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(-90.0f)) *
+		//  XMMatrixTranslation(0.0f, 60.0f, -120.0f) },
+
+		// Front wall (z = +20), normal pointing into the box (-Z)
+		{ planeBottomLevelBuffers.pResult,
+		  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
+		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
+		  XMMatrixTranslation(0.0f, 60.0f, 60.0f) },
 
 		// Left wall (x = -20), normal pointing into the box (+X)
 		{ planeBottomLevelBuffers.pResult,
