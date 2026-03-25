@@ -1258,10 +1258,10 @@ void Renderer::BuildMaterials()
 	boxMat->Name = "box";
 	boxMat->MatCBIndex = 0;
 	boxMat->DiffuseSrvHeapIndex = 0;
-	boxMat->DiffuseAlbedo = XMFLOAT4(0.725f, 0.725f, 0.725f, 1.0f);
+	boxMat->DiffuseAlbedo = XMFLOAT4(Colors::White);
 	boxMat->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	boxMat->Roughness = 1.0f;
-	boxMat->metallic = 0.0f;
+	boxMat->Roughness = 0.99f;
+	boxMat->metallic = 0.01f;
 	boxMat->Ior = 1.0f;
 	boxMat->IsReflective = false;
 
@@ -1269,58 +1269,58 @@ void Renderer::BuildMaterials()
 	bricks0->Name = "bricks0";
 	bricks0->MatCBIndex = 1;
 	bricks0->DiffuseSrvHeapIndex = 1;
-	bricks0->DiffuseAlbedo = XMFLOAT4(0.725f, 0.725f, 0.725f, 1.0f);
+	bricks0->DiffuseAlbedo = XMFLOAT4(Colors::Indigo);
 	bricks0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	bricks0->Roughness = 1.0f;
-	bricks0->metallic = 0.0f;
+	bricks0->Roughness = 0.9f;
+	bricks0->metallic = 0.1f;
 	bricks0->IsReflective = false;
 
 	auto stone0 = std::make_unique<Material>();
 	stone0->Name = "stone0";
 	stone0->MatCBIndex = 2;
-	stone0->DiffuseSrvHeapIndex = 2;
-	stone0->DiffuseAlbedo = XMFLOAT4(0.725f, 0.725f, 0.725f, 1.0f);
+	stone0->DiffuseSrvHeapIndex = -1;
+	stone0->DiffuseAlbedo = XMFLOAT4(Colors::WhiteSmoke);
 	stone0->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
-	stone0->Roughness = 1.0f;
-	stone0->metallic = 0.0f;
+	stone0->Roughness = 0.9f;
+	stone0->metallic = 0.1f;
 
 	auto skullMat = std::make_unique<Material>();
 	skullMat->Name = "skullMat";
 	skullMat->MatCBIndex = 3;
-	skullMat->DiffuseSrvHeapIndex = 3;
-	skullMat->DiffuseAlbedo = XMFLOAT4(0.63f, 0.065f, 0.05f, 1.0f);
+	skullMat->DiffuseSrvHeapIndex = -1;
+	skullMat->DiffuseAlbedo = XMFLOAT4(Colors::WhiteSmoke);
 	skullMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05);
-	skullMat->Roughness = 1.0f;
-	skullMat->metallic = 0.0f;
+	skullMat->Roughness = 0.7f;
+	skullMat->metallic = 0.1f;
 	skullMat->Ior = 1.0f;
 	skullMat->IsReflective = false;
 
 	auto tile0 = std::make_unique<Material>();
 	tile0->Name = "tile0";
 	tile0->MatCBIndex = 4;
-	tile0->DiffuseSrvHeapIndex = 4;
-	tile0->DiffuseAlbedo = XMFLOAT4(0.14f, 0.45f, 0.091f, 1.0f);
+	tile0->DiffuseSrvHeapIndex = 2;
+	tile0->DiffuseAlbedo = XMFLOAT4(Colors::Aquamarine);
 	tile0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	tile0->Roughness = 1.0f;
-	tile0->metallic = 0.0f;
+	tile0->Roughness = 0.8f;
+	tile0->metallic = 0.05f;
 	tile0->IsReflective = false;
 
 
 	auto sphereMat = std::make_unique<Material>();
 	sphereMat->Name = "sphere";
 	sphereMat->MatCBIndex = 5;
-	sphereMat->DiffuseSrvHeapIndex = 5;
+	sphereMat->DiffuseSrvHeapIndex = 4;
 	sphereMat->DiffuseAlbedo = XMFLOAT4(Colors::Violet);
 	sphereMat->FresnelR0 = XMFLOAT3(0.06f, 0.06f, 0.06f);
 	sphereMat->Roughness = 0.9f;
 	sphereMat->metallic = 0.05f;
-	sphereMat->Ior = 1.5f;
-	sphereMat->IsReflective = false;
+	skullMat->Ior = 1.5f;
+	skullMat->IsReflective = false;
 
 	auto tile1 = std::make_unique<Material>();
 	tile1->Name = "tile1";
 	tile1->MatCBIndex = 6;
-	tile1->DiffuseSrvHeapIndex = 6;
+	tile1->DiffuseSrvHeapIndex = 2;
 	tile1->DiffuseAlbedo = XMFLOAT4(Colors::DarkSlateGray);
 	tile1->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile1->Roughness = 0.8f;
@@ -1330,8 +1330,8 @@ void Renderer::BuildMaterials()
 	auto tile2 = std::make_unique<Material>();
 	tile2->Name = "tile2";
 	tile2->MatCBIndex = 7;
-	tile2->DiffuseSrvHeapIndex = 7;
-	tile2->DiffuseAlbedo = XMFLOAT4(0.63, 0.065, 0.05, 1.0f);
+	tile2->DiffuseSrvHeapIndex = 2;
+	tile2->DiffuseAlbedo = XMFLOAT4(Colors::Red);
 	tile2->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile2->Roughness = 0.8f;
 	tile2->metallic = 0.05f;
@@ -1340,8 +1340,8 @@ void Renderer::BuildMaterials()
 	auto tile3 = std::make_unique<Material>();
 	tile3->Name = "tile3";
 	tile3->MatCBIndex = 8;
-	tile3->DiffuseSrvHeapIndex = 8;
-	tile3->DiffuseAlbedo = XMFLOAT4(0.14, 0.45, 0.591, 1.0f);
+	tile3->DiffuseSrvHeapIndex = 2;
+	tile3->DiffuseAlbedo = XMFLOAT4(Colors::AliceBlue);
 	tile3->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile3->Roughness = 0.8f;
 	tile3->metallic = 0.05f;
@@ -1350,7 +1350,7 @@ void Renderer::BuildMaterials()
 	auto tile4 = std::make_unique<Material>();
 	tile4->Name = "tile4";
 	tile4->MatCBIndex = 9;
-	tile4->DiffuseSrvHeapIndex = 9;
+	tile4->DiffuseSrvHeapIndex = 2;
 	tile4->DiffuseAlbedo = XMFLOAT4(Colors::DarkSlateGray);
 	tile4->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile4->Roughness = 0.8f;
@@ -1360,7 +1360,7 @@ void Renderer::BuildMaterials()
 	auto tile5 = std::make_unique<Material>();
 	tile5->Name = "tile5";
 	tile5->MatCBIndex = 10;
-	tile5->DiffuseSrvHeapIndex = 10;
+	tile5->DiffuseSrvHeapIndex = 2;
 	tile5->DiffuseAlbedo = XMFLOAT4(0.725, 0.725, 0.725, 1.0f);
 	tile5->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile5->Roughness = 0.01f;
@@ -1372,7 +1372,7 @@ void Renderer::BuildMaterials()
 	auto dragon = std::make_unique<Material>();
 	dragon->Name = "dragon";
 	dragon->MatCBIndex = 11;
-	dragon->DiffuseSrvHeapIndex = 11;
+	dragon->DiffuseSrvHeapIndex = 2;
 	dragon->DiffuseAlbedo = XMFLOAT4(Colors::LightGoldenrodYellow);
 	dragon->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	dragon->Roughness = 0.71f;
@@ -1382,18 +1382,31 @@ void Renderer::BuildMaterials()
 	//	dragon->Ior = 1.5f;
 
 
-	m_Materials.push_back(std::move(boxMat));
-	m_Materials.push_back(std::move(bricks0));
-	m_Materials.push_back(std::move(stone0));
-	m_Materials.push_back(std::move(skullMat));
-	m_Materials.push_back(std::move(tile0));
-	m_Materials.push_back(std::move(sphereMat));
-	m_Materials.push_back(std::move(tile1));
-	m_Materials.push_back(std::move(tile2));
-	m_Materials.push_back(std::move(tile3));
-	m_Materials.push_back(std::move(tile4));
-	m_Materials.push_back(std::move(tile5));
-	m_Materials.push_back(std::move(dragon));
+	//m_Materials.push_back(std::move(boxMat));
+	//m_Materials.push_back(std::move(bricks0));
+	//m_Materials.push_back(std::move(stone0));
+	//m_Materials.push_back(std::move(tile0));
+	//m_Materials.push_back(std::move(skullMat));
+	//m_Materials.push_back(std::move(sphereMat));
+	//m_Materials.push_back(std::move(tile1));
+	//m_Materials.push_back(std::move(tile2));
+	//m_Materials.push_back(std::move(tile3));
+	//m_Materials.push_back(std::move(tile4));
+	//m_Materials.push_back(std::move(tile5));
+	//m_Materials.push_back(std::move(dragon));
+
+	m_Materials.push_back(std::move(boxMat));    // 0
+	m_Materials.push_back(std::move(bricks0));   // 1
+	m_Materials.push_back(std::move(stone0));    // 2
+	m_Materials.push_back(std::move(skullMat));  // 3
+	m_Materials.push_back(std::move(tile0));     // 4
+	m_Materials.push_back(std::move(sphereMat)); // 5
+	m_Materials.push_back(std::move(tile1));     // 6
+	m_Materials.push_back(std::move(tile2));     // 7
+	m_Materials.push_back(std::move(tile3));     // 8
+	m_Materials.push_back(std::move(tile4));     // 9
+	m_Materials.push_back(std::move(tile5));     // 10
+	m_Materials.push_back(std::move(dragon));    // 11
 }
 
 void Renderer::BuildShapeGeometry()
@@ -3365,8 +3378,6 @@ void Renderer::CreatePerInstanceBuffers()
 
 	m_PerInstanceCBs.resize(m_PerInstanceCBCount);
 
-	int i(0);
-
 	for (int i = 0; i < m_PerInstanceCBCount; i++)
 	{
 		const uint32_t bufferSize = sizeof(PerInstanceData);
@@ -3384,10 +3395,10 @@ void Renderer::CreatePerInstanceBuffers()
 
 	m_MaterialsGPU.reserve(m_PerInstanceCBCount + m_SponzaModel.materials.size());
 
-	for (auto& m : m_Materials)
+	for (int i = 0; i < m_Materials.size(); i++)
 	{
 		MaterialDataGPU matGpu{};
-		Material* mat = m.get();
+		Material* mat = m_Materials[i].get();
 		matGpu.DiffuseAlbedo = mat->DiffuseAlbedo;
 		matGpu.FresnelR0 = mat->FresnelR0;
 		matGpu.Ior = mat->Ior;
@@ -3400,7 +3411,7 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.isReflective = mat->IsReflective;
 		matGpu.isRefractive = mat->IsRefractive;
 		matGpu.pad3 = 0.0f;
-		matGpu.TexIndex = mat->DiffuseSrvHeapIndex;
+		matGpu.TexIndex = -1;
 		m_MaterialsGPU.push_back(std::move(matGpu));
 	}
 
