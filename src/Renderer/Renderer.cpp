@@ -1269,7 +1269,7 @@ void Renderer::BuildMaterials()
 	bricks0->Name = "bricks0";
 	bricks0->MatCBIndex = 1;
 	bricks0->DiffuseSrvHeapIndex = 1;
-	boxMat->DiffuseAlbedo = XMFLOAT4(0.725f, 0.725f, 0.725f, 1.0f);
+	bricks0->DiffuseAlbedo = XMFLOAT4(0.725f, 0.725f, 0.725f, 1.0f);
 	bricks0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	bricks0->Roughness = 1.0f;
 	bricks0->metallic = 0.0f;
@@ -1278,8 +1278,8 @@ void Renderer::BuildMaterials()
 	auto stone0 = std::make_unique<Material>();
 	stone0->Name = "stone0";
 	stone0->MatCBIndex = 2;
-	stone0->DiffuseSrvHeapIndex = 5;
-	boxMat->DiffuseAlbedo = XMFLOAT4(0.725f, 0.725f, 0.725f, 1.0f);
+	stone0->DiffuseSrvHeapIndex = 2;
+	stone0->DiffuseAlbedo = XMFLOAT4(0.725f, 0.725f, 0.725f, 1.0f);
 	stone0->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
 	stone0->Roughness = 1.0f;
 	stone0->metallic = 0.0f;
@@ -1298,7 +1298,7 @@ void Renderer::BuildMaterials()
 	auto tile0 = std::make_unique<Material>();
 	tile0->Name = "tile0";
 	tile0->MatCBIndex = 4;
-	tile0->DiffuseSrvHeapIndex = 2;
+	tile0->DiffuseSrvHeapIndex = 4;
 	tile0->DiffuseAlbedo = XMFLOAT4(0.14f, 0.45f, 0.091f, 1.0f);
 	tile0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile0->Roughness = 1.0f;
@@ -1309,18 +1309,18 @@ void Renderer::BuildMaterials()
 	auto sphereMat = std::make_unique<Material>();
 	sphereMat->Name = "sphere";
 	sphereMat->MatCBIndex = 5;
-	sphereMat->DiffuseSrvHeapIndex = 4;
+	sphereMat->DiffuseSrvHeapIndex = 5;
 	sphereMat->DiffuseAlbedo = XMFLOAT4(Colors::Violet);
 	sphereMat->FresnelR0 = XMFLOAT3(0.06f, 0.06f, 0.06f);
 	sphereMat->Roughness = 0.9f;
 	sphereMat->metallic = 0.05f;
-	skullMat->Ior = 1.5f;
-	skullMat->IsReflective = false;
+	sphereMat->Ior = 1.5f;
+	sphereMat->IsReflective = false;
 
 	auto tile1 = std::make_unique<Material>();
 	tile1->Name = "tile1";
 	tile1->MatCBIndex = 6;
-	tile1->DiffuseSrvHeapIndex = 2;
+	tile1->DiffuseSrvHeapIndex = 6;
 	tile1->DiffuseAlbedo = XMFLOAT4(Colors::DarkSlateGray);
 	tile1->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile1->Roughness = 0.8f;
@@ -1330,7 +1330,7 @@ void Renderer::BuildMaterials()
 	auto tile2 = std::make_unique<Material>();
 	tile2->Name = "tile2";
 	tile2->MatCBIndex = 7;
-	tile2->DiffuseSrvHeapIndex = 2;
+	tile2->DiffuseSrvHeapIndex = 7;
 	tile2->DiffuseAlbedo = XMFLOAT4(0.63, 0.065, 0.05, 1.0f);
 	tile2->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile2->Roughness = 0.8f;
@@ -1340,7 +1340,7 @@ void Renderer::BuildMaterials()
 	auto tile3 = std::make_unique<Material>();
 	tile3->Name = "tile3";
 	tile3->MatCBIndex = 8;
-	tile3->DiffuseSrvHeapIndex = 2;
+	tile3->DiffuseSrvHeapIndex = 8;
 	tile3->DiffuseAlbedo = XMFLOAT4(0.14, 0.45, 0.591, 1.0f);
 	tile3->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile3->Roughness = 0.8f;
@@ -1350,7 +1350,7 @@ void Renderer::BuildMaterials()
 	auto tile4 = std::make_unique<Material>();
 	tile4->Name = "tile4";
 	tile4->MatCBIndex = 9;
-	tile4->DiffuseSrvHeapIndex = 2;
+	tile4->DiffuseSrvHeapIndex = 9;
 	tile4->DiffuseAlbedo = XMFLOAT4(Colors::DarkSlateGray);
 	tile4->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile4->Roughness = 0.8f;
@@ -1360,7 +1360,7 @@ void Renderer::BuildMaterials()
 	auto tile5 = std::make_unique<Material>();
 	tile5->Name = "tile5";
 	tile5->MatCBIndex = 10;
-	tile5->DiffuseSrvHeapIndex = 2;
+	tile5->DiffuseSrvHeapIndex = 10;
 	tile5->DiffuseAlbedo = XMFLOAT4(0.725, 0.725, 0.725, 1.0f);
 	tile5->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile5->Roughness = 0.01f;
@@ -1372,7 +1372,7 @@ void Renderer::BuildMaterials()
 	auto dragon = std::make_unique<Material>();
 	dragon->Name = "dragon";
 	dragon->MatCBIndex = 11;
-	dragon->DiffuseSrvHeapIndex = 2;
+	dragon->DiffuseSrvHeapIndex = 11;
 	dragon->DiffuseAlbedo = XMFLOAT4(Colors::LightGoldenrodYellow);
 	dragon->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	dragon->Roughness = 0.71f;
@@ -1385,8 +1385,8 @@ void Renderer::BuildMaterials()
 	m_Materials.push_back(std::move(boxMat));
 	m_Materials.push_back(std::move(bricks0));
 	m_Materials.push_back(std::move(stone0));
-	m_Materials.push_back(std::move(tile0));
 	m_Materials.push_back(std::move(skullMat));
+	m_Materials.push_back(std::move(tile0));
 	m_Materials.push_back(std::move(sphereMat));
 	m_Materials.push_back(std::move(tile1));
 	m_Materials.push_back(std::move(tile2));
@@ -2803,6 +2803,29 @@ void Renderer::CreateShaderBindingTable()
 				ib = boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 			}
 			else */
+		//if (i >= 3 && i < 5)
+		//{
+		//	vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
+		//	ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
+
+		//}
+		//else if (i >=1  && i < 3)
+		//{
+		//	vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
+		//	ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
+
+		//}
+		//else if (i == 5)
+		//{
+		//	vb = m_DragonVertexBuffer->GetGPUVirtualAddress();
+		//	ib = m_DragonIndexBuffer->GetGPUVirtualAddress();
+		//}
+		//else if (i == 0)
+		//{
+		//	vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
+		//	ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
+		//}
+
 		if (i >= 8 && i < 10)
 		{
 			vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
@@ -2825,6 +2848,7 @@ void Renderer::CreateShaderBindingTable()
 			vb = m_DragonVertexBuffer->GetGPUVirtualAddress();
 			ib = m_DragonIndexBuffer->GetGPUVirtualAddress();
 		}
+
 
 		m_SbtHelper.AddHitGroup(L"HitGroup", { (void*)vb,(void*)ib,
 			(void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
@@ -2947,7 +2971,7 @@ void Renderer::CreateAccelerationStructures()
 	AccelerationStructureBuffers skull0BottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} }, { {m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount} });
 
 	AccelerationStructureBuffers sphereBottomLevelBuffers = CreateBottomLevelAS({ { sphereSubmesh.VertexBufferGPU, sphereSubmesh.VertexCount} }, { {sphereSubmesh.IndexBufferGPU, sphereSubmesh.IndexCount} });
-	AccelerationStructureBuffers boxBottomLevelBuffers = CreateBottomLevelAS({ { boxSubmesh.VertexBufferGPU, boxSubmesh.VertexCount} }, { {boxSubmesh.IndexBufferGPU, boxSubmesh.IndexCount} });
+	//AccelerationStructureBuffers boxBottomLevelBuffers = CreateBottomLevelAS({ { boxSubmesh.VertexBufferGPU, boxSubmesh.VertexCount} }, { {boxSubmesh.IndexBufferGPU, boxSubmesh.IndexCount} });
 	AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { m_PlaneVertexBuffer, 4} }, { { m_PlaneIndexBuffer, 6 }
 		});
 
@@ -3350,7 +3374,7 @@ void Renderer::CreatePerInstanceBuffers()
 		m_PerInstanceCBs[i] = nv_helpers_dx12::CreateBuffer(m_Device.Get(), bufferSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
 
 		PerInstanceData data{};
-		data.materialIndex = i;
+		data.materialIndex = instanceMaterialIndices[i];
 
 		uint8_t* pData;
 		ThrowIfFailed(m_PerInstanceCBs[i]->Map(0, nullptr, (void**)&pData));

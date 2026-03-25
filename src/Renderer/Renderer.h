@@ -324,9 +324,9 @@ private:
 	void CreatePerInstanceBuffers();
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_PerInstanceCBs;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_TriMatIndexCB;
-	UINT m_PerInstanceCBCount = 12;
-	UINT m_SkullCount = 4;
-	UINT m_SphereCount = 1;
+	UINT m_PerInstanceCBCount = 11;
+	UINT m_SkullCount = 2;
+	UINT m_SphereCount = 2;
 	void LoadTextures(Model& model);
 	std::vector<std::unique_ptr<Texture>> m_Textures;
 	std::vector<int> matIndices;
@@ -351,6 +351,20 @@ private:
 	
 	std::vector<bool> m_IsInstanceReflective;
 
+	std::vector<uint32_t> instanceMaterialIndices =
+	{
+		0,  // floor -> white
+		0,  // ceiling -> white
+		0,  // back/front wall -> white
+		7,  // left wall -> red
+		4,  // right wall -> green
+		0,  // little plane -> white
+		5,  // left sphere -> sphere material
+		5,  // right sphere -> sphere material
+		3,  // skull right -> skull material
+		3,  // skull left -> skull material
+		11  // dragon -> dragon material
+	};
 
 	void CreateModelBuffers(Model& model, Microsoft::WRL::ComPtr<ID3D12Resource>& vb, Microsoft::WRL::ComPtr<ID3D12Resource>& ib, D3D12_VERTEX_BUFFER_VIEW& vbv, D3D12_INDEX_BUFFER_VIEW& ibv);
 
@@ -372,6 +386,7 @@ struct PerInstanceData
 	int materialIndex;
 	float pad[3];
 };
+
 
 enum
 {
