@@ -2803,19 +2803,19 @@ void Renderer::CreateShaderBindingTable()
 				ib = boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 			}
 			else */
-		if (i >= 9 && i < 11)
+		if (i >= 8 && i < 10)
 		{
 			vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
 			ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
 
 		}
-		else if (i >= 7 && i < 9)
+		else if (i >= 6 && i < 8)
 		{
 			vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
 			ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 
 		}
-		else if (i < 7)
+		else if (i < 6)
 		{
 			vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
 			ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
@@ -2970,11 +2970,11 @@ void Renderer::CreateAccelerationStructures()
 		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(-90.0f)) *
 		  XMMatrixTranslation(0.0f, 60.0f, -120.0f) },
 
-		// Front wall (z = +20), normal pointing into the box (-Z)
-		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
-		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
-		  XMMatrixTranslation(0.0f, 60.0f, 60.0f) },
+		//// Front wall (z = +20), normal pointing into the box (-Z)
+		//{ planeBottomLevelBuffers.pResult,
+		//  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
+		//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
+		//  XMMatrixTranslation(0.0f, 60.0f, 60.0f) },
 
 		// Left wall (x = -20), normal pointing into the box (+X)
 		{ planeBottomLevelBuffers.pResult,
