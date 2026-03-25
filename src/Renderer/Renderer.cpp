@@ -267,7 +267,7 @@ void Renderer::Update(float dt, Camera& cam)
 	UpdateMainPassCB();
 	UpdateMaterialCBs();
 	UpdateAreaLightConstantBuffer();
-	UpdatePostProcessConstantBuffer();
+	//UpdatePostProcessConstantBuffer();
 }
 
 static inline void TransitionIfNeeded(
@@ -617,6 +617,13 @@ void Renderer::Draw(bool useRaster)
 
 	for (int pass = 0; pass < numPasses; ++pass)
 	{
+		m_IsLastPass = 0;
+
+		if (pass == numPasses - 1)
+		{
+			m_IsLastPass = 1;
+		}
+
 		UpdateDenoiseConstantBuffer(1 << pass, pass);
 
 
@@ -656,6 +663,9 @@ void Renderer::Draw(bool useRaster)
 
 			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 				src, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+			m_IsLastPass = 1;
+			UpdateDenoiseConstantBuffer(1 << pass, pass);
+			UpdatePostProcessConstantBuffer();
 
 			m_FinalDenoiseBuffer = src;
 		}
@@ -701,10 +711,10 @@ void Renderer::Draw(bool useRaster)
 			srvOffsetFromStart = 1;
 		}
 
-		if (pass == numPasses)
-		{
-			m_IsLastPass = 1;
-		}
+		//if (pass == numPasses)
+		//{
+		//	m_IsLastPass = 1;
+		//}
 
 		int uavIndex =
 			(dest == m_DenoisePing.Get()) ? UAV_DenoisePing :
@@ -746,12 +756,12 @@ void Renderer::Draw(bool useRaster)
 		UINT gy = (m_ClientHeight + 7) / 8;
 		m_CommandList->Dispatch(gx, gy, 1);
 
-		m_IsLastPass = 0;
+		//m_IsLastPass = 0;
 
-		if (pass == numPasses - 1)
-		{
-
-		}
+		//if (pass == numPasses - 1)
+		//{
+		//	m_IsLastPass = 1;
+		//}
 	}
 	{
 		ID3D12Resource* finalSrc = src;
@@ -1254,7 +1264,7 @@ void Renderer::BuildMaterials()
 	boxMat->Name = "box";
 	boxMat->MatCBIndex = 0;
 	boxMat->DiffuseSrvHeapIndex = 0;
-	boxMat->DiffuseAlbedo = XMFLOAT4(0.1, 0.3, 0.1, 1.0);
+	boxMat->DiffuseAlbedo = XMFLOAT4(0.75, 0.35, 0.75, 1.0);
 	boxMat->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	boxMat->Roughness = 0.99f;
 	boxMat->metallic = 0.01f;
@@ -1265,7 +1275,7 @@ void Renderer::BuildMaterials()
 	bricks0->Name = "bricks0";
 	bricks0->MatCBIndex = 1;
 	bricks0->DiffuseSrvHeapIndex = 1;
-	bricks0->DiffuseAlbedo = XMFLOAT4(Colors::Sienna);
+	boxMat->DiffuseAlbedo = XMFLOAT4(0.75, 0.75, 0.35, 1.0);
 	bricks0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	bricks0->Roughness = 0.9f;
 	bricks0->metallic = 0.1f;
@@ -1275,7 +1285,7 @@ void Renderer::BuildMaterials()
 	stone0->Name = "stone0";
 	stone0->MatCBIndex = 2;
 	stone0->DiffuseSrvHeapIndex = 5;
-	stone0->DiffuseAlbedo = XMFLOAT4(Colors::Crimson);
+	boxMat->DiffuseAlbedo = XMFLOAT4(0.35, 0.75, 0.75, 1.0);
 	stone0->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
 	stone0->Roughness = 0.9f;
 	stone0->metallic = 0.1f;
@@ -3242,7 +3252,7 @@ void Renderer::CreatePostProcessConstantBuffer()
 
 	uint8_t* pData;
 	ThrowIfFailed(m_PostProcessConstantBuffer->Map(0, nullptr, (void**)&pData));
-	memcpy(pData, (void*)&m_PostProcessData, sizeof(m_PostProcessData));
+	memcpy(pData, (void*)&m_PostProcessData, sizeof(PostProcessData));
 	m_PostProcessConstantBuffer->Unmap(0, nullptr);
 
 }
@@ -3256,16 +3266,16 @@ void Renderer::UpdatePostProcessConstantBuffer()
 
 	uint8_t* pData;
 	ThrowIfFailed(m_PostProcessConstantBuffer->Map(0, nullptr, (void**)&pData));
-	memcpy(pData, (void*)&m_PostProcessData, sizeof(m_PostProcessData));
+	memcpy(pData, (void*)&m_PostProcessData, sizeof(PostProcessData));
 	m_PostProcessConstantBuffer->Unmap(0, nullptr);
 }
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 39.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(35.0f, 35.0f, 35.0f);
-	m_AreaLightData.U = XMFLOAT3(10.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 10.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 39.0f, -10.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(50.0f, 50.0f, 50.0f);
+	m_AreaLightData.U = XMFLOAT3(12.0f, 0.0f, 0.0f);
+	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 12.0f);
 
 	XMVECTOR U = XMLoadFloat3(&m_AreaLightData.U);
 	XMVECTOR V = XMLoadFloat3(&m_AreaLightData.V);
@@ -3506,17 +3516,17 @@ void Renderer::RenderImGuiDebugWindow()
 
 	ImGui::Begin("Area Light Settings");
 	ImGui::Text("Area Light Position");
-	ImGui::SliderFloat("Area Light Position X", &m_AreaLightData.Position.x, -2000.0f, 2000.0f);
-	ImGui::SliderFloat("Area Light Position Y", &m_AreaLightData.Position.y, -2000.0f, 2000.0f);
-	ImGui::SliderFloat("Area Light Position Z", &m_AreaLightData.Position.z, -2000.0f, 2000.0f);
+	ImGui::InputFloat("Area Light Position X", &m_AreaLightData.Position.x);
+	ImGui::InputFloat("Area Light Position Y", &m_AreaLightData.Position.y);
+	ImGui::InputFloat("Area Light Position Z", &m_AreaLightData.Position.z);
 	ImGui::Text("Area Light Radiance");
-	ImGui::SliderFloat("Area Light Radiance R", &m_AreaLightData.Radiance.x, 0.0f, 600.0f);
-	ImGui::SliderFloat("Area Light Radiance G", &m_AreaLightData.Radiance.y, 0.0f, 600.0f);
-	ImGui::SliderFloat("Area Light Radiance B", &m_AreaLightData.Radiance.z, 0.0f, 600.0f);
+	ImGui::InputFloat("Area Light Radiance R", &m_AreaLightData.Radiance.x);
+	ImGui::InputFloat("Area Light Radiance G", &m_AreaLightData.Radiance.y);
+	ImGui::InputFloat("Area Light Radiance B", &m_AreaLightData.Radiance.z);
 	ImGui::Text("Area Light U Vector");
-	ImGui::SliderFloat("Area Light U", &m_AreaLightData.U.x, 0.0f, 1000.0f);
+	ImGui::InputFloat("Area Light U", &m_AreaLightData.U.x);
 	ImGui::Text("Area Light V Vector");
-	ImGui::SliderFloat("Area Light V", &m_AreaLightData.V.z, 0.0f, 1000.0f);
+	ImGui::InputFloat("Area Light V", &m_AreaLightData.V.z);
 	ImGui::End();
 
 }
