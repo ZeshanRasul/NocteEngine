@@ -1373,13 +1373,13 @@ void Renderer::BuildMaterials()
 	dragon->Name = "dragon";
 	dragon->MatCBIndex = 11;
 	dragon->DiffuseSrvHeapIndex = 2;
-	dragon->DiffuseAlbedo = XMFLOAT4(Colors::LightGoldenrodYellow);
-	dragon->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	dragon->Roughness = 0.71f;
-	dragon->metallic = 0.25f;
-	//	dragon->IsReflective = false;
-	//	dragon->IsRefractive = true;
-	//	dragon->Ior = 1.5f;
+	dragon->DiffuseAlbedo = XMFLOAT4(1.0, 1.0, 1.0, 1.0);
+	dragon->FresnelR0 = XMFLOAT3(0.04f, 0.04f, 0.04f);
+	dragon->Roughness = 0.01f;
+	dragon->metallic = 0.0f;
+	dragon->IsReflective = false;
+	dragon->IsRefractive = true;
+	dragon->Ior = 1.5f;
 
 
 	m_Materials.push_back(std::move(boxMat));
@@ -2971,7 +2971,7 @@ void Renderer::CreateAccelerationStructures()
 		  XMMatrixTranslation(-50.0f, 8.0f, 15.0f) },
 
 		{ dragonBottomLevelBuffers.pResult,
-		  XMMatrixScaling(105.0f, 105.0f, 105.0f) *
+		  XMMatrixScaling(205.0f, 205.0f, 205.0f) *
 		  XMMatrixTranslation(0.0f, 33.0f, -405.0f)},
 
 		{ bottomLevelBuffers.pResult,
@@ -3460,9 +3460,9 @@ void Renderer::RenderImGuiDebugWindow()
 
 	ImGui::Begin("Area Light Settings");
 	ImGui::Text("Area Light Position");
-	ImGui::SliderFloat("Area Light Position X", &m_AreaLightData.Position.x, 0.0f, 2000.0f);
-	ImGui::SliderFloat("Area Light Position Y", &m_AreaLightData.Position.y, 0.0f, 2000.0f);
-	ImGui::SliderFloat("Area Light Position Z", &m_AreaLightData.Position.z, 0.0f, 2000.0f);
+	ImGui::SliderFloat("Area Light Position X", &m_AreaLightData.Position.x, -2000.0f, 2000.0f);
+	ImGui::SliderFloat("Area Light Position Y", &m_AreaLightData.Position.y, -2000.0f, 2000.0f);
+	ImGui::SliderFloat("Area Light Position Z", &m_AreaLightData.Position.z, -2000.0f, 2000.0f);
 	ImGui::Text("Area Light Radiance");
 	ImGui::SliderFloat("Area Light Radiance R", &m_AreaLightData.Radiance.x, 0.0f, 600.0f);
 	ImGui::SliderFloat("Area Light Radiance G", &m_AreaLightData.Radiance.y, 0.0f, 600.0f);
