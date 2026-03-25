@@ -267,7 +267,7 @@ void Renderer::Update(float dt, Camera& cam)
 	UpdateMainPassCB();
 	UpdateMaterialCBs();
 	UpdateAreaLightConstantBuffer();
-	//UpdatePostProcessConstantBuffer();
+	//	UpdatePostProcessConstantBuffer();
 }
 
 static inline void TransitionIfNeeded(
@@ -536,7 +536,7 @@ void Renderer::Draw(bool useRaster)
 
 		// RootParam[7] & [8]: CBVs
 		m_CommandList->SetComputeRootConstantBufferView(7, m_DenoiseCB->GetGPUVirtualAddress());
-		m_CommandList->SetComputeRootConstantBufferView(8, m_PostProcessConstantBuffer->GetGPUVirtualAddress());
+		m_CommandList->SetComputeRootConstantBufferView(8, m_PostProcessConstantBuffer[0]->GetGPUVirtualAddress());
 
 		UINT gx = (m_ClientWidth + 7) / 8;
 		UINT gy = (m_ClientHeight + 7) / 8;
@@ -617,14 +617,10 @@ void Renderer::Draw(bool useRaster)
 
 	for (int pass = 0; pass < numPasses; ++pass)
 	{
-		m_IsLastPass = 0;
 
-		if (pass == numPasses - 1)
-		{
-			m_IsLastPass = 1;
-		}
-
+		m_PostProcessData[pass].IsLastPass = (pass == numPasses - 1) ? 1 : 0;
 		UpdateDenoiseConstantBuffer(1 << pass, pass);
+		UpdatePostProcessConstantBuffer(pass, numPasses);
 
 
 		if (pass == 0)
@@ -663,13 +659,11 @@ void Renderer::Draw(bool useRaster)
 
 			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 				src, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
-			m_IsLastPass = 1;
-			UpdateDenoiseConstantBuffer(1 << pass, pass);
-			UpdatePostProcessConstantBuffer();
+			//	UpdateDenoiseConstantBuffer(1 << pass, pass);
+
 
 			m_FinalDenoiseBuffer = src;
 		}
-
 
 		m_CommandList->SetPipelineState(m_DenoisePSO.Get());
 		m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
@@ -731,7 +725,7 @@ void Renderer::Draw(bool useRaster)
 
 		const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, uavIndex, m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootConstantBufferView(7, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
-		m_CommandList->SetComputeRootConstantBufferView(8, m_PostProcessConstantBuffer->GetGPUVirtualAddress()); // denoise step
+		m_CommandList->SetComputeRootConstantBufferView(8, m_PostProcessConstantBuffer[pass]->GetGPUVirtualAddress()); // denoise step
 		m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
 		const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvIndex, m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
@@ -2756,7 +2750,7 @@ void Renderer::CreateShaderBindingTable()
 
 	m_SbtHelper.AddRayGenerationProgram(L"RayGen", {
 				(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
-				(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
+				(void*)m_PostProcessConstantBuffer[0]->GetGPUVirtualAddress(),
 				heapPointer,
 		});
 
@@ -2837,7 +2831,7 @@ void Renderer::CreateShaderBindingTable()
 			(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),
 			(void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(),
 			(void*)perInstanceCB,
-			(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
+			(void*)m_PostProcessConstantBuffer[0]->GetGPUVirtualAddress(),
 			(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
 			(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
 			heapPointer,
@@ -2849,7 +2843,7 @@ void Renderer::CreateShaderBindingTable()
 			(void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress(),
 			(void*)m_GlobalConstantBuffer->GetGPUVirtualAddress(),
 			(void*)perInstanceCB,
-			(void*)m_PostProcessConstantBuffer->GetGPUVirtualAddress(),
+			(void*)m_PostProcessConstantBuffer[0]->GetGPUVirtualAddress(),
 			(void*)m_AreaLightConstantBuffer->GetGPUVirtualAddress(),
 			(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
 			heapPointer,
@@ -3241,33 +3235,64 @@ void Renderer::CreateGlobalConstantBuffer()
 
 void Renderer::CreatePostProcessConstantBuffer()
 {
-	m_PostProcessData.Exposure = m_Exposure;
-	m_PostProcessData.ToneMapMode = m_ToneMapMode;
-	m_PostProcessData.DebugMode = m_DebugMode;
-	m_PostProcessData.IsLastPass = m_IsLastPass;
+	m_PostProcessData[0].Exposure = m_Exposure;
+	m_PostProcessData[0].ToneMapMode = m_ToneMapMode;
+	m_PostProcessData[0].DebugMode = m_DebugMode;
+	m_PostProcessData[0].IsLastPass = 0;
 
-	m_PostProcessConstantBuffer = nv_helpers_dx12::CreateBuffer(
-		m_Device.Get(), sizeof(m_PostProcessData), D3D12_RESOURCE_FLAG_NONE,
-		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+	m_PostProcessData[1].Exposure = m_Exposure;
+	m_PostProcessData[1].ToneMapMode = m_ToneMapMode;
+	m_PostProcessData[1].DebugMode = m_DebugMode;
+	m_PostProcessData[1].IsLastPass = 0;
 
-	uint8_t* pData;
-	ThrowIfFailed(m_PostProcessConstantBuffer->Map(0, nullptr, (void**)&pData));
-	memcpy(pData, (void*)&m_PostProcessData, sizeof(PostProcessData));
-	m_PostProcessConstantBuffer->Unmap(0, nullptr);
+	m_PostProcessData[2].Exposure = m_Exposure;
+	m_PostProcessData[2].ToneMapMode = m_ToneMapMode;
+	m_PostProcessData[2].DebugMode = m_DebugMode;
+	m_PostProcessData[2].IsLastPass = 0;
+
+	m_PostProcessData[3].Exposure = m_Exposure;
+	m_PostProcessData[3].ToneMapMode = m_ToneMapMode;
+	m_PostProcessData[3].DebugMode = m_DebugMode;
+	m_PostProcessData[3].IsLastPass = 0;
+
+	m_PostProcessData[4].Exposure = m_Exposure;
+	m_PostProcessData[4].ToneMapMode = m_ToneMapMode;
+	m_PostProcessData[4].DebugMode = m_DebugMode;
+	m_PostProcessData[4].IsLastPass = 0;
+
+
+	for (int pass = 0; pass < MAX_PASSES; pass++)
+	{
+
+		m_PostProcessConstantBuffer[pass] = nv_helpers_dx12::CreateBuffer(
+			m_Device.Get(), sizeof(m_PostProcessData[pass]), D3D12_RESOURCE_FLAG_NONE,
+			D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+
+		uint8_t* pData;
+		ThrowIfFailed(m_PostProcessConstantBuffer[pass]->Map(0, nullptr, (void**)&pData));
+		memcpy(pData, (void*)&m_PostProcessData[pass], sizeof(PostProcessData));
+		m_PostProcessConstantBuffer[0]->Unmap(0, nullptr);
+	}
+
+
 
 }
 
-void Renderer::UpdatePostProcessConstantBuffer()
+void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 {
-	m_PostProcessData.Exposure = m_Exposure;
-	m_PostProcessData.ToneMapMode = m_ToneMapMode;
-	m_PostProcessData.DebugMode = m_DebugMode;
-	m_PostProcessData.IsLastPass = m_IsLastPass;
+
+
+	m_PostProcessData[pass].Exposure = m_Exposure;
+	m_PostProcessData[pass].ToneMapMode = m_ToneMapMode;
+	m_PostProcessData[pass].DebugMode = m_DebugMode;
+	m_PostProcessData[pass].IsLastPass = (pass == num_passes - 1) ? 1 : 0;
+
 
 	uint8_t* pData;
-	ThrowIfFailed(m_PostProcessConstantBuffer->Map(0, nullptr, (void**)&pData));
-	memcpy(pData, (void*)&m_PostProcessData, sizeof(PostProcessData));
-	m_PostProcessConstantBuffer->Unmap(0, nullptr);
+	ThrowIfFailed(m_PostProcessConstantBuffer[pass]->Map(0, nullptr, (void**)&pData));
+	memcpy(pData, (void*)&m_PostProcessData[pass], sizeof(PostProcessData));
+	m_PostProcessConstantBuffer[pass]->Unmap(0, nullptr);
+
 }
 
 void Renderer::CreateAreaLightConstantBuffer()

@@ -304,9 +304,10 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_GlobalConstantBuffer;
 
 	void CreatePostProcessConstantBuffer();
-	void UpdatePostProcessConstantBuffer();
-	PostProcessData m_PostProcessData;
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_PostProcessConstantBuffer;
+	void UpdatePostProcessConstantBuffer(int pass, int num_passes);
+	UINT MAX_PASSES = 5;
+	PostProcessData m_PostProcessData[5];
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_PostProcessConstantBuffer[5];
 	int m_Exposure = 3.5;
 	int m_ToneMapMode = 2;
 	int m_DebugMode = 0;
