@@ -1258,7 +1258,7 @@ void Renderer::BuildMaterials()
 	boxMat->Name = "box";
 	boxMat->MatCBIndex = 0;
 	boxMat->DiffuseSrvHeapIndex = 0;
-	boxMat->DiffuseAlbedo = XMFLOAT4(Colors::White);
+	boxMat->DiffuseAlbedo = XMFLOAT4(0.725f, 0.710f, 0.680f, 1.0f);
 	boxMat->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	boxMat->Roughness = 0.99f;
 	boxMat->metallic = 0.01f;
@@ -1288,7 +1288,7 @@ void Renderer::BuildMaterials()
 	skullMat->Name = "skullMat";
 	skullMat->MatCBIndex = 3;
 	skullMat->DiffuseSrvHeapIndex = -1;
-	skullMat->DiffuseAlbedo = XMFLOAT4(Colors::WhiteSmoke);
+	skullMat->DiffuseAlbedo = XMFLOAT4(0.800f, 0.780f, 0.720f, 1.0f);
 	skullMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05);
 	skullMat->Roughness = 0.7f;
 	skullMat->metallic = 0.1f;
@@ -1299,7 +1299,7 @@ void Renderer::BuildMaterials()
 	tile0->Name = "tile0";
 	tile0->MatCBIndex = 4;
 	tile0->DiffuseSrvHeapIndex = 2;
-	tile0->DiffuseAlbedo = XMFLOAT4(Colors::Aquamarine);
+	tile0->DiffuseAlbedo = XMFLOAT4(0.140f, 0.450f, 0.091f, 1.0f);
 	tile0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile0->Roughness = 0.8f;
 	tile0->metallic = 0.05f;
@@ -1310,7 +1310,7 @@ void Renderer::BuildMaterials()
 	sphereMat->Name = "sphere";
 	sphereMat->MatCBIndex = 5;
 	sphereMat->DiffuseSrvHeapIndex = 4;
-	sphereMat->DiffuseAlbedo = XMFLOAT4(Colors::Violet);
+	sphereMat->DiffuseAlbedo = XMFLOAT4(0.700f, 0.700f, 0.700f, 1.0f);
 	sphereMat->FresnelR0 = XMFLOAT3(0.06f, 0.06f, 0.06f);
 	sphereMat->Roughness = 0.9f;
 	sphereMat->metallic = 0.05f;
@@ -1331,7 +1331,7 @@ void Renderer::BuildMaterials()
 	tile2->Name = "tile2";
 	tile2->MatCBIndex = 7;
 	tile2->DiffuseSrvHeapIndex = 2;
-	tile2->DiffuseAlbedo = XMFLOAT4(Colors::Red);
+	tile2->DiffuseAlbedo = XMFLOAT4(0.630f, 0.065f, 0.050f, 1.0f);
 	tile2->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile2->Roughness = 0.8f;
 	tile2->metallic = 0.05f;
