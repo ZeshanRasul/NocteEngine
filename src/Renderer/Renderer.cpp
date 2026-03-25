@@ -1375,11 +1375,11 @@ void Renderer::BuildMaterials()
 	dragon->DiffuseSrvHeapIndex = 2;
 	dragon->DiffuseAlbedo = XMFLOAT4(Colors::LightGoldenrodYellow);
 	dragon->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	dragon->Roughness = 0.71f;
-	dragon->metallic = 0.25f;
-	//	dragon->IsReflective = false;
-	//	dragon->IsRefractive = true;
-	//	dragon->Ior = 1.5f;
+	dragon->Roughness = 0.01f;
+	dragon->metallic = 0.0f;
+	dragon->IsReflective = false;
+	dragon->IsRefractive = true;
+	dragon->Ior = 1.5f;
 
 
 	//m_Materials.push_back(std::move(boxMat));
@@ -3054,8 +3054,8 @@ void Renderer::CreateAccelerationStructures()
 		  XMMatrixTranslation(-20.0f, 2.0f, 15.0f) },
 
 		{ bottomLevelBuffers.pResult,
-		  XMMatrixScaling(10.0f, 10.0f, 10.0f) *
-		  XMMatrixTranslation(0.0f, 0.0f, -25.0f)}
+		  XMMatrixScaling(30.0f, 30.0f, 30.0f) *
+		  XMMatrixTranslation(7.0f, 10.0f, -20.0f)}
 
 		//{ bottomLevelBuffers.pResult,
 		//  XMMatrixScaling(1.0f, 1.0f, 1.0f) *
@@ -3202,7 +3202,7 @@ void Renderer::UpdateCameraBuffer()
 {
 	// Build the view matrix.
 	XMVECTOR pos = XMVectorSet(m_EyePos.x, m_EyePos.y, m_EyePos.z, 1.0f);
-	XMVECTOR target = XMVectorZero();
+	XMVECTOR target = XMVectorSet(0.0f, 20.0f, 0.0f, 1.0f);
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
 	XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
@@ -3336,8 +3336,8 @@ void Renderer::CreateAreaLightConstantBuffer()
 {
 	m_AreaLightData.Position = XMFLOAT3(0.0f, 55.0f, 0.0f);
 	m_AreaLightData.Radiance = XMFLOAT3(15.0f, 15.0f, 15.0f);
-	m_AreaLightData.U = XMFLOAT3(20.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 20.0f);
+	m_AreaLightData.U = XMFLOAT3(12.0f, 0.0f, 0.0f);
+	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 12.0f);
 
 	XMVECTOR U = XMLoadFloat3(&m_AreaLightData.U);
 	XMVECTOR V = XMLoadFloat3(&m_AreaLightData.V);
