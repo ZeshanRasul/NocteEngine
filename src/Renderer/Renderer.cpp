@@ -3567,7 +3567,7 @@ void Renderer::RenderImGuiDebugWindow()
 	ImGui::Text("Step Size");
 	ImGui::SliderInt("Step Size", &m_DenoiseStep, 0, 8);
 	ImGui::Text("Number of Passess");
-	ImGui::SliderInt("Number of Passess", &m_DenoisePasses, 1, 10);
+	ImGui::SliderInt("Number of Passess", &m_DenoisePasses, 0, 5);
 	ImGui::Text("Sigma Color");
 	ImGui::SliderFloat("Sigma Color", &m_SigmaColor, 0.1f, 80.0f);
 	ImGui::Text("Sigma Normal");
