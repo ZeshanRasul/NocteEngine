@@ -74,6 +74,15 @@ void RayGen()
     payload.done = 0;
     payload.seed = seed;
     payload.lastBounceWasDelta = 0;
+    payload.prevBsdfPdf = 0.0f;
+    payload.prevHitPos = originWS;
+    payload.hitPos = originWS;
+    payload.normal = float3(0.0f, 0.0f, 1.0f);
+    payload.wi = dirWS;
+    payload.bsdfOverPdf = 0.0f;
+    payload.emission = 0.0f;
+    payload.pdf = 1.0f;
+    
     RayDesc ray;
     ray.Origin = originWS;
     ray.Direction = dirWS;
@@ -126,11 +135,11 @@ void RayGen()
         payload.throughput *= payload.bsdfOverPdf;
         
         // Russian roulette after a few bounces
-        if (bounce >= 3)
+        if (bounce >= 4)
         {
             float pCont = max(payload.throughput.x,
                            max(payload.throughput.y, payload.throughput.z));
-            pCont = saturate(pCont);
+            pCont = clamp(pCont, 0.05f, 0.95f);
 
             if (pCont < 1e-3f)
                 break;
@@ -138,7 +147,6 @@ void RayGen()
             float r = Rand(payload.seed);
             if (r > pCont)
                 break;
-
             payload.throughput /= pCont;
         }
         float3 offsetDir = (dot(payload.wi, payload.normal) > 0.0f)
