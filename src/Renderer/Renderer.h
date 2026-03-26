@@ -261,9 +261,9 @@ private:
 
 	int m_DenoiseStep = 1;
 	int m_DenoisePasses = 5;
-	float m_SigmaColor = 5.0f;
-	float m_SigmaNormal = 40.0f;
-	float m_SigmaDepth = 60.0f;
+	float m_SigmaColor = 2.5f;
+	float m_SigmaNormal = 11.0f;
+	float m_SigmaDepth = 12.5f;
 	int useHistory = 1;
 
 	void CreateDenoiseConstantBuffer();
@@ -308,7 +308,7 @@ private:
 	UINT MAX_PASSES = 5;
 	PostProcessData m_PostProcessData[5];
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_PostProcessConstantBuffer[5];
-	int m_Exposure = 1;
+	float m_Exposure = 0.75f;
 	int m_ToneMapMode = 2;
 	int m_DebugMode = 0;
 	int m_IsLastPass = 0;
@@ -324,9 +324,9 @@ private:
 	void CreatePerInstanceBuffers();
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_PerInstanceCBs;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_TriMatIndexCB;
-	UINT m_PerInstanceCBCount = 11;
-	UINT m_SkullCount = 2;
-	UINT m_SphereCount = 2;
+	UINT m_PerInstanceCBCount = 9;
+	UINT m_SkullCount = 1;
+	UINT m_SphereCount = 1;
 	void LoadTextures(Model& model);
 	std::vector<std::unique_ptr<Texture>> m_Textures;
 	std::vector<int> matIndices;
@@ -353,15 +353,15 @@ private:
 
 	std::vector<uint32_t> instanceMaterialIndices =
 	{
-		0,  // floor -> white
+		1,  // floor -> white
 		0,  // ceiling -> white
 		0,  // back/front wall -> white
 		7,  // left wall -> red
 		4,  // right wall -> green
 		0,  // little plane -> white
-		5,  // left sphere -> sphere material
+		//5,  // left sphere -> sphere material
 		5,  // right sphere -> sphere material
-		3,  // skull right -> skull material
+		//3,  // skull right -> skull material
 		3,  // skull left -> skull material
 		11  // dragon -> dragon material
 	};

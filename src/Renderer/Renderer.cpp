@@ -1269,10 +1269,10 @@ void Renderer::BuildMaterials()
 	bricks0->Name = "bricks0";
 	bricks0->MatCBIndex = 1;
 	bricks0->DiffuseSrvHeapIndex = 1;
-	bricks0->DiffuseAlbedo = XMFLOAT4(Colors::Indigo);
+	bricks0->DiffuseAlbedo = XMFLOAT4(0.55f, 0.55f, 0.55f, 1.0f);
 	bricks0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	bricks0->Roughness = 0.9f;
-	bricks0->metallic = 0.1f;
+	bricks0->Roughness = 0.90f;
+	bricks0->metallic = 0.01f;
 	bricks0->IsReflective = false;
 
 	auto stone0 = std::make_unique<Material>();
@@ -1288,10 +1288,10 @@ void Renderer::BuildMaterials()
 	skullMat->Name = "skullMat";
 	skullMat->MatCBIndex = 3;
 	skullMat->DiffuseSrvHeapIndex = -1;
-	skullMat->DiffuseAlbedo = XMFLOAT4(0.800f, 0.780f, 0.720f, 1.0f);
+	skullMat->DiffuseAlbedo = XMFLOAT4(0.750f, 0.750f, 0.680f, 1.0f);
 	skullMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05);
-	skullMat->Roughness = 0.7f;
-	skullMat->metallic = 0.1f;
+	skullMat->Roughness = 0.85f;
+	skullMat->metallic = 0.0f;
 	skullMat->Ior = 1.0f;
 	skullMat->IsReflective = false;
 
@@ -1299,7 +1299,7 @@ void Renderer::BuildMaterials()
 	tile0->Name = "tile0";
 	tile0->MatCBIndex = 4;
 	tile0->DiffuseSrvHeapIndex = 2;
-	tile0->DiffuseAlbedo = XMFLOAT4(0.140f, 0.450f, 0.091f, 1.0f);
+	tile0->DiffuseAlbedo = XMFLOAT4(0.140f, 0.650f, 0.091f, 1.0f);
 	tile0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile0->Roughness = 0.8f;
 	tile0->metallic = 0.05f;
@@ -1311,10 +1311,10 @@ void Renderer::BuildMaterials()
 	sphereMat->MatCBIndex = 5;
 	sphereMat->DiffuseSrvHeapIndex = 4;
 	sphereMat->DiffuseAlbedo = XMFLOAT4(0.700f, 0.700f, 0.700f, 1.0f);
-	sphereMat->FresnelR0 = XMFLOAT3(0.06f, 0.06f, 0.06f);
-	sphereMat->Roughness = 0.9f;
-	sphereMat->metallic = 0.05f;
-	skullMat->Ior = 1.5f;
+	sphereMat->FresnelR0 = XMFLOAT3(0.04f, 0.04f, 0.04f);
+	sphereMat->Roughness = 0.2f;
+	sphereMat->metallic = 0.0f;
+	skullMat->Ior = 1.0f;
 	skullMat->IsReflective = false;
 
 	auto tile1 = std::make_unique<Material>();
@@ -1331,7 +1331,7 @@ void Renderer::BuildMaterials()
 	tile2->Name = "tile2";
 	tile2->MatCBIndex = 7;
 	tile2->DiffuseSrvHeapIndex = 2;
-	tile2->DiffuseAlbedo = XMFLOAT4(0.630f, 0.065f, 0.050f, 1.0f);
+	tile2->DiffuseAlbedo = XMFLOAT4(0.830f, 0.065f, 0.050f, 1.0f);
 	tile2->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile2->Roughness = 0.8f;
 	tile2->metallic = 0.05f;
@@ -1373,11 +1373,11 @@ void Renderer::BuildMaterials()
 	dragon->Name = "dragon";
 	dragon->MatCBIndex = 11;
 	dragon->DiffuseSrvHeapIndex = 2;
-	dragon->DiffuseAlbedo = XMFLOAT4(Colors::LightGoldenrodYellow);
-	dragon->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	dragon->Roughness = 0.01f;
+	dragon->DiffuseAlbedo = XMFLOAT4(Colors::White);
+	dragon->FresnelR0 = XMFLOAT3(0.04f, 0.04f, 0.04f);
+	dragon->Roughness = 0.15f;
 	dragon->metallic = 0.0f;
-	dragon->IsReflective = false;
+	dragon->IsReflective = true;
 	dragon->IsRefractive = true;
 	dragon->Ior = 1.5f;
 
@@ -2816,36 +2816,36 @@ void Renderer::CreateShaderBindingTable()
 				ib = boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 			}
 			else */
-		//if (i >= 3 && i < 5)
-		//{
-		//	vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
-		//	ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
+			//if (i >= 3 && i < 5)
+			//{
+			//	vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
+			//	ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
 
-		//}
-		//else if (i >=1  && i < 3)
-		//{
-		//	vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
-		//	ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
+			//}
+			//else if (i >=1  && i < 3)
+			//{
+			//	vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
+			//	ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 
-		//}
-		//else if (i == 5)
-		//{
-		//	vb = m_DragonVertexBuffer->GetGPUVirtualAddress();
-		//	ib = m_DragonIndexBuffer->GetGPUVirtualAddress();
-		//}
-		//else if (i == 0)
-		//{
-		//	vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
-		//	ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
-		//}
+			//}
+			//else if (i == 5)
+			//{
+			//	vb = m_DragonVertexBuffer->GetGPUVirtualAddress();
+			//	ib = m_DragonIndexBuffer->GetGPUVirtualAddress();
+			//}
+			//else if (i == 0)
+			//{
+			//	vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
+			//	ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
+			//}
 
-		if (i >= 8 && i < 10)
+		if (i >= 7 && i < 8)
 		{
 			vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
 			ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
 
 		}
-		else if (i >= 6 && i < 8)
+		else if (i >= 6 && i < 7)
 		{
 			vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
 			ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
@@ -3033,29 +3033,31 @@ void Renderer::CreateAccelerationStructures()
 		  XMMatrixScaling(6.0f, 1.0f, 6.0f) *
 		  XMMatrixTranslation(12.0f, 0.0f, 8.0f) },
 
-		// Sphere on the left: radius ~3 at y = 3
-		{ sphereBottomLevelBuffers.pResult,
-		  XMMatrixScaling(6.0f, 6.0f, 6.0f) *
-		  XMMatrixTranslation(-17.0f, 3.0f, -5.0f) },
+		//// Sphere on the left: radius ~3 at y = 3
+		//{ sphereBottomLevelBuffers.pResult,
+		//  XMMatrixScaling(6.0f, 6.0f, 6.0f) *
+		//  XMMatrixTranslation(-17.0f, 3.0f, -5.0f) },
 
 		// Sphere on the right: radius ~3 at y = 3
 		{ sphereBottomLevelBuffers.pResult,
-		  XMMatrixScaling(6.0f, 6.0f, 6.0f) *
-		  XMMatrixTranslation(25.0f, 3.0f, -5.0f) },
+		  XMMatrixScaling(25.0f, 25.0f, 25.0f) *
+		  XMMatrixTranslation(25.0f, 12.5f, 25.0f) },
 
-		// Skull on the right
-		{ skull0BottomLevelBuffers.pResult,
-		  XMMatrixScaling(4.0f, 4.0f, 4.0f) *
-		  XMMatrixTranslation(12.0f, 2.0f, 8.0f) },
+		//// Skull on the right
+		//{ skull0BottomLevelBuffers.pResult,
+		//  XMMatrixScaling(4.0f, 4.0f, 4.0f) *
+		//  XMMatrixTranslation(12.0f, 2.0f, 8.0f) },
 
 		// Skull on the left
 		{ skull0BottomLevelBuffers.pResult,
-		  XMMatrixScaling(4.0f, 4.0f, 4.0f) *
-		  XMMatrixTranslation(-20.0f, 2.0f, 15.0f) },
+		  XMMatrixScaling(5.0f, 5.0f, 5.0f) *
+		  XMMatrixTranslation(-33.0f, 2.5f, 15.0f) },
 
 		{ bottomLevelBuffers.pResult,
+		  XMMatrixRotationY(8.0 * XM_PIDIV2) *
 		  XMMatrixScaling(30.0f, 30.0f, 30.0f) *
-		  XMMatrixTranslation(7.0f, 10.0f, -20.0f)}
+		  XMMatrixTranslation(7.0f, 10.0f, -27.0f)
+		  }
 
 		//{ bottomLevelBuffers.pResult,
 		//  XMMatrixScaling(1.0f, 1.0f, 1.0f) *
@@ -3335,7 +3337,7 @@ void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 void Renderer::CreateAreaLightConstantBuffer()
 {
 	m_AreaLightData.Position = XMFLOAT3(0.0f, 55.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(15.0f, 15.0f, 15.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(25.0f, 25.0f, 25.0f);
 	m_AreaLightData.U = XMFLOAT3(12.0f, 0.0f, 0.0f);
 	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 12.0f);
 
@@ -3554,7 +3556,7 @@ void Renderer::RenderImGuiDebugWindow()
 {
 	ImGui::Begin("Settings");
 	ImGui::Text("Exposure");
-	ImGui::SliderInt("Exposure", &m_Exposure, 0, 10);
+	ImGui::SliderFloat("Exposure", &m_Exposure, 0, 10);
 	ImGui::Text("Tone Mapping Mode");
 	ImGui::SliderInt("Tone Mapping Mode", &m_ToneMapMode, 0, 2);
 	ImGui::Text("Debug Mode");
