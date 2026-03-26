@@ -415,10 +415,11 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     float3 LdContrib = 0.0f;
     
     LightSample lightSample = SampleAreaLight(pW, N, payload.seed);
+    const float shadowEpsilon = 1e-3f;
     
     if (lightSample.pdf > 0.0f)
     {
-        bool occluded = IsOccluded(pW + N * 0.1f, lightSample.dir, lightSample.dist - 1e-4f);
+        bool occluded = IsOccluded(pW + N * shadowEpsilon, lightSample.dir, lightSample.dist - 1e-4f);
  
         if (!occluded)
         {
@@ -431,24 +432,18 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
                 float3 f = EvaluateDisneyBRDF(mat, N, V, L);
                 float pdfBSDF = PdfDisneyBRDF(mat, N, V, L);
                 
-                if (pdfBSDF <= 0.0f)
-                {
-                    pdfBSDF = 0.0f;
-                }
+                pdfBSDF = max(pdfBSDF, 0.0f);
+                
                 if (pdfBSDF > 0.0f)
                 {
-                    // Multiple importance sampling weight (balance heuristic)
+                    // Multiple importance sampling weight (power heuristic)
                     float pdfLight = lightSample.pdf;
                     float pdfL2 = pdfLight * pdfLight;
                     float pdfBSDF2 = pdfBSDF * pdfBSDF;
                 
-                    float wLight = pdfL2 / max(pdfL2 + pdfBSDF2, 1e-4f);
+                    float wLight = pdfL2 / max(pdfL2 + pdfBSDF2, 1e-8f);
                 
-                    wLight = saturate(wLight);
-                    wLight = lerp(0.01f, 0.99f, wLight);
-                
-                    //LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
-                    
+                                    
                     LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
 
     

@@ -324,7 +324,7 @@ private:
 	void CreatePerInstanceBuffers();
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_PerInstanceCBs;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_TriMatIndexCB;
-	UINT m_PerInstanceCBCount = 9;
+	UINT m_PerInstanceCBCount = 10;
 	UINT m_SkullCount = 1;
 	UINT m_SphereCount = 1;
 	void LoadTextures(Model& model);
@@ -355,6 +355,7 @@ private:
 	{
 		1,  // floor -> white
 		0,  // ceiling -> white
+		6,  // arealight -> olive
 		0,  // back/front wall -> white
 		7,  // left wall -> red
 		4,  // right wall -> green

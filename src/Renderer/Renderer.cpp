@@ -153,12 +153,12 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateCameraBuffer();
 	CreateFrameIndexRNGCBuffer();
 
+	CreateAreaLightConstantBuffer();
 	CreateAccelerationStructures();
 	CreateRaytracingPipeline();
 	CreatePerInstanceBuffers();
 	CreateGlobalConstantBuffer();
 	CreatePostProcessConstantBuffer();
-	CreateAreaLightConstantBuffer();
 	CreateRaytracingOutputBuffer();
 	CreatePresentUAV();
 	CreateAccumulationBuffer();
@@ -1321,7 +1321,7 @@ void Renderer::BuildMaterials()
 	tile1->Name = "tile1";
 	tile1->MatCBIndex = 6;
 	tile1->DiffuseSrvHeapIndex = 2;
-	tile1->DiffuseAlbedo = XMFLOAT4(Colors::DarkSlateGray);
+	tile1->DiffuseAlbedo = XMFLOAT4(Colors::Olive);
 	tile1->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile1->Roughness = 0.8f;
 	tile1->metallic = 0.05f;
@@ -2839,19 +2839,19 @@ void Renderer::CreateShaderBindingTable()
 			//	ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
 			//}
 
-		if (i >= 7 && i < 8)
+		if (i >= 8 && i < 9)
 		{
 			vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
 			ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
 
 		}
-		else if (i >= 6 && i < 7)
+		else if (i >= 7 && i < 8)
 		{
 			vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
 			ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 
 		}
-		else if (i < 6)
+		else if (i < 7)
 		{
 			vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
 			ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
@@ -3001,11 +3001,11 @@ void Renderer::CreateAccelerationStructures()
 		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
 		  XMMatrixTranslation(0.0f, 60.0f, 0.0f) },
 
-		//// Back wall (z = -20), normal pointing into the box (+Z)
-		//{ planeBottomLevelBuffers.pResult,
-		//  XMMatrixScaling(50.0f, 1.0f, 50.0f) *
-		//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(-90.0f)) *
-		//  XMMatrixTranslation(0.0f, 60.0f, -120.0f) },
+		// AreaLight
+		{ planeBottomLevelBuffers.pResult,
+		  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
+		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f))*
+		  XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z)},
 
 		// Front wall (z = +20), normal pointing into the box (-Z)
 		{ planeBottomLevelBuffers.pResult,
@@ -3113,10 +3113,10 @@ void Renderer::CreatePlaneGeometry()
 {
 	Vertex planeVertices[] =
 	{
-		{{-1.5f, -0.8f,  1.5f}, { 0.0f, -1.0f, 0.0f }}, // 0
-		{{-1.5f, -0.8f, -1.5f}, { 0.0f, -1.0f, 0.0f }}, // 1
-		{{ 1.5f, -0.8f,  1.5f}, { 0.0f, -1.0f, 0.0f }}, // 2
-		{{ 1.5f, -0.8f, -1.5f}, { 0.0f, -1.0f, 0.0f }}, // 3
+		{{-1.0f, 0.0f,  1.0f}, { 0.0f, -1.0f, 0.0f }}, // 0
+		{{-1.0f, 0.0f, -1.0f}, { 0.0f, -1.0f, 0.0f }}, // 1
+		{{ 1.0f, 0.0f,  1.0f}, { 0.0f, -1.0f, 0.0f }}, // 2
+		{{ 1.0f, 0.0f, -1.0f}, { 0.0f, -1.0f, 0.0f }}, // 3
 	};
 
 	// Two triangles: (0,1,2) and (2,1,3) – matches your original winding
