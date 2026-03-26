@@ -439,6 +439,14 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     if (mat.TexIndex >= 0)
         mat.DiffuseAlbedo = textures[mat.TexIndex].SampleLevel(sampAniso, uv, 0);
     
+    payload.hitSomething = 1;
+    
+    if (payload.depth == 1)
+    {
+        payload.firstHitAlbedo = mat.DiffuseAlbedo;
+        payload.firstHitValid = 1;
+    })
+    
     if (mat.isEmissive)
     {
         float3 Le = mat.EmissiveColor;

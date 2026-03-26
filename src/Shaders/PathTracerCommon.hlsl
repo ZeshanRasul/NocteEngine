@@ -24,7 +24,9 @@ struct PathPayload
     float prevBsdfPdf;
     float3 prevHitPos;
     uint lastBounceWasDelta;
-    uint pad; // keep payload size aligned
+    float3 firstHitAlbedo;
+    uint firstHitValid;
+    uint hitSomething; // keep payload size aligned
 };
 
 struct Attributes

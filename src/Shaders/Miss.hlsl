@@ -26,7 +26,8 @@ void Miss(inout PathPayload payload)
     //}
     
     payload.emission = envColor;
-    
+    payload.hitSomething = 0;
+    payload.firstHitAlbedo = 0.0f;
     payload.bsdfOverPdf = 0.0f;
     payload.pdf = 1.0f;
     payload.done = 1;
