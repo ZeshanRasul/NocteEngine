@@ -12,6 +12,8 @@ struct BSDFSample
     float3 fOverPdf; // (f_spec + f_diff) * NdotL / pdf_total
     float pdf; // total pdf of sampling this wi
     bool valid;
+    int delta;
+    float3 pad;
 };
 
 // Cosine hemisphere pdf
@@ -90,7 +92,7 @@ BSDFSample SampleDisneyGGX(
     s.wi = 0.0;
     s.fOverPdf = 0.0;
     s.pdf = 1.0;
-
+    s.delta = 0;
     float roughness = saturate(mat.Roughness);
 
     // Compute weights for picking a lobe.
@@ -115,6 +117,7 @@ BSDFSample SampleDisneyGGX(
         float3 HLocal = SampleGGXVNDF(VLocal, xiRemap, roughness);
         float3 LLocal = reflect(-VLocal, HLocal);
         L = normalize(mul(LLocal, frame));
+        s.delta = 1;
     }
     else
     {

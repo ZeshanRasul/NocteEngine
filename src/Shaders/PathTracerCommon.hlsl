@@ -21,6 +21,9 @@ struct PathPayload
     uint depth; // bounce depth
     uint done; // 0 = continue, 1 = terminate
     uint seed; // RNG state
+    float prevBsdfPdf;
+    float3 prevHitPos;
+    uint lastBounceWasDelta;
     uint pad; // keep payload size aligned
 };
 

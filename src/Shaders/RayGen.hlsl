@@ -73,7 +73,7 @@ void RayGen()
     payload.depth = 0;
     payload.done = 0;
     payload.seed = seed;
-    
+    payload.lastBounceWasDelta = 0;
     RayDesc ray;
     ray.Origin = originWS;
     ray.Direction = dirWS;
