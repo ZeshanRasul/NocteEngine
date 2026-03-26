@@ -436,6 +436,32 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     if (mat.TexIndex >= 0)
         mat.DiffuseAlbedo = textures[mat.TexIndex].SampleLevel(sampAniso, uv, 0);
     
+    if (mat.isEmissive)
+    {
+        float3 Le = mat.EmissiveColor;
+        
+        if (payload.depth == 1)
+        {
+            payload.emission = Le;
+        }
+        else if (payload.lastBounceWasDelta != 0)
+        {
+            payload.emission = Le;
+        }
+        else
+        {
+            float3 wi = normalize(payload.hitPos - payload.prevHitPos);
+            float pdfLight = RectAreaLightPdf(payload.prevHitPos, wi);
+            float pdfBSDF = payload.prevBsdfPdf;
+            
+            float wBSDF = PowerHeuristic(pdfBSDF, pdfLight);
+            payload.emission = wBSDF * Le;
+        }
+        
+        payload.done = 1;
+        return;
+    }
+    
     // Refractive materials (glass) – handle with dedicated BSDF
     if (mat.IsRefractive != 0)
     {
@@ -487,7 +513,6 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
                 
                                     
                     LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
-
     
                 }
             }
@@ -499,43 +524,13 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
 
     
     BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);
-    
-    payload.prevBsdfPdf = bsdf.pdf;
-    payload.prevHitPos = payload.hitPos;
-    payload.lastBounceWasDelta = bsdf.delta ? 1 : 0;
    
-    if (mat.isEmissive)
-    {
-        float3 Le = mat.EmissiveColor;
-        
-        if (payload.depth == 0)
-        {
-            payload.emission = Le;
-        }
-        else if (payload.lastBounceWasDelta != 0)
-        {
-            payload.emission = Le;
-        }
-        else
-        {
-            float3 wi = normalize(payload.hitPos - payload.prevHitPos);
-            float pdfLight = RectAreaLightPdf(payload.prevHitPos, wi);
-            float pdfBSDF = payload.prevBsdfPdf;
-            
-            float wBSDF = PowerHeuristic(pdfBSDF, pdfLight);
-            payload.emission = wBSDF * Le;
-        }
-        
-        payload.done = 1;
-        return;
-    }
-    
     if (!bsdf.valid || all(bsdf.fOverPdf == 0.0f))
     {
         payload.done = 1;
         return;
     }
-
+    
     float3 fOverPdf = bsdf.fOverPdf;
     float maxBsdfLum = 20.0f; // try 10–50, tweak later
 
@@ -549,8 +544,13 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     payload.bsdfOverPdf = bsdf.fOverPdf;
     payload.pdf = bsdf.pdf;
     
-//    float3 selfEmit = 0.0f;
-//    payload.emission = selfEmit + LdContrib;
+    float3 selfEmit = 0.0f;
+    payload.emission = selfEmit + LdContrib;
+    
+    payload.prevBsdfPdf = bsdf.pdf;
+    payload.prevHitPos = payload.hitPos;
+    payload.lastBounceWasDelta = bsdf.delta ? 1 : 0;
+   
     
     // Stop if pdf is invalid or if throughput will be zero
     if (all(bsdf.fOverPdf == 0.0f) || bsdf.pdf <= 0.0f)
