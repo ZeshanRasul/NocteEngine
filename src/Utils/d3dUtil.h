@@ -142,7 +142,8 @@ struct Material
     float metallic = 0.01f;
     DirectX::XMFLOAT4X4 MatTransform = MathHelper::Identity4x4();
     UINT IsRefractive = 0;
-    DirectX::XMFLOAT2 pad2 = { 0.0f, 0.0f };
+    DirectX::XMFLOAT3 emission = { 0.0f, 0.0f, 0.0f };
+	int isEmissive = 0;
 };
 
 struct Texture

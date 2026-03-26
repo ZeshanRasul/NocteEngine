@@ -130,6 +130,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	BuildShapeGeometry();
 	BuildSkullGeometry();
 	CreatePlaneGeometry();
+	CreateAreaLightConstantBuffer();
 	BuildMaterials();
 	BuildRenderItems();
 
@@ -153,7 +154,6 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateCameraBuffer();
 	CreateFrameIndexRNGCBuffer();
 
-	CreateAreaLightConstantBuffer();
 	CreateAccelerationStructures();
 	CreateRaytracingPipeline();
 	CreatePerInstanceBuffers();
@@ -1326,6 +1326,8 @@ void Renderer::BuildMaterials()
 	tile1->Roughness = 0.8f;
 	tile1->metallic = 0.05f;
 	tile1->IsReflective = false;
+	tile1->emission = m_AreaLightData.Radiance;
+	tile1->isEmissive = 1;
 
 	auto tile2 = std::make_unique<Material>();
 	tile2->Name = "tile2";
@@ -3414,6 +3416,8 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.isRefractive = mat->IsRefractive;
 		matGpu.pad3 = 0.0f;
 		matGpu.TexIndex = -1;
+		matGpu.isEmissive = mat->isEmissive;
+		matGpu.Emission = mat->emission;
 		m_MaterialsGPU.push_back(std::move(matGpu));
 	}
 

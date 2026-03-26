@@ -453,7 +453,13 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     }
       
     float3 ambient = float3(0.04, 0.04, 0.04);
-    payload.emission += 0.0;
+    
+    if (mat.isEmissive)
+    {
+        payload.emission += mat.EmissiveColor;
+        payload.done = 1;
+        return;
+    }
     
     BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);
     

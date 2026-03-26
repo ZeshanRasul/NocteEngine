@@ -104,6 +104,8 @@ struct MaterialDataGPU
 	UINT isRefractive = 0;
 	float pad3;
 	int TexIndex = -1;
+	int isEmissive = 0;
+	DirectX::XMFLOAT3 Emission = { 0.0f, 0.0f, 0.0f };
 };
 
 struct RenderItem

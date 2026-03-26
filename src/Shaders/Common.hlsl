@@ -26,6 +26,8 @@ struct Material
     uint IsRefractive;
     float pad2;
     int TexIndex;
+    int isEmissive;
+    float3 EmissiveColor;
 };
 
 struct ShadowPayload
