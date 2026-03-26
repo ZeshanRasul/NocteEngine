@@ -230,6 +230,7 @@ private:
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_NormalTex;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_DepthTex;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_AlbedoTex;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_DenoisePing;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_DenoisePong;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_DenoiseCB;

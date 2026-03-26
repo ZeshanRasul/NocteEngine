@@ -443,9 +443,9 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     if (payload.depth == 1)
     {
-        payload.firstHitAlbedo = mat.DiffuseAlbedo;
+        payload.firstHitAlbedo = mat.DiffuseAlbedo.rgb;
         payload.firstHitValid = 1;
-    })
+    }
     
     if (mat.isEmissive)
     {

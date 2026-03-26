@@ -153,6 +153,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateComputePipelineStateObjects();
 	CreateCameraBuffer();
 	CreateFrameIndexRNGCBuffer();
+	CreateDenoisingResources();
 
 	CreateAccelerationStructures();
 	CreateRaytracingPipeline();
@@ -162,7 +163,6 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRaytracingOutputBuffer();
 	CreatePresentUAV();
 	CreateAccumulationBuffer();
-	CreateDenoisingResources();
 	CreateShaderResourceHeap();
 	CreateShaderResourceCPUHeap();
 	CreateSamplerHeap();
@@ -448,13 +448,18 @@ void Renderer::Draw(bool useRaster)
 
 	// Normal/Depth: UAV -> SRV
 	{
-		D3D12_RESOURCE_BARRIER barriers[2];
+		D3D12_RESOURCE_BARRIER barriers[3];
 		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
 			m_NormalTex.Get(),
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
 			m_DepthTex.Get(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	//	m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+		barriers[2] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_AlbedoTex.Get(),
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
@@ -823,7 +828,7 @@ void Renderer::Draw(bool useRaster)
 	}
 
 	{
-		D3D12_RESOURCE_BARRIER barriers[2];
+		D3D12_RESOURCE_BARRIER barriers[3];
 
 		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
 			m_NormalTex.Get(),
@@ -832,6 +837,10 @@ void Renderer::Draw(bool useRaster)
 
 		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
 			m_DepthTex.Get(),
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		barriers[2] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_AlbedoTex.Get(),
 			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
@@ -1980,6 +1989,9 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
 		{ 2, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 5},
 		{ 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 6},
 		{ 1, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 26},
+		{ 4, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 82},
+		{ 2, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 83},
+
 		}
 	);
 	rsc.AddHeapRangesParameter(
@@ -2079,7 +2091,7 @@ void Renderer::CreateRaytracingOutputBuffer()
 
 void Renderer::CreateShaderResourceCPUHeap()
 {
-	m_SrvUavCPUHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 6, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, false);
+	m_SrvUavCPUHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 8, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, false);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavCPUHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -2159,7 +2171,7 @@ void Renderer::CreateSamplerHeap()
 
 void Renderer::CreateShaderResourceHeap()
 {
-	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 81, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 83, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -2396,7 +2408,6 @@ void Renderer::CreateShaderResourceHeap()
 	{
 		tex2DList.push_back(tex->Resource);
 	}
-	srvDesc = {};
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc.Texture2D.MostDetailedMip = 0;
@@ -2412,6 +2423,27 @@ void Renderer::CreateShaderResourceHeap()
 		srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	}
+
+	uavDesc = {};
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+	uavDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	m_AlbedoTex->SetName(L"Albedo Texture UAV");
+
+	m_Device->CreateUnorderedAccessView(m_AlbedoTex.Get(), nullptr, &uavDesc, srvHandle);
+
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	srvDesc = {};
+
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = 1;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+	srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	m_AlbedoTex->SetName(L"Albedo Texture SRV");
+	m_Device->CreateShaderResourceView(m_AlbedoTex.Get(), &srvDesc, srvHandle);
+
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 }
 
@@ -2606,7 +2638,7 @@ void Renderer::CreateDenoisingResources()
 
 	resDesc.DepthOrArraySize = 1;
 	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	resDesc.Format = DXGI_FORMAT_R32_FLOAT;
+	resDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
 
 	resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 	resDesc.Width = m_ClientWidth;
@@ -2618,7 +2650,7 @@ void Renderer::CreateDenoisingResources()
 	resDesc.Alignment = 0;
 
 
-	ThrowIfFailed(m_Device->CreateCommittedResource(&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&m_DepthTex)));
+	ThrowIfFailed(m_Device->CreateCommittedResource(&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&m_AlbedoTex)));
 
 
 }
@@ -3025,7 +3057,7 @@ void Renderer::CreateAccelerationStructures()
 		// AreaLight
 		{ planeBottomLevelBuffers.pResult,
 		  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
-		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f))*
+		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
 		  XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z)},
 
 		// Front wall (z = +20), normal pointing into the box (-Z)
