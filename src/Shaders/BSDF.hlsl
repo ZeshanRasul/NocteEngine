@@ -117,7 +117,6 @@ BSDFSample SampleDisneyGGX(
         float3 HLocal = SampleGGXVNDF(VLocal, xiRemap, roughness);
         float3 LLocal = reflect(-VLocal, HLocal);
         L = normalize(mul(LLocal, frame));
-        s.delta = 1;
     }
     else
     {

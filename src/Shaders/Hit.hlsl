@@ -172,6 +172,9 @@ void HandleRefractiveHit(
 
     // Glass itself does not emit
     payload.emission = 0.0f;
+    
+    payload.prevBsdfPdf = 1.0f; // for MIS at next hit
+    payload.prevHitPos = payload.hitPos;
     payload.lastBounceWasDelta = 1;
     // If we somehow ended with zero weight, terminate
     if (all(weight <= 0.0f))
