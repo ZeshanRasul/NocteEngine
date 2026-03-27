@@ -137,6 +137,7 @@ private:
 	XMFLOAT4X4 m_View = MathHelper::Identity4x4();
 	XMFLOAT4X4 m_PrevView = MathHelper::Identity4x4();
 	XMFLOAT4X4 m_Proj = MathHelper::Identity4x4();
+	XMFLOAT4X4 m_PrevViewProj = MathHelper::Identity4x4();
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_RootSignature;
 	std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID3D12PipelineState>> m_PipelineStateObjects;

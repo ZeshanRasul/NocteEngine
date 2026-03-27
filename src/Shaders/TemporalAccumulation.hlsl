@@ -1,3 +1,15 @@
+struct Light
+{
+    float3 Strength;
+    float FalloffStart;
+    float3 Direction;
+    float FalloffEnd;
+    float3 Position;
+    float SpotPower;
+};
+
+#define MaxLights 16
+
 cbuffer DenoiseParams : register(b0)
 {
     float gColorSigma;
@@ -17,6 +29,28 @@ cbuffer PostProcess : register(b1)
     int DebugMode;
     int IsLastPass;
 }
+
+cbuffer cbPass : register(b2)
+{
+    float4x4 gView;
+    float4x4 gInvView;
+    float4x4 gProj;
+    float4x4 gInvProj;
+    float4x4 gViewProj;
+    float4x4 gInvViewProj;
+    float4x4 gPrevViewProj;
+    float3 gEyePosW;
+    float cbPerObjectPad1;
+    float2 gRenderTargetSize;
+    float2 gInvRenderTargetSize;
+    float gNearZ;
+    float gFarZ;
+    float cbPerObjectPad2;
+    float cbPerObjectPad3;
+    float4 gAmbientLight;
+    
+    Light gLights[MaxLights];
+};
 
 Texture2D<float4> Input : register(t0);
 Texture2D<float4> HistoryRadiance : register(t7);

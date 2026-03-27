@@ -435,6 +435,7 @@ void Renderer::Draw(bool useRaster)
 	else
 	{
 		useHistory = 1;
+
 	}
 
 	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
@@ -738,6 +739,7 @@ void Renderer::Draw(bool useRaster)
 		const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, uavIndex, m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootConstantBufferView(8, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
 		m_CommandList->SetComputeRootConstantBufferView(9, m_PostProcessConstantBuffer[pass]->GetGPUVirtualAddress()); // denoise step
+		m_CommandList->SetComputeRootConstantBufferView(10, m_GlobalConstantBuffer->GetGPUVirtualAddress()); // scene data like view/proj matrices
 		m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
 		const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvIndex, m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
@@ -1929,6 +1931,8 @@ void Renderer::UpdateMainPassCB()
 	XMStoreFloat4x4(&m_MainPassCB.InvProj, XMMatrixTranspose(invProj));
 	XMStoreFloat4x4(&m_MainPassCB.ViewProj, XMMatrixTranspose(viewProj));
 	XMStoreFloat4x4(&m_MainPassCB.InvViewProj, XMMatrixTranspose(invViewProj));
+	XMStoreFloat4x4(&m_MainPassCB.PrevViewProj, XMLoadFloat4x4(&m_PrevViewProj));
+
 
 	m_MainPassCB.EyePosW = m_EyePos;
 	m_MainPassCB.cbPerObjectPad1 = 0.5f;
@@ -1949,6 +1953,7 @@ void Renderer::UpdateMainPassCB()
 
 	auto currPassCB = m_CurrentFrameResource->PassCB.get();
 	currPassCB->CopyData(0, m_MainPassCB);
+	XMStoreFloat4x4(&m_PrevViewProj, viewProj);
 };
 
 void Renderer::CreateVertexBufferView()
@@ -2687,7 +2692,7 @@ void Renderer::CreateComputeRootSignature()
 	CD3DX12_DESCRIPTOR_RANGE table8 = {};
 	table8.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 8, 0, 0);
 
-	CD3DX12_ROOT_PARAMETER slotRootParameter[10];
+	CD3DX12_ROOT_PARAMETER slotRootParameter[11];
 	slotRootParameter[0].InitAsDescriptorTable(1, &table);
 	slotRootParameter[1].InitAsDescriptorTable(1, &table2);
 	slotRootParameter[2].InitAsDescriptorTable(1, &table3);
@@ -2698,9 +2703,10 @@ void Renderer::CreateComputeRootSignature()
 	slotRootParameter[7].InitAsDescriptorTable(1, &table8);
 	slotRootParameter[8].InitAsConstantBufferView(0);
 	slotRootParameter[9].InitAsConstantBufferView(1);
+	slotRootParameter[10].InitAsConstantBufferView(2);
 
 
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(10, slotRootParameter,
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(11, slotRootParameter,
 		0, nullptr,
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 

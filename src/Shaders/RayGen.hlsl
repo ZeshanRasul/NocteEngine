@@ -21,6 +21,7 @@ cbuffer cbPass : register(b0)
     float4x4 gInvProj;
     float4x4 gViewProj;
     float4x4 gInvViewProj;
+    float4x4 gPrevViewProj;
     float3 gEyePosW;
     float cbPerObjectPad1;
     float2 gRenderTargetSize;
