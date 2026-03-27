@@ -262,10 +262,10 @@ private:
 
 	int m_DenoiseStep = 1;
 	int m_DenoisePasses = 5;
-	float m_SigmaColor = 2.5f;
-	float m_SigmaAlbedo = 0.15f;
-	float m_SigmaNormal = 11.0f;
-	float m_SigmaDepth = 12.5f;
+	float m_SigmaColor = 0.1f;
+	float m_SigmaAlbedo = 0.11f;
+	float m_SigmaNormal = 6.0f;
+	float m_SigmaDepth = 6.5f;
 	int useHistory = 1;
 
 	void CreateDenoiseConstantBuffer();

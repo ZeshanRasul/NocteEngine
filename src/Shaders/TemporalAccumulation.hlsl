@@ -46,6 +46,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
         TARadiance[coord] = float4(C, 1.0f);
         FirstMomentNew[coord] = float4(C, 1.0f);
         SecondMomentNew[coord] = float4(C * C, 1.0f);
+        Output[coord] = float4(C, 1.0f);
         return;
     }
 
@@ -55,7 +56,23 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     float3 m2Prev = SecondMomentOld[coord].rgb;
 
     float alpha = 0.15f;
+    
+    float3 minC = 1000000;
+    float3 maxC = -1000000;
 
+    for (int j = -1; j <= 1; ++j)
+    {
+    
+        for (int i = -1; i <= 1; ++i)
+        {
+            int2 p = clamp(coord + int2(i, j), int2(0, 0), dim - 1);
+            float3 c = Input[p].rgb;
+            minC = min(minC, c);
+            maxC = max(maxC, c);
+        }
+    }
+    
+    history = clamp(history, minC, maxC);
     float3 accumulated = lerp(history, C, alpha);
     float3 m1 = lerp(m1Prev, C, alpha);
     float3 m2 = lerp(m2Prev, C * C, alpha);
@@ -63,4 +80,6 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     TARadiance[coord] = float4(accumulated, 1.0f);
     FirstMomentNew[coord] = float4(m1, 1.0f);
     SecondMomentNew[coord] = float4(m2, 1.0f);
+    Output[coord] = float4(accumulated, 1.0f);
+
 }
