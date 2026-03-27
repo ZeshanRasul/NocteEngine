@@ -82,22 +82,36 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     float4 currClip;
     currClip.xy = uv * 2.0f - 1.0f;
-    currClip.y *= -1.0f; // depends on convention
+    currClip.y = (1.0f - uv.y) * 2.0f - 1.0f;
     currClip.z = depth;
     currClip.w = 1.0f;
 
     float4 worldH = mul(currClip, gInvViewProj);
-    float3 worldPos = worldH.xyz / worldH.w;
     
+    bool worldValid =
+    isfinite(worldH.x) &&
+    isfinite(worldH.y) &&
+    isfinite(worldH.z) &&
+    isfinite(worldH.w) &&
+    abs(worldH.w) > 1e-6f;
+
+    if (!worldValid)
+    {
+        TARadiance[coord] = float4(1, 0, 1, 1);
+        return;
+    }
+    
+    float3 worldPos = worldH.xyz / worldH.w;
+
     float4 prevClip = mul(float4(worldPos, 1.0f), gPrevViewProj);
+    bool valid =
+    isfinite(prevClip.x) &&
+    isfinite(prevClip.y) &&
+    isfinite(prevClip.z) &&
+    isfinite(prevClip.w) &&
+    abs(prevClip.w) > 1e-6f;
 
-    bool valid = prevClip.w > 0.0f;
 
-    float2 prevUV = prevClip.xy / prevClip.w;
-    prevUV = prevUV * 0.5f + 0.5f;
-    prevUV.y = 1.0f - prevUV.y; // if needed
-
-    valid = all(prevUV >= 0.0f) && all(prevUV <= 1.0f);
     
     float3 C = Input[coord].rgb;
 
@@ -109,45 +123,83 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
         Output[coord] = float4(C, 1.0f);
         return;
     }
+    if (!valid)
+    {
+        TARadiance[coord] = float4(1, 0, 0.5, 1);
+        Output[coord] = float4(1, 0, 0.5, 1);
+        return;
+    }
+    
+    float2 prevUV = prevClip.xy / prevClip.w;
+    prevUV = prevUV * 0.5f + 0.5f;
+    prevUV.y = 1.0f - prevUV.y; // if needed
 
+    valid = valid && all(prevUV >= 0.0f) && all(prevUV <= 1.0f);
     
     float3 history = C;
+    float3 m1Prev = C;
+    float3 m2Prev = C;
 
     if (valid)
     {
         history = HistoryRadiance.SampleLevel(LinearClampSampler, prevUV, 0).rgb;
+        m1Prev = FirstMomentOld.SampleLevel(LinearClampSampler, prevUV, 0).rgb;
+        m2Prev = SecondMomentOld.SampleLevel(LinearClampSampler, prevUV, 0).rgb;
     }
     
-    float3 m1Prev = FirstMomentOld[coord].rgb;
-    float3 m2Prev = SecondMomentOld[coord].rgb;
 
-    float alpha = valid ? 0.1f : 1.0f;
-    float3 accumulated = lerp(history, C, alpha);
     
-    float3 minC = 1000000;
-    float3 maxC = -1000000;
+    float3 mu = 0;
+    float3 var = 0;
 
+// mean
     for (int j = -1; j <= 1; ++j)
     {
-    
         for (int i = -1; i <= 1; ++i)
         {
             int2 p = clamp(coord + int2(i, j), int2(0, 0), dim - 1);
             float3 c = Input[p].rgb;
-            minC = min(minC, c);
-            maxC = max(maxC, c);
+            mu += c;
         }
     }
-    
-    history = clamp(history, minC, maxC);
+    mu /= 9.0;
+
+// variance
+    for (int j = -1; j <= 1; ++j)
+    {
+        for (int i = -1; i <= 1; ++i)
+        {
+            int2 p = clamp(coord + int2(i, j), int2(0, 0), dim - 1);
+            float3 c = Input[p].rgb;
+            float3 d = c - mu;
+            var += d * d;
+        }
+    }
+    var /= 9.0;
+
+    float3 sigma = sqrt(var);
+
+// clamp
+    float k = 1.0;
+    history = clamp(history, mu - k * sigma, mu + k * sigma);
  //   float3 accumulated = lerp(history, C, alpha);
+    
+    float alpha = valid ? 0.1f : 1.0f;
+    float3 accumulated = lerp(history, C, alpha);
+    
     float3 m1 = lerp(m1Prev, C, alpha);
     float3 m2 = lerp(m2Prev, C * C, alpha);
 
+    bool inBounds =
+    prevUV.x >= 0.0f && prevUV.x <= 1.0f &&
+    prevUV.y >= 0.0f && prevUV.y <= 1.0f;
+
+ //   TARadiance[coord] = inBounds ? float4(prevUV, 0, 1) : float4(1, 0, 0, 1);
+ //   Output[coord] = inBounds ? float4(prevUV, 0, 1) : float4(1, 0, 0, 1);
     TARadiance[coord] = float4(accumulated, 1.0f);
     FirstMomentNew[coord] = float4(m1, 1.0f);
     SecondMomentNew[coord] = float4(m2, 1.0f);
-//    Output[coord] = float4(accumulated, 1.0f);
     Output[coord] = float4(accumulated, 1.0f);
+//    Output[coord] = float4(accumulated, 1.0f);
 
 }

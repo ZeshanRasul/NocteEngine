@@ -562,6 +562,7 @@ void Renderer::Draw(bool useRaster)
 		// RootParam[7] & [8]: CBVs
 		m_CommandList->SetComputeRootConstantBufferView(9, m_DenoiseCB->GetGPUVirtualAddress());
 		m_CommandList->SetComputeRootConstantBufferView(10, m_PostProcessConstantBuffer[0]->GetGPUVirtualAddress());
+		m_CommandList->SetComputeRootConstantBufferView(11, m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress());
 
 		UINT gx = (m_ClientWidth + 7) / 8;
 		UINT gy = (m_ClientHeight + 7) / 8;
@@ -1943,7 +1944,7 @@ void Renderer::UpdateMainPassCB()
 	XMStoreFloat4x4(&m_MainPassCB.InvProj, XMMatrixTranspose(invProj));
 	XMStoreFloat4x4(&m_MainPassCB.ViewProj, XMMatrixTranspose(viewProj));
 	XMStoreFloat4x4(&m_MainPassCB.InvViewProj, XMMatrixTranspose(invViewProj));
-	XMStoreFloat4x4(&m_MainPassCB.PrevViewProj, XMLoadFloat4x4(&m_PrevViewProj));
+	XMStoreFloat4x4(&m_MainPassCB.PrevViewProj, XMMatrixTranspose(XMLoadFloat4x4(&m_PrevViewProj)));
 
 
 	m_MainPassCB.EyePosW = m_EyePos;
