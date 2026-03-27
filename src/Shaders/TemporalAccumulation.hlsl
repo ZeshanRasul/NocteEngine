@@ -138,7 +138,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     
     float3 history = C;
     float3 m1Prev = C;
-    float3 m2Prev = C;
+    float3 m2Prev = C * C;
 
     if (valid)
     {
@@ -180,11 +180,11 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     float3 sigma = sqrt(var);
 
 // clamp
-    float k = 1.0;
+    float k = 0.75;
     history = clamp(history, mu - k * sigma, mu + k * sigma);
  //   float3 accumulated = lerp(history, C, alpha);
     
-    float alpha = valid ? 0.1f : 1.0f;
+    float alpha = valid ? 0.01f : 1.0f;
     float3 accumulated = lerp(history, C, alpha);
     
     float3 m1 = lerp(m1Prev, C, alpha);

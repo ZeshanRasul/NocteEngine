@@ -180,8 +180,8 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
 	//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 	//	m_OldFirstMomentBuffer.Get(),
-	//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-	//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+	//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+	//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 	//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 	//	m_SecondMomentBuffer.Get(),
 	//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
@@ -347,7 +347,7 @@ void Renderer::Draw(bool useRaster)
 	desc.Height = m_ClientHeight;
 	desc.Depth = 1;
 
-	auto nearlyEqual = [](float a, float b, float eps = 1e-4f)
+	auto nearlyEqual = [](float a, float b, float eps = 1e-2f)
 		{
 			return fabsf(a - b) < eps;
 		};
@@ -383,7 +383,15 @@ void Renderer::Draw(bool useRaster)
 		m_CommandList->ClearUnorderedAccessViewFloat(m_AccumulationBufferUavHandleGPU, m_AccumulationBufferUavHandleCPU, m_AccumulationBuffer.Get(), clearColor, 0, nullptr);
 
 		//int oldMomentUAVIndex = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get()) ? UAV_OldFirstMoment : UAV_OldSecondMoment;
+		D3D12_RESOURCE_BARRIER barriers[1];
 
+		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_OldFirstMomentBuffer.Get(),
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+		
+		
 		//int cpuOldMomentCpuIndex = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get()) ? 1 : 2;
 		m_CommandList->ClearUnorderedAccessViewFloat(
 			CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), 24, m_CbvSrvUavDescriptorSize),
@@ -421,21 +429,20 @@ void Renderer::Draw(bool useRaster)
 			0,
 			nullptr);
 
-		m_CommandList->ClearUnorderedAccessViewFloat(
-			CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), 24, m_CbvSrvUavDescriptorSize),
-			CD3DX12_CPU_DESCRIPTOR_HANDLE(m_SrvUavCPUHeap->GetCPUDescriptorHandleForHeapStart(), 5, m_CbvSrvUavDescriptorSize),
-			m_TemporalRadianceBuffer.Get(),
-			clearColor,
-			0,
-			nullptr);
-
 		useHistory = 0;
+
+		D3D12_RESOURCE_BARRIER barriers2[1];
+
+		barriers2[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_OldFirstMomentBuffer.Get(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		m_CommandList->ResourceBarrier(_countof(barriers2), barriers2);
 
 	}
 	else
 	{
 		useHistory = 1;
-
 	}
 
 	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
@@ -468,11 +475,11 @@ void Renderer::Draw(bool useRaster)
 
 	{
 		UpdateDenoiseConstantBuffer(0, 0); // Step 1, Pass 1 (Temporal)
-		m_CommandList->SetPipelineState(m_TemporalAccumulationPSO.Get());
-		m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
-
 		ID3D12DescriptorHeap* heaps[] = { m_SrvUavHeap.Get(), m_SamplerHeap.Get()};
 		m_CommandList->SetDescriptorHeaps(_countof(heaps), heaps);
+		m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
+		m_CommandList->SetPipelineState(m_TemporalAccumulationPSO.Get());
+
 
 		// RootParam[0]: UAV u0 - not used by TA shader but bind something valid
 		auto u0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
@@ -691,9 +698,10 @@ void Renderer::Draw(bool useRaster)
 			m_FinalDenoiseBuffer = src;
 		}
 
-		m_CommandList->SetPipelineState(m_DenoisePSO.Get());
+		std::vector<ID3D12DescriptorHeap*> heaps = { m_SrvUavHeap.Get(), m_SamplerHeap.Get() };
+		m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
 		m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
-		m_CommandList->SetDescriptorHeaps(1, m_SrvUavHeap.GetAddressOf());
+		m_CommandList->SetPipelineState(m_DenoisePSO.Get());
 
 		const auto heapStart = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
 		int offsetFromStart = 0;
@@ -872,6 +880,7 @@ void Renderer::Draw(bool useRaster)
 	//std::swap(m_SecondMomentBuffer, m_OldSecondMomentBuffer);
 
 	{
+
 		D3D12_RESOURCE_BARRIER barriers[2];
 		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
 			m_FirstMomentBuffer.Get(),
