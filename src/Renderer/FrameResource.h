@@ -10,6 +10,7 @@ struct DenoiseConstants
 	float sigmaColor = 2.0f;
 	float sigmaNormal = 128.0f;
 	float sigmaDepth = 1.0f;
+	float sigmaAlbedo = 0.15f;
 	int stepWidth = 1;
 	XMFLOAT2 invResolution = { 0.0f, 0.0f };
 	int pass = 0;

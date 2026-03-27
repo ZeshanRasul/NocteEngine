@@ -49,11 +49,18 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
     }
 
-    float3 history = HistoryRadiance[coord].rgb;
-    float alpha = 0.05f;
     
+    float3 history = HistoryRadiance[coord].rgb;
+    float3 m1Prev = FirstMomentOld[coord].rgb;
+    float3 m2Prev = SecondMomentOld[coord].rgb;
+
+    float alpha = 0.15f;
+
     float3 accumulated = lerp(history, C, alpha);
+    float3 m1 = lerp(m1Prev, C, alpha);
+    float3 m2 = lerp(m2Prev, C * C, alpha);
+
     TARadiance[coord] = float4(accumulated, 1.0f);
-    FirstMomentNew[coord] = float4(accumulated, 1.0f);
-    SecondMomentNew[coord] = float4(accumulated * accumulated, 1.0f);
+    FirstMomentNew[coord] = float4(m1, 1.0f);
+    SecondMomentNew[coord] = float4(m2, 1.0f);
 }

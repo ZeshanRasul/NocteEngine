@@ -2677,8 +2677,10 @@ void Renderer::CreateComputeRootSignature()
 	table6.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 5, 0, 0);
 	CD3DX12_DESCRIPTOR_RANGE table7 = {};
 	table7.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 7, 0, 0);
+	CD3DX12_DESCRIPTOR_RANGE table8 = {};
+	table8.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 8, 0, 0);
 
-	CD3DX12_ROOT_PARAMETER slotRootParameter[9];
+	CD3DX12_ROOT_PARAMETER slotRootParameter[10];
 	slotRootParameter[0].InitAsDescriptorTable(1, &table);
 	slotRootParameter[1].InitAsDescriptorTable(1, &table2);
 	slotRootParameter[2].InitAsDescriptorTable(1, &table3);
@@ -2686,11 +2688,12 @@ void Renderer::CreateComputeRootSignature()
 	slotRootParameter[4].InitAsDescriptorTable(1, &table5);
 	slotRootParameter[5].InitAsDescriptorTable(1, &table6);
 	slotRootParameter[6].InitAsDescriptorTable(1, &table7);
-	slotRootParameter[7].InitAsConstantBufferView(0);
-	slotRootParameter[8].InitAsConstantBufferView(1);
+	slotRootParameter[7].InitAsDescriptorTable(1, &table8);
+	slotRootParameter[8].InitAsConstantBufferView(0);
+	slotRootParameter[9].InitAsConstantBufferView(1);
 
 
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(9, slotRootParameter,
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(10, slotRootParameter,
 		0, nullptr,
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
@@ -2758,6 +2761,7 @@ void Renderer::CreateDenoiseConstantBuffer()
 	denoiseConstants.sigmaColor = 2.0f;
 	denoiseConstants.sigmaNormal = 128.0f;
 	denoiseConstants.sigmaDepth = 2.0f;
+	denoiseConstants.sigmaAlbedo = 0.15f;
 	denoiseConstants.stepWidth = 1;
 	denoiseConstants.invResolution = { 0.0f, 0.0f };
 	denoiseConstants.pass = 0;
@@ -2793,6 +2797,7 @@ void Renderer::UpdateDenoiseConstantBuffer(int step, int pass)
 	denoiseConstants.sigmaColor = baseSigmaColor;
 	denoiseConstants.sigmaNormal = baseSigmaNormal;
 	denoiseConstants.sigmaDepth = baseSigmaDepth;
+	denoiseConstants.sigmaAlbedo = m_SigmaAlbedo;
 	denoiseConstants.stepWidth = m_DenoiseStep; // 1
 	denoiseConstants.invResolution = m_MainPassCB.InvRenderTargetSize;
 	denoiseConstants.pass = pass;
@@ -3047,12 +3052,12 @@ void Renderer::CreateAccelerationStructures()
 	{
 		// Floor (y = 0)
 		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+		  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
 		  XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
 
 		// Ceiling (y = 40)
 		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(50.0f, 1.0f, 50.0f) *
+		  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
 		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
 		  XMMatrixTranslation(0.0f, 60.0f, 0.0f) },
 
@@ -3392,7 +3397,7 @@ void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 void Renderer::CreateAreaLightConstantBuffer()
 {
 	m_AreaLightData.Position = XMFLOAT3(0.0f, 55.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(25.0f, 25.0f, 25.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(75.0f, 75.0f, 75.0f);
 	m_AreaLightData.U = XMFLOAT3(12.0f, 0.0f, 0.0f);
 	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 12.0f);
 
@@ -3627,6 +3632,8 @@ void Renderer::RenderImGuiDebugWindow()
 	ImGui::SliderInt("Number of Passess", &m_DenoisePasses, 0, 5);
 	ImGui::Text("Sigma Color");
 	ImGui::SliderFloat("Sigma Color", &m_SigmaColor, 0.1f, 80.0f);
+	ImGui::Text("Sigma Albedo");
+	ImGui::SliderFloat("Sigma Albedo", &m_SigmaAlbedo, 0.0f, 10.0f);
 	ImGui::Text("Sigma Normal");
 	ImGui::SliderFloat("Sigma Normal", &m_SigmaNormal, 0.1f, 128.0f);
 	ImGui::Text("Sigma Depth");

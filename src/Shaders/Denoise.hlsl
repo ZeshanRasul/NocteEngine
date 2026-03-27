@@ -3,6 +3,7 @@ cbuffer DenoiseParams : register(b0)
     float gColorSigma;
     float gNormalSigma;
     float gDepthSigma;
+    float gAlbedoSigma;
     int gStepSize;
     float2 invResolution;
     int passNum;
@@ -23,6 +24,7 @@ Texture2D<float> Depth : register(t2);
 Texture2D<float4> FirstMomentOld : register(t3);
 Texture2D<float4> SecondMomentOld : register(t4);
 Texture2D<float4> TARadiance : register(t7);
+Texture2D<float4> Albedo : register(t8);
 
 RWTexture2D<float4> Output : register(u0);
 RWTexture2D<float4> FirstMomentNew : register(u1);
@@ -106,7 +108,9 @@ float3 PostProcessColor(float3 hdrColor)
     
     float4 centerN = Normal[coord];
     float centerDepth = Depth[coord];
-
+    float4 centerAlbedo4 = Albedo[coord];
+    float3 centerAlbedo = centerAlbedo4.rgb;
+    
     // We stored normals encoded to [0,1]; decode to [-1,1]
     float3 N0 = normalize(centerN.xyz * 2.0f - 1.0f);
     float Z0 = centerDepth;
@@ -133,7 +137,7 @@ float3 PostProcessColor(float3 hdrColor)
             
             float4 n = Normal[p];
             float z = Depth[p];
-
+            float3 albedoI = Albedo[p].rgb;
             float3 Ni = normalize(n.xyz * 2.0f - 1.0f);
             float Zi = z;
 
@@ -154,13 +158,11 @@ float3 PostProcessColor(float3 hdrColor)
             nW = exp(-(nDiff2 * nDiff2) / (2.0 * gNormalSigma * gNormalSigma));
             float zW = exp(-(dz * dz) / (2.0 * gDepthSigma * gDepthSigma));
             float lW = exp(-(dl * dl) / (2.0 * gColorSigma * gColorSigma));
-            float3 diff = c.rgb - centerColor.rgb;
-            float lumDiff = abs(dot(diff, float3(0.299, 0.587, 0.114)));
-            if (lumDiff > 0.3f)
-                continue;
-            
-            float w = k * nW * zW * lW;
 
+            float3 da = albedoI - centerAlbedo;
+            float albedoDiff2 = dot(da, da);
+            float aW = exp(-(albedoDiff2) / (2.0 * gAlbedoSigma * gAlbedoSigma));
+            float w = k * pow(nW, 0.5) * pow(zW, 0.5) * pow(aW, 0.5);
             sum += c.rgb * w;
             wsum += w;
         }

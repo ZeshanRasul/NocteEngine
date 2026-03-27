@@ -263,6 +263,7 @@ private:
 	int m_DenoiseStep = 1;
 	int m_DenoisePasses = 5;
 	float m_SigmaColor = 2.5f;
+	float m_SigmaAlbedo = 0.15f;
 	float m_SigmaNormal = 11.0f;
 	float m_SigmaDepth = 12.5f;
 	int useHistory = 1;
@@ -309,7 +310,7 @@ private:
 	UINT MAX_PASSES = 5;
 	PostProcessData m_PostProcessData[5];
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_PostProcessConstantBuffer[5];
-	float m_Exposure = 0.75f;
+	float m_Exposure = 1.75f;
 	int m_ToneMapMode = 2;
 	int m_DebugMode = 0;
 	int m_IsLastPass = 0;
