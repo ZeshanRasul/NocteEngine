@@ -448,7 +448,7 @@ void Renderer::Draw(bool useRaster)
 
 	// Normal/Depth: UAV -> SRV
 	{
-		D3D12_RESOURCE_BARRIER barriers[3];
+		D3D12_RESOURCE_BARRIER barriers[2];
 		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
 			m_NormalTex.Get(),
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
@@ -458,10 +458,10 @@ void Renderer::Draw(bool useRaster)
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 	//	m_CommandList->ResourceBarrier(_countof(barriers), barriers);
-		barriers[2] = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_AlbedoTex.Get(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		//barriers[2] = CD3DX12_RESOURCE_BARRIER::Transition(
+		//	m_AlbedoTex.Get(),
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 	}
 
@@ -1989,8 +1989,8 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
 		{ 2, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 5},
 		{ 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 6},
 		{ 1, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 26},
-		{ 4, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 82},
-		{ 2, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 83},
+		{ 4, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 27},
+		{ 2, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 28},
 
 		}
 	);
@@ -2401,7 +2401,28 @@ void Renderer::CreateShaderResourceHeap()
 	m_AccumulationHistoryBuffer->SetName(L"Accumulation History SRV");
 	m_Device->CreateShaderResourceView(m_AccumulationHistoryBuffer.Get(), &srvDesc, srvHandle);
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	
+	uavDesc = {};
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+	uavDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	m_AlbedoTex->SetName(L"Albedo Texture UAV");
 
+	m_Device->CreateUnorderedAccessView(m_AlbedoTex.Get(), nullptr, &uavDesc, srvHandle);
+
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	
+	srvDesc = {};
+
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = 1;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+	srvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	m_AlbedoTex->SetName(L"Albedo Texture SRV");
+	m_Device->CreateShaderResourceView(m_AlbedoTex.Get(), &srvDesc, srvHandle);
+
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> tex2DList;
 
 	for (auto& tex : m_Textures)
@@ -2424,26 +2445,7 @@ void Renderer::CreateShaderResourceHeap()
 
 	}
 
-	uavDesc = {};
-	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-	uavDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-	m_AlbedoTex->SetName(L"Albedo Texture UAV");
 
-	m_Device->CreateUnorderedAccessView(m_AlbedoTex.Get(), nullptr, &uavDesc, srvHandle);
-
-	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	srvDesc = {};
-
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = 1;
-	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-	srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-	m_AlbedoTex->SetName(L"Albedo Texture SRV");
-	m_Device->CreateShaderResourceView(m_AlbedoTex.Get(), &srvDesc, srvHandle);
-
-	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 }
 
@@ -2638,7 +2640,7 @@ void Renderer::CreateDenoisingResources()
 
 	resDesc.DepthOrArraySize = 1;
 	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	resDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	resDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 
 	resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 	resDesc.Width = m_ClientWidth;

@@ -436,8 +436,8 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     payload.emission = 0.0f;
     
-    if (mat.TexIndex >= 0)
-        mat.DiffuseAlbedo = textures[mat.TexIndex].SampleLevel(sampAniso, uv, 0);
+    //if (mat.TexIndex >= 0)
+      //  mat.DiffuseAlbedo = textures[mat.TexIndex].SampleLevel(sampAniso, uv, 0);
     
     payload.hitSomething = 1;
     
