@@ -1989,8 +1989,6 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
 		{ 2, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 5},
 		{ 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 6},
 		{ 1, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 26},
-		{ 4, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 27},
-		{ 2, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 28},
 
 		}
 	);
@@ -2018,7 +2016,9 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 	rsc.AddHeapRangesParameter(
 		{ { 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2},
 		{ 4, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 15},
-		{ 5, 55, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 27},
+		{ 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 27},
+		{ 5, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 28},
+
 		});
 	rsc.AddHeapRangesParameter(
 		{

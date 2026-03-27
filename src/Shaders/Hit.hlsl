@@ -42,6 +42,8 @@ RaytracingAccelerationStructure SceneBVH : register(t2);
 StructuredBuffer<Material> materials : register(t3);
 StructuredBuffer<int> matIndices : register(t4);
 Texture2D textures[] : register(t5);
+Texture2D<float4> gAlbedoHistory : register(t6);
+RWTexture2D<float4> gAlbedo : register(u0);
 
 SamplerState sampAniso : register(s0);
 
@@ -443,7 +445,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     if (payload.depth == 1)
     {
-        payload.firstHitAlbedo = mat.DiffuseAlbedo.rgb;
+        gAlbedo[DispatchRaysIndex().xy] = float4(mat.DiffuseAlbedo.rgb, 1.0f);
         payload.firstHitValid = 1;
     }
     

@@ -8,12 +8,10 @@ RWTexture2D<float4> gOutput : register(u0);
 RWTexture2D<float4> gAccumBuf : register(u1);
 RWTexture2D<float4> gNormal : register(u2);
 RWTexture2D<float> gDepth : register(u3);
-RWTexture2D<float4> gAlbedo : register(u4);
 
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0);
 Texture2D<float4> gAccumHistory : register(t1);
-Texture2D<float4> gAlbedoHistory : register(t2);
 
 cbuffer cbPass : register(b0)
 {
@@ -118,7 +116,6 @@ void RayGen()
             ray,
             payload
         );
-        gAlbedo[launchIndex] = float4(payload.firstHitAlbedo, 1.0f);
 
         // If the ray missed or we decided to stop, accumulate emission and break
         finalRadiance += payload.throughput * payload.emission;
