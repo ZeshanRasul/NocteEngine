@@ -526,7 +526,13 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
                 
                                     
                     LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
-    
+                    float maxDirectLum = 10.0f;
+
+                    float lumLd = dot(LdContrib, float3(0.2126, 0.7152, 0.0722));
+                    if (lumLd > maxDirectLum)
+                    {
+                        LdContrib *= maxDirectLum / lumLd;
+                    }
                 }
             }
         }

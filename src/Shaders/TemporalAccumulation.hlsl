@@ -200,7 +200,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 //    history = clamp(history, mu - k * sigma, mu + k * sigma);
  //   float3 accumulated = lerp(history, C, alpha);
     
-    float historyWeight = min(frameIndex, 63);
+    float historyWeight = (float) frameIndex;
     float alpha = 1.0f / (historyWeight + 1.0f);
     float3 accumulated = lerp(history, C, alpha);
     
