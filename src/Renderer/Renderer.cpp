@@ -467,10 +467,11 @@ void Renderer::Draw(bool useRaster)
 	}
 
 	{
+		UpdateDenoiseConstantBuffer(0, 0); // Step 1, Pass 1 (Temporal)
 		m_CommandList->SetPipelineState(m_TemporalAccumulationPSO.Get());
 		m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
 
-		ID3D12DescriptorHeap* heaps[] = { m_SrvUavHeap.Get() };
+		ID3D12DescriptorHeap* heaps[] = { m_SrvUavHeap.Get(), m_SamplerHeap.Get()};
 		m_CommandList->SetDescriptorHeaps(_countof(heaps), heaps);
 
 		// RootParam[0]: UAV u0 - not used by TA shader but bind something valid
@@ -494,6 +495,11 @@ void Renderer::Draw(bool useRaster)
 			SRV_Normal,
 			m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(2, t1Handle);
+		auto t2Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
+			m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+			SRV_Depth,
+			m_CbvSrvUavDescriptorSize);
+		m_CommandList->SetComputeRootDescriptorTable(3, t2Handle);
 
 		//// RootParam[3]: UAV u1-u4 (Moment buffers output)
 		//int momentIndexUAV = (m_CurrentNewMoment == m_FirstMomentBuffer.Get())
@@ -547,9 +553,15 @@ void Renderer::Draw(bool useRaster)
 			m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(7, t8Handle);
 
+		auto t9Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
+			m_SamplerHeap->GetGPUDescriptorHandleForHeapStart(),
+			0,
+			D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE);
+		m_CommandList->SetComputeRootDescriptorTable(8, t9Handle);
+
 		// RootParam[7] & [8]: CBVs
-		m_CommandList->SetComputeRootConstantBufferView(8, m_DenoiseCB->GetGPUVirtualAddress());
-		m_CommandList->SetComputeRootConstantBufferView(9, m_PostProcessConstantBuffer[0]->GetGPUVirtualAddress());
+		m_CommandList->SetComputeRootConstantBufferView(9, m_DenoiseCB->GetGPUVirtualAddress());
+		m_CommandList->SetComputeRootConstantBufferView(10, m_PostProcessConstantBuffer[0]->GetGPUVirtualAddress());
 
 		UINT gx = (m_ClientWidth + 7) / 8;
 		UINT gy = (m_ClientHeight + 7) / 8;
@@ -737,9 +749,9 @@ void Renderer::Draw(bool useRaster)
 		//int motionIndexStart2 = m_CurrentOldMoment == m_OldFirstMomentBuffer.Get() ? SRV_OldFirstMoment : SRV_FirstMoment;
 
 		const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, uavIndex, m_CbvSrvUavDescriptorSize);
-		m_CommandList->SetComputeRootConstantBufferView(8, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
-		m_CommandList->SetComputeRootConstantBufferView(9, m_PostProcessConstantBuffer[pass]->GetGPUVirtualAddress()); // denoise step
-		m_CommandList->SetComputeRootConstantBufferView(10, m_GlobalConstantBuffer->GetGPUVirtualAddress()); // scene data like view/proj matrices
+		m_CommandList->SetComputeRootConstantBufferView(9, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
+		m_CommandList->SetComputeRootConstantBufferView(10, m_PostProcessConstantBuffer[pass]->GetGPUVirtualAddress()); // denoise step
+		m_CommandList->SetComputeRootConstantBufferView(11, m_GlobalConstantBuffer->GetGPUVirtualAddress()); // scene data like view/proj matrices
 		m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
 		const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvIndex, m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
@@ -2692,7 +2704,10 @@ void Renderer::CreateComputeRootSignature()
 	CD3DX12_DESCRIPTOR_RANGE table8 = {};
 	table8.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 8, 0, 0);
 
-	CD3DX12_ROOT_PARAMETER slotRootParameter[11];
+	CD3DX12_DESCRIPTOR_RANGE table9 = {};
+	table9.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 1, 0, 0, 0);
+
+	CD3DX12_ROOT_PARAMETER slotRootParameter[12];
 	slotRootParameter[0].InitAsDescriptorTable(1, &table);
 	slotRootParameter[1].InitAsDescriptorTable(1, &table2);
 	slotRootParameter[2].InitAsDescriptorTable(1, &table3);
@@ -2701,12 +2716,13 @@ void Renderer::CreateComputeRootSignature()
 	slotRootParameter[5].InitAsDescriptorTable(1, &table6);
 	slotRootParameter[6].InitAsDescriptorTable(1, &table7);
 	slotRootParameter[7].InitAsDescriptorTable(1, &table8);
-	slotRootParameter[8].InitAsConstantBufferView(0);
-	slotRootParameter[9].InitAsConstantBufferView(1);
-	slotRootParameter[10].InitAsConstantBufferView(2);
+	slotRootParameter[8].InitAsDescriptorTable(1, &table9);
+	slotRootParameter[9].InitAsConstantBufferView(0);
+	slotRootParameter[10].InitAsConstantBufferView(1);
+	slotRootParameter[11].InitAsConstantBufferView(2);
 
 
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(11, slotRootParameter,
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(12, slotRootParameter,
 		0, nullptr,
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
@@ -2776,7 +2792,7 @@ void Renderer::CreateDenoiseConstantBuffer()
 	denoiseConstants.sigmaDepth = 2.0f;
 	denoiseConstants.sigmaAlbedo = 0.15f;
 	denoiseConstants.stepWidth = 1;
-	denoiseConstants.invResolution = { 0.0f, 0.0f };
+	denoiseConstants.invResolution = { 1.0f / m_ClientWidth, 1.0f / m_ClientHeight};
 	denoiseConstants.pass = 0;
 	denoiseConstants.useHistory = useHistory;
 	denoiseConstants.frameindex = m_FrameIndex;

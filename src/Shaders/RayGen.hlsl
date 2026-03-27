@@ -35,8 +35,6 @@ cbuffer cbPass : register(b0)
     Light gLights[MaxLights];
 };
 
-
-
 cbuffer FrameData : register(b5)
 {
     uint frameIndex;

@@ -53,6 +53,7 @@ cbuffer cbPass : register(b2)
 };
 
 Texture2D<float4> Input : register(t0);
+Texture2D<float> Depth : register(t2);
 Texture2D<float4> HistoryRadiance : register(t7);
 
 Texture2D<float4> FirstMomentOld : register(t3);
@@ -62,6 +63,8 @@ RWTexture2D<float4> Output : register(u0);
 RWTexture2D<float4> TARadiance : register(u5);
 RWTexture2D<float4> FirstMomentNew : register(u1);
 RWTexture2D<float4> SecondMomentNew : register(u2);
+
+SamplerState LinearClampSampler : register(s0);
 
 [numthreads(8, 8, 1)]
 void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
@@ -73,6 +76,29 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     if (coord.x < 0 || coord.y < 0 || coord.x >= dim.x || coord.y >= dim.y)
         return;
 
+    float2 uv = (float2(coord) + 0.5f) * invResolution;
+
+    float depth = Depth[coord]; 
+
+    float4 currClip;
+    currClip.xy = uv * 2.0f - 1.0f;
+    currClip.y *= -1.0f; // depends on convention
+    currClip.z = depth;
+    currClip.w = 1.0f;
+
+    float4 worldH = mul(currClip, gInvViewProj);
+    float3 worldPos = worldH.xyz / worldH.w;
+    
+    float4 prevClip = mul(float4(worldPos, 1.0f), gPrevViewProj);
+
+    bool valid = prevClip.w > 0.0f;
+
+    float2 prevUV = prevClip.xy / prevClip.w;
+    prevUV = prevUV * 0.5f + 0.5f;
+    prevUV.y = 1.0f - prevUV.y; // if needed
+
+    valid = all(prevUV >= 0.0f) && all(prevUV <= 1.0f);
+    
     float3 C = Input[coord].rgb;
 
     if (useHistory == 0)
@@ -85,11 +111,18 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     }
 
     
-    float3 history = HistoryRadiance[coord].rgb;
+    float3 history = C;
+
+    if (valid)
+    {
+        history = HistoryRadiance.SampleLevel(LinearClampSampler, prevUV, 0).rgb;
+    }
+    
     float3 m1Prev = FirstMomentOld[coord].rgb;
     float3 m2Prev = SecondMomentOld[coord].rgb;
 
-    float alpha = 0.15f;
+    float alpha = valid ? 0.1f : 1.0f;
+    float3 accumulated = lerp(history, C, alpha);
     
     float3 minC = 1000000;
     float3 maxC = -1000000;
@@ -107,13 +140,14 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     }
     
     history = clamp(history, minC, maxC);
-    float3 accumulated = lerp(history, C, alpha);
+ //   float3 accumulated = lerp(history, C, alpha);
     float3 m1 = lerp(m1Prev, C, alpha);
     float3 m2 = lerp(m2Prev, C * C, alpha);
 
     TARadiance[coord] = float4(accumulated, 1.0f);
     FirstMomentNew[coord] = float4(m1, 1.0f);
     SecondMomentNew[coord] = float4(m2, 1.0f);
+//    Output[coord] = float4(accumulated, 1.0f);
     Output[coord] = float4(accumulated, 1.0f);
 
 }
