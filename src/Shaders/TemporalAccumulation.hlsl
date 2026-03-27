@@ -136,10 +136,13 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
         Output[coord] = float4(C, 1.0f);
         return;
     }
+
     if (!valid)
     {
-        TARadiance[coord] = float4(1, 0, 0.5, 1);
-        Output[coord] = float4(1, 0, 0.5, 1);
+        TARadiance[coord] = float4(C, 1.0f);
+        FirstMomentNew[coord] = float4(C, 1.0f);
+        SecondMomentNew[coord] = float4(C * C, 1.0f);
+        Output[coord] = float4(C, 1.0f);
         return;
     }
     
@@ -193,11 +196,12 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     float3 sigma = sqrt(var);
 
 // clamp
-    float k = 0.75;
-    history = clamp(history, mu - k * sigma, mu + k * sigma);
+    float k = 5.75;
+//    history = clamp(history, mu - k * sigma, mu + k * sigma);
  //   float3 accumulated = lerp(history, C, alpha);
     
-    float alpha = valid ? 0.01f : 1.0f;
+    float historyWeight = min(frameIndex, 63);
+    float alpha = 1.0f / (historyWeight + 1.0f);
     float3 accumulated = lerp(history, C, alpha);
     
     float3 m1 = lerp(m1Prev, C, alpha);

@@ -1417,11 +1417,11 @@ void Renderer::BuildMaterials()
 	dragon->DiffuseSrvHeapIndex = 2;
 	dragon->DiffuseAlbedo = XMFLOAT4(Colors::White);
 	dragon->FresnelR0 = XMFLOAT3(0.04f, 0.04f, 0.04f);
-	dragon->Roughness = 0.15f;
+	dragon->Roughness = 0.85f;
 	dragon->metallic = 0.0f;
-	dragon->IsReflective = true;
-	dragon->IsRefractive = true;
-	dragon->Ior = 1.5f;
+	//dragon->IsReflective = true;
+	//dragon->IsRefractive = true;
+	//dragon->Ior = 1.5f;
 
 
 	//m_Materials.push_back(std::move(boxMat));
@@ -2191,9 +2191,9 @@ void Renderer::CreateSamplerHeap()
 	D3D12_CPU_DESCRIPTOR_HANDLE samplerHandle = m_SamplerHeap->GetCPUDescriptorHandleForHeapStart();
 	D3D12_SAMPLER_DESC s = {};
 	s.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-	s.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	s.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	s.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	s.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	s.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	s.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 	s.MinLOD = 0.0f;
 	s.MaxLOD = D3D12_FLOAT32_MAX;
 	s.MipLODBias = 0.0f;
@@ -3436,7 +3436,7 @@ void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 void Renderer::CreateAreaLightConstantBuffer()
 {
 	m_AreaLightData.Position = XMFLOAT3(0.0f, 55.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(75.0f, 75.0f, 75.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(45.0f, 45.0f, 45.0f);
 	m_AreaLightData.U = XMFLOAT3(12.0f, 0.0f, 0.0f);
 	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 12.0f);
 

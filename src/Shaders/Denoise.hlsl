@@ -174,9 +174,12 @@ float3 PostProcessColor(float3 hdrColor)
     if (IsLastPass == 1)
     {
         result = PostProcessColor(result);
+        Output[coord] = float4(result, centerColor.a);
+    } 
+    else
+    {
+        Output[coord] = float4(TARadiance[coord]);
     }
     
-    Output[coord] = float4(result, centerColor.a);
-   // Output[coord] = float4(result, centerColor.a);
 }
 
