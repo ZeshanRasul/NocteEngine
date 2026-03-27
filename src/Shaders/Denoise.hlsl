@@ -162,7 +162,7 @@ float3 PostProcessColor(float3 hdrColor)
             float3 da = albedoI - centerAlbedo;
             float albedoDiff2 = dot(da, da);
             float aW = exp(-(albedoDiff2) / (2.0 * gAlbedoSigma * gAlbedoSigma));
-            float w = k * pow(nW, 0.5) * pow(zW, 0.5) * pow(aW, 0.5);
+            float w = k * nW * zW * lW * aW;
             sum += c.rgb * w;
             wsum += w;
         }
@@ -176,5 +176,6 @@ float3 PostProcessColor(float3 hdrColor)
     }
     
     Output[coord] = float4(result, centerColor.a);
+   // Output[coord] = float4(result, centerColor.a);
 }
 

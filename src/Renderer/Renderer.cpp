@@ -448,7 +448,7 @@ void Renderer::Draw(bool useRaster)
 
 	// Normal/Depth: UAV -> SRV
 	{
-		D3D12_RESOURCE_BARRIER barriers[2];
+		D3D12_RESOURCE_BARRIER barriers[3];
 		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
 			m_NormalTex.Get(),
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
@@ -458,10 +458,10 @@ void Renderer::Draw(bool useRaster)
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 	//	m_CommandList->ResourceBarrier(_countof(barriers), barriers);
-		//barriers[2] = CD3DX12_RESOURCE_BARRIER::Transition(
-		//	m_AlbedoTex.Get(),
-		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-		//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		barriers[2] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_AlbedoTex.Get(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 	}
 
@@ -538,10 +538,17 @@ void Renderer::Draw(bool useRaster)
 			26,
 			m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(6, t7Handle);
+		
+		// RootParam[7]: SRV t8 - Previous frame's Albedo output (index 28)
+		auto t8Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
+			m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+			28,
+			m_CbvSrvUavDescriptorSize);
+		m_CommandList->SetComputeRootDescriptorTable(7, t8Handle);
 
 		// RootParam[7] & [8]: CBVs
-		m_CommandList->SetComputeRootConstantBufferView(7, m_DenoiseCB->GetGPUVirtualAddress());
-		m_CommandList->SetComputeRootConstantBufferView(8, m_PostProcessConstantBuffer[0]->GetGPUVirtualAddress());
+		m_CommandList->SetComputeRootConstantBufferView(8, m_DenoiseCB->GetGPUVirtualAddress());
+		m_CommandList->SetComputeRootConstantBufferView(9, m_PostProcessConstantBuffer[0]->GetGPUVirtualAddress());
 
 		UINT gx = (m_ClientWidth + 7) / 8;
 		UINT gy = (m_ClientHeight + 7) / 8;
@@ -729,8 +736,8 @@ void Renderer::Draw(bool useRaster)
 		//int motionIndexStart2 = m_CurrentOldMoment == m_OldFirstMomentBuffer.Get() ? SRV_OldFirstMoment : SRV_FirstMoment;
 
 		const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, uavIndex, m_CbvSrvUavDescriptorSize);
-		m_CommandList->SetComputeRootConstantBufferView(7, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
-		m_CommandList->SetComputeRootConstantBufferView(8, m_PostProcessConstantBuffer[pass]->GetGPUVirtualAddress()); // denoise step
+		m_CommandList->SetComputeRootConstantBufferView(8, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
+		m_CommandList->SetComputeRootConstantBufferView(9, m_PostProcessConstantBuffer[pass]->GetGPUVirtualAddress()); // denoise step
 		m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
 		const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvIndex, m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
