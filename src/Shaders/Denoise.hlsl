@@ -8,6 +8,7 @@ cbuffer DenoiseParams : register(b0)
     float2 invResolution;
     int passNum;
     int useHistory;
+    int frameIndex;
 }
 
 cbuffer PostProcess : register(b1)
@@ -98,12 +99,12 @@ float3 PostProcessColor(float3 hdrColor)
 
     
     int2 dim;
-    Input.GetDimensions(dim.x, dim.y);
+    TARadiance.GetDimensions(dim.x, dim.y);
     
     if (coord.x < 0 || coord.y < 0 || coord.x >= dim.x || coord.y >= dim.y)
         return;
     
-    float4 centerColor = Input[coord];
+    float4 centerColor = TARadiance[coord];
     
     
     float4 centerN = Normal[coord];
@@ -133,7 +134,7 @@ float3 PostProcessColor(float3 hdrColor)
             if (p.x < 0 || p.y < 0 || p.x >= dim.x || p.y >= dim.y)
                 continue;
 
-            float4 c = Input[p];
+            float4 c = TARadiance[p];
             
             float4 n = Normal[p];
             float z = Depth[p];

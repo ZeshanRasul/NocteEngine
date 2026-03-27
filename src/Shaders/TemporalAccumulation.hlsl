@@ -15,6 +15,7 @@ cbuffer DenoiseParams : register(b0)
     float gColorSigma;
     float gNormalSigma;
     float gDepthSigma;
+    float gAlbedoSigma;
     int gStepSize;
     float2 invResolution;
     int passNum;
@@ -78,15 +79,27 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     float2 uv = (float2(coord) + 0.5f) * invResolution;
 
-    float depth = Depth[coord]; 
+    float linearDepth = Depth[coord]; 
+    
+    float2 ndc = uv * 2.0f - 1.0f;
+    ndc.y = -ndc.y;
+    float4 pClip = float4(ndc, 1.0f, 1.0f);
+    float4 pView = mul(pClip, gInvProj);
+    pView /= pView.w;
+    
+    float3 rayDirVS = normalize(pView.xyz);
+    
+    bool depthValid = isfinite(linearDepth) && linearDepth > 1e-5f;
+    if (!depthValid)
+    {
+        Output[coord] = float4(1, 0, 1, 1);
+        return;
+    }
 
-    float4 currClip;
-    currClip.xy = uv * 2.0f - 1.0f;
-    currClip.y = (1.0f - uv.y) * 2.0f - 1.0f;
-    currClip.z = depth;
-    currClip.w = 1.0f;
-
-    float4 worldH = mul(currClip, gInvViewProj);
+    
+    float t = linearDepth / max(1e-6f, rayDirVS.z);
+    float3 hitPosVS = rayDirVS * t;
+    float4 worldH = mul(float4(hitPosVS, 1.0f), gInvView);
     
     bool worldValid =
     isfinite(worldH.x) &&
@@ -165,11 +178,11 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     mu /= 9.0;
 
 // variance
-    for (int j = -1; j <= 1; ++j)
+    for (int g = -1; g <= 1; ++g)
     {
         for (int i = -1; i <= 1; ++i)
         {
-            int2 p = clamp(coord + int2(i, j), int2(0, 0), dim - 1);
+            int2 p = clamp(coord + int2(i, g), int2(0, 0), dim - 1);
             float3 c = Input[p].rgb;
             float3 d = c - mu;
             var += d * d;
@@ -193,10 +206,22 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     bool inBounds =
     prevUV.x >= 0.0f && prevUV.x <= 1.0f &&
     prevUV.y >= 0.0f && prevUV.y <= 1.0f;
-
+  
+    
+    linearDepth = Depth[coord];
+    depthValid = isfinite(linearDepth) && linearDepth > 1e-5f;
+    
+    float2 uvScaled = prevUV * 20.0f;
+    float checker = fmod(floor(uvScaled.x) + floor(uvScaled.y), 2.0f);
+  //  TARadiance[coord] = checker > 0.5f ? float4(1, 1, 1, 1) : float4(0, 0, 0, 1);
+  //  TARadiance[coord] = float4(saturate(hitPosVS.z / 10.0f).xxx, 1);
+    
+    
+    
  //   TARadiance[coord] = inBounds ? float4(prevUV, 0, 1) : float4(1, 0, 0, 1);
  //   Output[coord] = inBounds ? float4(prevUV, 0, 1) : float4(1, 0, 0, 1);
     TARadiance[coord] = float4(accumulated, 1.0f);
+  //  TARadiance[coord] = float4(prevUV.x.xxx, 1.0f);
     FirstMomentNew[coord] = float4(m1, 1.0f);
     SecondMomentNew[coord] = float4(m2, 1.0f);
     Output[coord] = float4(accumulated, 1.0f);

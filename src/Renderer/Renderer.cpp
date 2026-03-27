@@ -2802,7 +2802,7 @@ void Renderer::CreateDenoiseConstantBuffer()
 	denoiseConstants.sigmaDepth = 2.0f;
 	denoiseConstants.sigmaAlbedo = 0.15f;
 	denoiseConstants.stepWidth = 1;
-	denoiseConstants.invResolution = { 1.0f / m_ClientWidth, 1.0f / m_ClientHeight};
+	denoiseConstants.invResolution = { 1.0f / (float)m_ClientWidth, 1.0f / (float)m_ClientHeight};
 	denoiseConstants.pass = 0;
 	denoiseConstants.useHistory = useHistory;
 	denoiseConstants.frameindex = m_FrameIndex;
@@ -2838,7 +2838,7 @@ void Renderer::UpdateDenoiseConstantBuffer(int step, int pass)
 	denoiseConstants.sigmaDepth = baseSigmaDepth;
 	denoiseConstants.sigmaAlbedo = m_SigmaAlbedo;
 	denoiseConstants.stepWidth = m_DenoiseStep; // 1
-	denoiseConstants.invResolution = m_MainPassCB.InvRenderTargetSize;
+	denoiseConstants.invResolution = { 1.0f / (float)m_ClientWidth, 1.0f / (float)m_ClientHeight };
 	denoiseConstants.pass = pass;
 	denoiseConstants.useHistory = useHistory;
 	denoiseConstants.frameindex = m_FrameIndex;

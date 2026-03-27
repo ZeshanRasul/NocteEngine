@@ -163,11 +163,11 @@ void RayGen()
     float3 nEncoded = primarySet ? (primaryNormal * 0.5f + 0.5f) : float3(0.5f, 0.5f, 1.0f);
     gNormal[launchIndex] = float4(nEncoded, 1.0f);
     
-    float4 clip = mul(float4(payload.hitPos, 1.0f), gViewProj);
-    clip /= clip.w;
-
-    float depth = clip.z;
-    gDepth[launchIndex] = saturate(depth);
+    float3 viewPos = mul(float4(payload.hitPos, 1.0f), gView).xyz;
+    primaryDepth = viewPos.z;
+    
+  //  float depth = primaryDepth;
+    gDepth[launchIndex] = primaryDepth;
     gAccumBuf[launchIndex] = float4(finalColor, 1.0f);
     
 }
