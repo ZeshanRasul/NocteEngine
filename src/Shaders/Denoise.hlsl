@@ -158,11 +158,23 @@ float3 PostProcessColor(float3 hdrColor)
             float dz = abs(Zi - Z0);
             nW = exp(-(nDiff2 * nDiff2) / (2.0 * gNormalSigma * gNormalSigma));
             float zW = exp(-(dz * dz) / (2.0 * gDepthSigma * gDepthSigma));
-            float lW = exp(-(dl * dl) / (2.0 * gColorSigma * gColorSigma));
-
             float3 da = albedoI - centerAlbedo;
             float albedoDiff2 = dot(da, da);
             float aW = exp(-(albedoDiff2) / (2.0 * gAlbedoSigma * gAlbedoSigma));
+            
+            float3 m1 = FirstMomentOld[coord].rgb;
+            float3 m2 = SecondMomentOld[coord].rgb;
+
+            float3 variance = max(m2 - m1 * m1, 0.0f);
+            float varScalar = max(dot(variance, float3(0.3333, 0.3333, 0.3333)), 1e-6f);
+
+            float varNorm = sqrt(varScalar);
+            varNorm = min(varNorm, 1.0f);
+
+            float sigma = gColorSigma + varNorm * 2.0f;
+            float sigmaSafe = max(sigma, 1e-4f);
+            
+            float lW = exp(-(dl * dl) / (2.0 * sigmaSafe * sigmaSafe));
             float w = k * nW * zW * lW * aW;
             sum += c.rgb * w;
             wsum += w;
