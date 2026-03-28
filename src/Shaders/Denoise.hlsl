@@ -109,7 +109,7 @@ float3 PostProcessColor(float3 hdrColor)
         float4 color = Input[coord];
         if (IsLastPass == 1)
         {
-            color.rgb = PostProcessColor(color.rgb);
+          //  color.rgb = PostProcessColor(color.rgb);
             Output[coord] = color;
         }
         else
@@ -131,7 +131,7 @@ float3 PostProcessColor(float3 hdrColor)
         }
         else
         {
-            Output[coord] = TARadiance[coord];
+            Output[coord] = Input[coord];
             return;
         }
     }
@@ -149,7 +149,7 @@ float3 PostProcessColor(float3 hdrColor)
     }
     else
     {
-        float4 centerColor = TARadiance[coord];
+        centerColor = Input[coord];
     }
     
     float4 centerN = Normal[coord];
@@ -192,7 +192,7 @@ float3 PostProcessColor(float3 hdrColor)
             }
             else
             {
-                c = TARadiance[p];
+                c = Input[p];
             }
             
             

@@ -830,7 +830,7 @@ void Renderer::Draw(bool useRaster)
 			const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, uavIndex, m_CbvSrvUavDescriptorSize);
 			m_CommandList->SetComputeRootConstantBufferView(9, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
 			m_CommandList->SetComputeRootConstantBufferView(10, m_PostProcessConstantBuffer[pass]->GetGPUVirtualAddress()); // denoise step
-			m_CommandList->SetComputeRootConstantBufferView(11, m_GlobalConstantBuffer->GetGPUVirtualAddress()); // scene data like view/proj matrices
+			m_CommandList->SetComputeRootConstantBufferView(11, m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress()); // scene data like view/proj matrices
 			m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
 			const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvIndex, m_CbvSrvUavDescriptorSize);
 			m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
