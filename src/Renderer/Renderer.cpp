@@ -607,7 +607,7 @@ void Renderer::Draw(bool useRaster)
 
 		}
 	}
-	if (m_UseDenoiser || m_UseTemporal)
+	if (m_UseTemporal)
 	{
 
 		{
@@ -634,7 +634,10 @@ void Renderer::Draw(bool useRaster)
 				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 			m_CommandList->ResourceBarrier(2, barriers);
 		}
+	}
 
+	if (m_UseTemporal && m_UseDenoiser)
+	{
 		// Transition AccumulationBuffer back to UAV for next frame
 		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 			m_AccumulationBuffer.Get(),
@@ -678,8 +681,7 @@ void Renderer::Draw(bool useRaster)
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 		m_CommandList->ResourceBarrier(_countof(barriers2), barriers2);
 	}
-
-	if (!m_UseTemporal && m_UseDenoiser)
+	else if (!m_UseTemporal && m_UseDenoiser)
 	{
 		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 			m_AccumulationBuffer.Get(),
