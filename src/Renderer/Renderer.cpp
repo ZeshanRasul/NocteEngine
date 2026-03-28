@@ -961,6 +961,7 @@ void Renderer::Draw(bool useRaster)
 			}
 			m_ReadbackBuffer->Unmap(0, nullptr);
 			m_SaveImage = false;
+			m_FrameIndex = 0;
 		}
 	
 
@@ -3005,8 +3006,8 @@ void Renderer::CreateDenoiseConstantBuffer()
 	denoiseConstants.pass = 0;
 	denoiseConstants.useHistory = useHistory;
 	denoiseConstants.frameindex = m_FrameIndex;
-	denoiseConstants.useTemporalAccumulation = (int)m_UseTemporal;
-	denoiseConstants.useDenoising = (int)m_UseDenoiser;
+	denoiseConstants.useTemporalAccumulation = m_UseTemporal;
+	denoiseConstants.useDenoising = m_UseDenoiser;
 
 
 	const uint32_t bufferSize = sizeof(DenoiseConstants);
@@ -3043,8 +3044,8 @@ void Renderer::UpdateDenoiseConstantBuffer(int step, int pass)
 	denoiseConstants.pass = pass;
 	denoiseConstants.useHistory = useHistory;
 	denoiseConstants.frameindex = m_FrameIndex;
-	denoiseConstants.useTemporalAccumulation = (int)m_UseTemporal;
-	denoiseConstants.useDenoising = (int)m_UseDenoiser;
+	denoiseConstants.useTemporalAccumulation = m_UseTemporal;
+	denoiseConstants.useDenoising = m_UseDenoiser;
 
 	const uint32_t bufferSize = sizeof(DenoiseConstants);
 	uint8_t* pData = nullptr;
@@ -3882,8 +3883,8 @@ void Renderer::RenderImGuiDebugWindow()
 	ImGui::SliderInt("SPP per frame", &m_SPP, 1, 8);
 	ImGui::SliderInt("Max Frames", &m_MaxFrames, 1, 4096);
 
-	ImGui::Checkbox("Use Temporal Accumulation", &m_UseTemporal);
-	ImGui::Checkbox("Use Denoiser", &m_UseDenoiser);
+	ImGui::SliderInt("Use Temporal Accumulation", &m_UseTemporal, 0, 1);
+	ImGui::SliderInt("Use Denoiser", &m_UseDenoiser, 0, 1);
 
 	if (ImGui::Button("Reset Accumulation"))
 	{
@@ -3977,7 +3978,7 @@ void Renderer::RequestCapture(int spp)
 	m_CaptureRequested = true;
 	m_StartCaptureSequenceNextFrame = true;
 //	m_ResetAccumulation = true;
-//	m_ClearAccumulation = true;
+	m_ClearAccumulation = true;
 	m_FrameIndex = 0;
 	m_SaveImage = true;
 }

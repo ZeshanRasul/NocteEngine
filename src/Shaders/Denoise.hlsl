@@ -110,6 +110,7 @@ float3 PostProcessColor(float3 hdrColor)
         if (IsLastPass == 1)
         {
             color.rgb = PostProcessColor(color.rgb);
+            Output[coord] = color;
         }
         else
         {

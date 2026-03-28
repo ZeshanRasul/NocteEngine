@@ -344,8 +344,8 @@ private:
 	int m_FrameIndex = 0;
 	int m_MaxFrames = 4096;
 	int m_SPP = 1;
-	bool m_UseTemporal = true;
-	bool m_UseDenoiser = true;
+	int m_UseTemporal = 1;
+	int m_UseDenoiser = 1;
 	bool m_ClearAccumulation = false;
 	void ClearAccumulation() {};
 	void SaveCurrentFrame();
