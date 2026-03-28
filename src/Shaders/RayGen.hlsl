@@ -23,7 +23,7 @@ cbuffer cbPass : register(b0)
     float4x4 gInvViewProj;
     float4x4 gPrevViewProj;
     float3 gEyePosW;
-    float cbPerObjectPad1;
+    int SPP;
     float2 gRenderTargetSize;
     float2 gInvRenderTargetSize;
     float gNearZ;
@@ -65,47 +65,53 @@ void RayGen()
 
     seed ^= (launchIndex.x + launchIndex.y) * 1013904223u;
 
-    // Initialize payload
-    PathPayload payload;
-    payload.radiance = 0.0f;
-    payload.throughput = 1.0f;
-    payload.depth = 0;
-    payload.done = 0;
-    payload.seed = seed;
-    payload.lastBounceWasDelta = 0;
-    payload.prevBsdfPdf = 0.0f;
-    payload.prevHitPos = originWS;
-    payload.hitPos = originWS;
-    payload.normal = float3(0.0f, 0.0f, 1.0f);
-    payload.wi = dirWS;
-    payload.bsdfOverPdf = 0.0f;
-    payload.emission = 0.0f;
-    payload.pdf = 1.0f;
-    
-    RayDesc ray;
-    ray.Origin = originWS;
-    ray.Direction = dirWS;
-    ray.TMin = 0.1f;
-    ray.TMax = 1e38f;
-
-    float3 finalRadiance = 0.0f;
-
     // Capture first-hit guides for denoising
     float3 primaryNormal = float3(0, 0, 1);
     float primaryDepth = 1.0f;
     bool primarySet = false;
 
+    float3 sppSum = 0.0f;
     
-    const int MaxBounces = 12;
-
-    for (int bounce = 0; bounce < MaxBounces; ++bounce)
+    for (int s = 0; s < SPP; ++s)
     {
+        seed += s * 374761393u; // change seed per sample
+    // Initialize payload
+        PathPayload payload;
+        payload.radiance = 0.0f;
+        payload.throughput = 1.0f;
+        payload.depth = 0;
         payload.done = 0;
-        payload.emission = 0.0f;
+        payload.seed = Hash(seed + s * 9781u);
+        payload.lastBounceWasDelta = 0;
+        payload.prevBsdfPdf = 0.0f;
+        payload.prevHitPos = originWS;
+        payload.hitPos = originWS;
+        payload.normal = float3(0.0f, 0.0f, 1.0f);
+        payload.wi = dirWS;
         payload.bsdfOverPdf = 0.0f;
+        payload.emission = 0.0f;
         payload.pdf = 1.0f;
+    
+        RayDesc ray;
+        ray.Origin = originWS;
+        ray.Direction = dirWS;
+        ray.TMin = 0.1f;
+        ray.TMax = 1e38f;
 
-        TraceRay(
+        float3 finalRadiance = 0.0f;
+
+
+    
+        const int MaxBounces = 12;
+
+        for (int bounce = 0; bounce < MaxBounces; ++bounce)
+        {
+            payload.done = 0;
+            payload.emission = 0.0f;
+            payload.bsdfOverPdf = 0.0f;
+            payload.pdf = 1.0f;
+
+            TraceRay(
             SceneBVH,
             RAY_FLAG_NONE,
             0xFF,
@@ -117,54 +123,55 @@ void RayGen()
         );
 
         // If the ray missed or we decided to stop, accumulate emission and break
-        finalRadiance += payload.throughput * payload.emission;
+            finalRadiance += payload.throughput * payload.emission;
         
           // Store first-hit normal/depth once
-        if (!primarySet)
-        {
-            primaryNormal = payload.normal; // in [-1,1]
-            primaryDepth = length(payload.hitPos - gEyePosW); // world units
-            primarySet = true;
-        }
+            if (s == 0 && !primarySet)
+            {
+                primaryNormal = payload.normal; // in [-1,1]
+                primaryDepth = length(payload.hitPos - gEyePosW); // world units
+                primarySet = true;
+            }
         
-        if (payload.done != 0)
-            break;
+            if (payload.done != 0)
+                break;
 
         // Update throughput: multiply by f * cos / pdf
-        payload.throughput *= payload.bsdfOverPdf;
+            payload.throughput *= payload.bsdfOverPdf;
         
         // Russian roulette after a few bounces
-        if (bounce >= 4)
-        {
-            float pCont = max(payload.throughput.x,
+            if (bounce >= 4)
+            {
+                float pCont = max(payload.throughput.x,
                            max(payload.throughput.y, payload.throughput.z));
-            pCont = clamp(pCont, 0.05f, 0.95f);
+                pCont = clamp(pCont, 0.05f, 0.95f);
 
-            if (pCont < 1e-3f)
-                break;
+                if (pCont < 1e-3f)
+                    break;
 
-            float r = Rand(payload.seed);
-            if (r > pCont)
-                break;
-            payload.throughput /= pCont;
-        }
-        float3 offsetDir = (dot(payload.wi, payload.normal) > 0.0f)
+                float r = Rand(payload.seed);
+                if (r > pCont)
+                    break;
+                payload.throughput /= pCont;
+            }
+            float3 offsetDir = (dot(payload.wi, payload.normal) > 0.0f)
          ? payload.normal   // going to the “outside” side of the surface
          : -payload.normal; // going inside
-        ray.Origin = payload.hitPos + offsetDir * 0.001f;
-        ray.Direction = normalize(payload.wi);
-        ray.TMin = 0.001f;
-        ray.TMax = 1e38f;
+            ray.Origin = payload.hitPos + offsetDir * 0.001f;
+            ray.Direction = normalize(payload.wi);
+            ray.TMin = 0.001f;
+            ray.TMax = 1e38f;
+        }
+        sppSum += finalRadiance;
+        float3 viewPos = mul(float4(payload.hitPos, 1.0f), gView).xyz;
+        primaryDepth = viewPos.z;
     }
-   
-    
-    float3 finalColor = finalRadiance;
+
+    float3 finalColor = sppSum / (float) SPP;
      
     float3 nEncoded = primarySet ? (primaryNormal * 0.5f + 0.5f) : float3(0.5f, 0.5f, 1.0f);
     gNormal[launchIndex] = float4(nEncoded, 1.0f);
     
-    float3 viewPos = mul(float4(payload.hitPos, 1.0f), gView).xyz;
-    primaryDepth = viewPos.z;
     
   //  float depth = primaryDepth;
     gDepth[launchIndex] = primaryDepth;

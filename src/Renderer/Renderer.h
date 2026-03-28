@@ -337,7 +337,13 @@ private:
 	void CreateFrameIndexRNGCBuffer();
 	void UpdateFrameIndexRNGCBuffer();
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_FrameIndexCB;
-	UINT m_FrameIndex = 0;
+	int m_FrameIndex = 0;
+	int m_MaxFrames = 2056;
+	int m_SPP = 1;
+	bool m_UseTemporal = true;
+	bool m_UseDenoiser = true;
+	void ClearAccumulation() {};
+	void SaveCurrentFrame() {};
 
 	std::vector<MaterialDataGPU> m_MaterialsGPU;
 

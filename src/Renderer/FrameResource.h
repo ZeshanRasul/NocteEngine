@@ -35,7 +35,7 @@ struct PassConstants
 	XMFLOAT4X4 InvViewProj = MathHelper::Identity4x4();
 	XMFLOAT4X4 PrevViewProj = MathHelper::Identity4x4();
 	XMFLOAT3 EyePosW = { 0.0f, 0.0f, 0.0f };
-	float cbPerObjectPad1 = 0.0f;
+	UINT SPP = 1;
 	XMFLOAT2 RenderTargetSize = { 0.0f, 0.0f };
 	XMFLOAT2 InvRenderTargetSize = { 0.0f, 0.0f };
 	float NearZ = 0.0f;

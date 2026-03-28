@@ -1957,7 +1957,7 @@ void Renderer::UpdateMainPassCB()
 
 
 	m_MainPassCB.EyePosW = m_EyePos;
-	m_MainPassCB.cbPerObjectPad1 = 0.5f;
+	m_MainPassCB.SPP = m_SPP;
 	m_MainPassCB.RenderTargetSize = XMFLOAT2((float)m_ClientWidth, (float)m_ClientHeight);
 	m_MainPassCB.InvRenderTargetSize = XMFLOAT2(1.0f / m_ClientWidth, 1.0f / m_ClientHeight);
 	m_MainPassCB.NearZ = 1.0f;
@@ -3641,7 +3641,10 @@ void Renderer::CreateFrameIndexRNGCBuffer()
 
 void Renderer::UpdateFrameIndexRNGCBuffer()
 {
-	m_FrameIndex += 1;
+	if (m_FrameIndex < m_MaxFrames)
+	{
+		m_FrameIndex++;
+	}
 
 	FrameIndexCB data = {};
 	data.FrameIndex = m_FrameIndex;
@@ -3666,7 +3669,30 @@ void Renderer::CreateImGuiDescriptorHeap()
 
 void Renderer::RenderImGuiDebugWindow()
 {
-	ImGui::Begin("Settings");
+	ImGui::Begin("Research Controls");
+
+	ImGui::SliderInt("SPP per frame", &m_SPP, 1, 8);
+	ImGui::SliderInt("Max Frames", &m_MaxFrames, 1, 4096);
+
+	ImGui::Checkbox("Use Temporal Accumulation", &m_UseTemporal);
+	ImGui::Checkbox("Use Denoiser", &m_UseDenoiser);
+
+	if (ImGui::Button("Reset Accumulation"))
+	{
+		m_FrameIndex = 0;
+		ClearAccumulation();
+	}
+
+	if (ImGui::Button("Save Image"))
+	{
+		SaveCurrentFrame();
+	}
+
+	ImGui::Text("FrameIndex: %d", m_FrameIndex);
+
+	ImGui::End();
+
+	ImGui::Begin("Postprocessing Settings");
 	ImGui::Text("Exposure");
 	ImGui::SliderFloat("Exposure", &m_Exposure, 0, 10);
 	ImGui::Text("Tone Mapping Mode");
