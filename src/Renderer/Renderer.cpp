@@ -280,7 +280,6 @@ void Renderer::Update(float dt, Camera& cam)
 	UpdateAreaLightConstantBuffer();
 	UpdateMediumConstantBuffer();
 
-	//	UpdatePostProcessConstantBuffer();
 }
 
 static inline void TransitionIfNeeded(
@@ -304,7 +303,7 @@ void Renderer::Draw(bool useRaster)
 
 	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 	RenderImGuiDebugWindow();
-
+	UpdateDenoiseConstantBuffer(0, 0);
 
 	auto cmdListAlloc = m_CurrentFrameResource->CmdListAlloc;
 
@@ -4041,8 +4040,16 @@ void Renderer::RenderImGuiDebugWindow()
 	ImGui::SliderInt("SPP per frame", &m_SPP, 1, 8);
 	ImGui::SliderInt("Max Frames", &m_MaxFrames, 1, 4096);
 
-	ImGui::SliderInt("Use Temporal Accumulation", &m_UseTemporal, 0, 1);
-	ImGui::SliderInt("Use Denoiser", &m_UseDenoiser, 0, 1);
+	if (ImGui::Checkbox("Use Temporal Accumulation", &m_UseTemporal))
+	{
+		m_FrameIndex = 0;
+		m_ClearAccumulation = true;
+	}
+	if (ImGui::Checkbox("Use Denoiser", &m_UseDenoiser))
+	{
+		m_FrameIndex = 0;
+		m_ClearAccumulation = true;
+	}
 
 	if (ImGui::Button("Reset Accumulation"))
 	{
