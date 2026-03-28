@@ -104,12 +104,12 @@ float3 PostProcessColor(float3 hdrColor)
 
     
     int2 dim;
-    TARadiance.GetDimensions(dim.x, dim.y);
+    Input.GetDimensions(dim.x, dim.y);
     
     if (coord.x < 0 || coord.y < 0 || coord.x >= dim.x || coord.y >= dim.y)
         return;
     
-    float4 centerColor = TARadiance[coord];
+    float4 centerColor = Input[coord];
     
     
     float4 centerN = Normal[coord];
