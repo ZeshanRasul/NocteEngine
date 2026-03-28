@@ -1419,9 +1419,9 @@ void Renderer::BuildMaterials()
 	dragon->FresnelR0 = XMFLOAT3(0.04f, 0.04f, 0.04f);
 	dragon->Roughness = 0.85f;
 	dragon->metallic = 0.0f;
-	//dragon->IsReflective = true;
-	//dragon->IsRefractive = true;
-	//dragon->Ior = 1.5f;
+	dragon->IsReflective = true;
+	dragon->IsRefractive = true;
+	dragon->Ior = 1.5f;
 
 
 	//m_Materials.push_back(std::move(boxMat));
