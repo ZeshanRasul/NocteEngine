@@ -370,6 +370,12 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_ReadbackBuffer;
 	void CreateReadbackBuffer();
 	bool m_SaveImage = false;
+	void RequestCapture(int spp);
+	int m_TargetCaptureSPP = 0;      // 0 = no capture pending
+	int m_CurrentAccumSPP = 0;       // how many spp accumulated so far
+	bool m_CaptureRequested = false; // set by UI
+	bool m_ResetAccumulation = false;
+	bool m_StartCaptureSequenceNextFrame = false; 
 
 	std::vector<bool> m_IsInstanceReflective;
 

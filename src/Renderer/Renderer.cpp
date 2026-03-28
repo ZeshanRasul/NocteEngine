@@ -239,6 +239,12 @@ static inline UINT64 Align(UINT64 v, UINT64 alignment) {
 
 void Renderer::Update(float dt, Camera& cam)
 {
+	if (m_ResetAccumulation)
+	{
+		m_ClearAccumulation = true;   
+		m_CurrentAccumSPP = 0;
+		m_ResetAccumulation = false;
+	}
 
 	m_EyePos = cam.GetPosition3f();
 
@@ -375,9 +381,13 @@ void Renderer::Draw(bool useRaster)
 			break;
 		}
 	}
-	if (m_ClearAccumulation || camPosChanged || hasViewChanged)
+	if ((m_ClearAccumulation && m_StartCaptureSequenceNextFrame) || camPosChanged || hasViewChanged)
 	{
-		m_FrameIndex = 0;
+		if (!m_StartCaptureSequenceNextFrame)
+		{
+			m_FrameIndex = 0;
+		}
+
 		m_PrevCamPos = m_EyePos;
 		XMStoreFloat4x4(&m_PrevView, XMLoadFloat4x4(&m_View));
 		float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -839,7 +849,22 @@ void Renderer::Draw(bool useRaster)
 
 		m_CommandList->CopyResource(CurrentBackBuffer(), m_PresentUAV.Get());
 
-
+		if (m_TargetCaptureSPP > 0)
+		{
+			m_CurrentAccumSPP++;
+			if (m_CurrentAccumSPP > m_TargetCaptureSPP)
+			{
+				m_SaveImage = true;
+				m_CurrentAccumSPP = 0;
+				m_TargetCaptureSPP = 0;
+				m_StartCaptureSequenceNextFrame = false;
+				m_CaptureRequested = false;
+			}
+			else
+			{
+				m_ClearAccumulation = false;
+			}
+		}
 		if (m_SaveImage)
 		{
 			auto desc = m_PresentUAV->GetDesc();
@@ -922,7 +947,6 @@ void Renderer::Draw(bool useRaster)
 
 			m_ReadbackBuffer->Unmap(0, nullptr);
 			m_SaveImage = false;
-
 		}
 	
 
@@ -935,6 +959,12 @@ void Renderer::Draw(bool useRaster)
 			CurrentBackBuffer(),
 			D3D12_RESOURCE_STATE_COPY_DEST,
 			D3D12_RESOURCE_STATE_RENDER_TARGET));
+
+		if (m_CaptureRequested)
+		{
+			m_ClearAccumulation = true;
+			m_StartCaptureSequenceNextFrame = true;
+		}
 	}
 
 
@@ -3832,6 +3862,18 @@ void Renderer::RenderImGuiDebugWindow()
 		m_SaveImage = true;
 	}
 
+	if (ImGui::Button("Capture 1 SPP"))
+		RequestCapture(1);
+
+	if (ImGui::Button("Capture 4 SPP"))
+		RequestCapture(4);
+
+	if (ImGui::Button("Capture 16 SPP"))
+		RequestCapture(16);
+
+	if (ImGui::Button("Capture 64 SPP"))
+		RequestCapture(64);
+
 	ImGui::Text("FrameIndex: %d", m_FrameIndex);
 
 	ImGui::End();
@@ -3889,6 +3931,16 @@ void Renderer::CreateReadbackBuffer()
 	//UINT64 bufferSize = width * height * 4 * sizeof(float); // assuming float4
 
 
+}
+
+void Renderer::RequestCapture(int spp)
+{
+	m_TargetCaptureSPP = spp;
+	m_CurrentAccumSPP = 0;
+	m_CaptureRequested = true;
+	m_ResetAccumulation = true;
+	m_ClearAccumulation = true;
+	m_FrameIndex = 0;
 }
 
 
