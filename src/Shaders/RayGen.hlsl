@@ -40,6 +40,17 @@ cbuffer FrameData : register(b5)
     uint frameIndex;
 }
 
+cbuffer MediumParams : register(b6)
+{
+    float gSigmaA;
+    float gSigmaS;
+    float gSigmaT;
+    int gUseFog;
+
+    float gFogMaxDistance;
+    float3 gFogPadding;
+}
+
 [numthreads(8, 8, 1)]
 [shader("raygeneration")]
 void RayGen()
@@ -122,6 +133,14 @@ void RayGen()
             payload
         );
 
+            float travelDistance = payload.hitSomething ? payload.tHit : gFogMaxDistance;
+            
+            if (gUseFog != 0)
+            {
+                float T = ComputeTransmittance(gSigmaT, travelDistance);
+                payload.throughput *= T + (1 - T) * float3(0.30f, 0.32f, 0.31f);
+            }
+            
         // If the ray missed or we decided to stop, accumulate emission and break
             finalRadiance += payload.throughput * payload.emission;
         

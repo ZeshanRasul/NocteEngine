@@ -167,6 +167,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateShaderResourceCPUHeap();
 	CreateSamplerHeap();
 	CreateDenoiseConstantBuffer();
+	CreateMediumConstantBuffer();
 	CreateShaderBindingTable();
 	CreateImGuiDescriptorHeap();
 
@@ -267,6 +268,8 @@ void Renderer::Update(float dt, Camera& cam)
 	UpdateMainPassCB();
 	UpdateMaterialCBs();
 	UpdateAreaLightConstantBuffer();
+	UpdateMediumConstantBuffer();
+
 	//	UpdatePostProcessConstantBuffer();
 }
 
@@ -2019,6 +2022,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
 	nv_helpers_dx12::RootSignatureGenerator rsc;
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 5);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 3);
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 6);
 	rsc.AddHeapRangesParameter(
 		{ { 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0 },
 		{ 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1},
@@ -2482,9 +2486,6 @@ void Renderer::CreateShaderResourceHeap()
 		srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	}
-
-
-
 }
 
 void Renderer::CreateAccumulationBuffer()
@@ -2798,6 +2799,47 @@ void Renderer::CreatePresentUAV()
 		nullptr, IID_PPV_ARGS(&m_PresentUAV)));
 }
 
+void Renderer::CreateMediumConstantBuffer()
+{
+	MediumParams mediumParams = {};
+	mediumParams.gSigmaA = 0.0f;
+	mediumParams.gSigmaS = 0.0f;
+	mediumParams.gSigmaT = m_SigmaT;
+	mediumParams.gUseFog = m_UseFog;
+	mediumParams.gFogMaxDistance = m_FogMaxDistance;
+	mediumParams.gFogPadding = { 0.0f, 0.0f, 0.0f };
+
+	const uint32_t bufferSize = sizeof(MediumParams);
+
+	m_MediumCB = nv_helpers_dx12::CreateBuffer(
+		m_Device.Get(), sizeof(mediumParams), D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+
+	uint8_t* pData;
+
+	m_MediumCB->Map(0, nullptr, (void**)&pData);
+	memcpy(pData, &mediumParams, bufferSize);
+	m_MediumCB->Unmap(0, nullptr);
+}
+
+void Renderer::UpdateMediumConstantBuffer()
+{
+	MediumParams mediumParams = {};
+	mediumParams.gSigmaA = 0.0f;
+	mediumParams.gSigmaS = 0.0f;
+	mediumParams.gSigmaT = m_SigmaT;
+	mediumParams.gUseFog = m_UseFog;
+	mediumParams.gFogMaxDistance = m_FogMaxDistance;
+	mediumParams.gFogPadding = { 0.0f, 0.0f, 0.0f };
+
+	const uint32_t bufferSize = sizeof(MediumParams);
+	
+	uint8_t* pData = nullptr;
+	m_MediumCB->Map(0, nullptr, reinterpret_cast<void**>(&pData));
+	memcpy(pData, &mediumParams, bufferSize);
+	m_MediumCB->Unmap(0, nullptr);
+}
+
 void Renderer::CreateDenoiseConstantBuffer()
 {
 	DenoiseConstants denoiseConstants = {};
@@ -2871,6 +2913,7 @@ void Renderer::CreateShaderBindingTable()
 	m_SbtHelper.AddRayGenerationProgram(L"RayGen", {
 				(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
 				(void*)m_PostProcessConstantBuffer[0]->GetGPUVirtualAddress(),
+				(void*)m_MediumCB->GetGPUVirtualAddress(),
 				heapPointer,
 		});
 
@@ -3702,6 +3745,13 @@ void Renderer::RenderImGuiDebugWindow()
 
 	ImGui::Text("FrameIndex: %d", m_FrameIndex);
 
+	ImGui::End();
+
+	ImGui::Begin("Scene Settings");
+	ImGui::Text("Fog Settings");
+	ImGui::SliderFloat("Fog Density", &m_SigmaT, 0.0f, 1.0f);
+	ImGui::SliderFloat("Fog Max Distance", &m_FogMaxDistance, 0.0f, 1000.0f);
+	ImGui::Checkbox("Use Fog", &m_UseFog);
 	ImGui::End();
 
 	ImGui::Begin("Postprocessing Settings");

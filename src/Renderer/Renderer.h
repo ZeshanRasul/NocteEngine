@@ -226,7 +226,7 @@ private:
 	/// <summary>
 	///  Denoising
 	/// </summary>
-	
+
 	void CreateDenoisingResources();
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_NormalTex;
@@ -346,6 +346,15 @@ private:
 	void ClearAccumulation() {};
 	void SaveCurrentFrame();
 
+	void CreateMediumConstantBuffer();
+	void UpdateMediumConstantBuffer();
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_MediumCB;
+	MediumParams m_MediumParams;
+	bool m_UseFog = true;
+	float m_FogMaxDistance = 120.0f;
+	float m_SigmaT = 0.01f;
+
+
 	std::vector<MaterialDataGPU> m_MaterialsGPU;
 
 	SubmeshGeometry boxSubmesh;
@@ -357,8 +366,8 @@ private:
 	D3D12_CPU_DESCRIPTOR_HANDLE imguiCpuStart;
 	D3D12_GPU_DESCRIPTOR_HANDLE imguiGpuStart;
 	void RenderImGuiDebugWindow();
-	
-	
+
+
 	std::vector<bool> m_IsInstanceReflective;
 
 	std::vector<uint32_t> instanceMaterialIndices =
@@ -383,13 +392,13 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_SponzaVertexBuffer;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_SponzaIndexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW m_SponzaVBView;
-	D3D12_INDEX_BUFFER_VIEW m_SponzaIBView; 
+	D3D12_INDEX_BUFFER_VIEW m_SponzaIBView;
 
 	Model m_DragonModel;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_DragonVertexBuffer;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_DragonIndexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW m_DragonVBView;
-	D3D12_INDEX_BUFFER_VIEW m_DragonIBView; 
+	D3D12_INDEX_BUFFER_VIEW m_DragonIBView;
 };
 
 struct PerInstanceData

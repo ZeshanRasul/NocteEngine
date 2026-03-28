@@ -383,6 +383,9 @@ void ShadowClosestHit(inout ShadowPayload hit, Attributes attrib)
 [shader("closesthit")]
 void ClosestHit(inout PathPayload payload, Attributes attrib)
 {
+    payload.hitSomething = 1;
+    payload.tHit = RayTCurrent();
+    
     // Triangle index and vertices
     const uint triIndex = PrimitiveIndex();
     const uint vbase = triIndex * 3;

@@ -48,6 +48,18 @@ struct PassConstants
 	Light Lights[MaxLights];
 };
 
+struct MediumParams
+{
+	float gSigmaA = 0.0f;
+	float gSigmaS = 0.0f;
+	float gSigmaT = 0.03f;
+	int gUseFog = 1;
+
+	float gFogMaxDistance = 120.0f;
+	XMFLOAT3 gFogPadding;
+
+};
+
 struct Vertex
 {
 	DirectX::XMFLOAT3 Pos;

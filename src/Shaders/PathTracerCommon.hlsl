@@ -27,6 +27,7 @@ struct PathPayload
     float3 firstHitAlbedo;
     uint firstHitValid;
     uint hitSomething; // keep payload size aligned
+    float tHit;
 };
 
 struct Attributes
@@ -85,6 +86,13 @@ float3 TransformNormalToWorld(float3 nObj)
     float3x3 objToWorld = (float3x3) ObjectToWorld3x4();
     float3 N = normalize(mul(nObj, objToWorld));
     return N;
+}
+
+static const float INF_T = 1e30f;
+
+float ComputeTransmittance(float sigmaT, float distance)
+{
+    return exp(-sigmaT * max(distance, 0.0f));
 }
 
 #endif // PATHTRACER_COMMON_HLSL
