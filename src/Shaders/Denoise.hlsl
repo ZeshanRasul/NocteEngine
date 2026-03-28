@@ -9,6 +9,8 @@ cbuffer DenoiseParams : register(b0)
     int passNum;
     int useHistory;
     int frameIndex;
+    int useTemporalAccumulation;
+    int useDenoising;
 }
 
 cbuffer PostProcess : register(b1)
@@ -102,6 +104,16 @@ float3 PostProcessColor(float3 hdrColor)
 {
     int2 coord = int2(dispatchThreadId.xy);
 
+    if (useDenoising == 0)
+    {
+        float4 color = Input[coord];
+        if (IsLastPass == 1)
+        {
+            color.rgb = PostProcessColor(color.rgb);
+        }
+        Output[coord] = color;
+        return;
+    }
     
     int2 dim;
     Input.GetDimensions(dim.x, dim.y);

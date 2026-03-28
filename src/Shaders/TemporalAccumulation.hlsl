@@ -21,6 +21,8 @@ cbuffer DenoiseParams : register(b0)
     int passNum;
     int useHistory;
     int frameIndex;
+    int useTemporalAccumulation;
+    int useDenoising;
 }
 
 cbuffer PostProcess : register(b1)
@@ -71,6 +73,12 @@ SamplerState LinearClampSampler : register(s0);
 void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
     int2 coord = int2(dispatchThreadId.xy);
+    if (useTemporalAccumulation == 0)
+    {
+        TARadiance[coord] = Input[coord];
+        return;
+    }
+
 
     int2 dim;
     Input.GetDimensions(dim.x, dim.y);

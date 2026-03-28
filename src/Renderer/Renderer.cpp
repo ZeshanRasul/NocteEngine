@@ -369,7 +369,7 @@ void Renderer::Draw(bool useRaster)
 			break;
 		}
 	}
-	if (camPosChanged || hasViewChanged)
+	if (m_ClearAccumulation || camPosChanged || hasViewChanged)
 	{
 		m_FrameIndex = 0;
 		m_PrevCamPos = m_EyePos;
@@ -390,8 +390,8 @@ void Renderer::Draw(bool useRaster)
 			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
-		
-		
+
+
 		//int cpuOldMomentCpuIndex = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get()) ? 1 : 2;
 		m_CommandList->ClearUnorderedAccessViewFloat(
 			CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), 24, m_CbvSrvUavDescriptorSize),
@@ -439,6 +439,7 @@ void Renderer::Draw(bool useRaster)
 			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 		m_CommandList->ResourceBarrier(_countof(barriers2), barriers2);
 
+		m_ClearAccumulation = false;
 	}
 	else
 	{
@@ -465,7 +466,7 @@ void Renderer::Draw(bool useRaster)
 			m_DepthTex.Get(),
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-	//	m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+		//	m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 		barriers[2] = CD3DX12_RESOURCE_BARRIER::Transition(
 			m_AlbedoTex.Get(),
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
@@ -475,7 +476,7 @@ void Renderer::Draw(bool useRaster)
 
 	{
 		UpdateDenoiseConstantBuffer(0, 0); // Step 1, Pass 1 (Temporal)
-		ID3D12DescriptorHeap* heaps[] = { m_SrvUavHeap.Get(), m_SamplerHeap.Get()};
+		ID3D12DescriptorHeap* heaps[] = { m_SrvUavHeap.Get(), m_SamplerHeap.Get() };
 		m_CommandList->SetDescriptorHeaps(_countof(heaps), heaps);
 		m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
 		m_CommandList->SetPipelineState(m_TemporalAccumulationPSO.Get());
@@ -552,7 +553,7 @@ void Renderer::Draw(bool useRaster)
 			26,
 			m_CbvSrvUavDescriptorSize);
 		m_CommandList->SetComputeRootDescriptorTable(6, t7Handle);
-		
+
 		// RootParam[7]: SRV t8 - Previous frame's Albedo output (index 28)
 		auto t8Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
 			m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
@@ -573,7 +574,10 @@ void Renderer::Draw(bool useRaster)
 
 		UINT gx = (m_ClientWidth + 7) / 8;
 		UINT gy = (m_ClientHeight + 7) / 8;
-		m_CommandList->Dispatch(gx, gy, 1);
+		if (m_UseTemporal)
+		{
+			m_CommandList->Dispatch(gx, gy, 1);
+		}
 	}
 
 	{
@@ -2435,7 +2439,7 @@ void Renderer::CreateShaderResourceHeap()
 	m_AccumulationHistoryBuffer->SetName(L"Accumulation History SRV");
 	m_Device->CreateShaderResourceView(m_AccumulationHistoryBuffer.Get(), &srvDesc, srvHandle);
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	
+
 	uavDesc = {};
 	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
 	uavDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
@@ -2444,7 +2448,7 @@ void Renderer::CreateShaderResourceHeap()
 	m_Device->CreateUnorderedAccessView(m_AlbedoTex.Get(), nullptr, &uavDesc, srvHandle);
 
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	
+
 	srvDesc = {};
 
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -2802,10 +2806,12 @@ void Renderer::CreateDenoiseConstantBuffer()
 	denoiseConstants.sigmaDepth = 2.0f;
 	denoiseConstants.sigmaAlbedo = 0.15f;
 	denoiseConstants.stepWidth = 1;
-	denoiseConstants.invResolution = { 1.0f / (float)m_ClientWidth, 1.0f / (float)m_ClientHeight};
+	denoiseConstants.invResolution = { 1.0f / (float)m_ClientWidth, 1.0f / (float)m_ClientHeight };
 	denoiseConstants.pass = 0;
 	denoiseConstants.useHistory = useHistory;
 	denoiseConstants.frameindex = m_FrameIndex;
+	denoiseConstants.useTemporalAccumulation = (int)m_UseTemporal;
+	denoiseConstants.useDenoising = (int)m_UseDenoiser;
 
 
 	const uint32_t bufferSize = sizeof(DenoiseConstants);
@@ -2842,6 +2848,8 @@ void Renderer::UpdateDenoiseConstantBuffer(int step, int pass)
 	denoiseConstants.pass = pass;
 	denoiseConstants.useHistory = useHistory;
 	denoiseConstants.frameindex = m_FrameIndex;
+	denoiseConstants.useTemporalAccumulation = (int)m_UseTemporal;
+	denoiseConstants.useDenoising = (int)m_UseDenoiser;
 
 	const uint32_t bufferSize = sizeof(DenoiseConstants);
 	uint8_t* pData = nullptr;
@@ -3655,6 +3663,10 @@ void Renderer::UpdateFrameIndexRNGCBuffer()
 	m_RNGUploadCBuffer->Unmap(0, nullptr);
 }
 
+void Renderer::SaveCurrentFrame()
+{
+}
+
 void Renderer::CreateImGuiDescriptorHeap()
 {
 	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
@@ -3680,7 +3692,7 @@ void Renderer::RenderImGuiDebugWindow()
 	if (ImGui::Button("Reset Accumulation"))
 	{
 		m_FrameIndex = 0;
-		ClearAccumulation();
+		m_ClearAccumulation = true;
 	}
 
 	if (ImGui::Button("Save Image"))

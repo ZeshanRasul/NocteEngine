@@ -16,7 +16,8 @@ struct DenoiseConstants
 	int pass = 0;
 	int useHistory = 1;
 	int frameindex = 0;	
-	float padding[56];
+	int useTemporalAccumulation = 1;
+	int useDenoising = 1;
 
 };
 

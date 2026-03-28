@@ -342,8 +342,9 @@ private:
 	int m_SPP = 1;
 	bool m_UseTemporal = true;
 	bool m_UseDenoiser = true;
+	bool m_ClearAccumulation = false;
 	void ClearAccumulation() {};
-	void SaveCurrentFrame() {};
+	void SaveCurrentFrame();
 
 	std::vector<MaterialDataGPU> m_MaterialsGPU;
 
