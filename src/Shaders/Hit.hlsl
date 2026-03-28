@@ -335,36 +335,44 @@ LightSample SampleAreaLight(float3 p, float3 n, inout uint seed)
 
 float RectAreaLightPdf(float3 p, float3 wi)
 {
-    float3 nL = normalize(cross(gAreaLight.U, gAreaLight.V));
+    float3 U = gAreaLight.U;
+    float3 V = gAreaLight.V;
+    float3 center = gAreaLight.Position;
+
+    float3 nL = normalize(cross(U, V));
     float area = max(gAreaLight.Area, 1e-8f);
+
+    float cosLight = dot(nL, -wi);
+    if (cosLight <= 0.0f)
+        return 0.0f;
 
     float denom = dot(wi, nL);
     if (abs(denom) < 1e-8f)
         return 0.0f;
 
-    float t = dot(gAreaLight.Position - p, nL) / denom;
+    float t = dot(center - p, nL) / denom;
     if (t <= 0.0f)
         return 0.0f;
 
     float3 hitPos = p + t * wi;
-    float3 local = hitPos - gAreaLight.Position;
+    float3 local = hitPos - center;
 
-    float uLenSq = dot(gAreaLight.U, gAreaLight.U);
-    float vLenSq = dot(gAreaLight.V, gAreaLight.V);
+    float uLenSq = dot(U, U);
+    float vLenSq = dot(V, V);
 
-    float uCoord = dot(local, gAreaLight.U) / max(uLenSq, 1e-8f);
-    float vCoord = dot(local, gAreaLight.V) / max(vLenSq, 1e-8f);
+    float uCoord = dot(local, U) / max(uLenSq, 1e-8f);
+    float vCoord = dot(local, V) / max(vLenSq, 1e-8f);
 
-    if (abs(uCoord) > 0.5f || abs(vCoord) > 0.5f)
+    if (uCoord < -0.5f || uCoord > 0.5f || vCoord < -0.5f || vCoord > 0.5f)
         return 0.0f;
 
-    float distSq = t * t;
-    float cosLight = dot(nL, -wi);
-    if (cosLight <= 0.0f)
-        return 0.0f;
+    float3 d = hitPos - p;
+    float distSq = dot(d, d);
 
     float pdfArea = 1.0f / area;
-    return pdfArea * distSq / max(cosLight, 1e-8f);
+    float pdfSolidAngle = pdfArea * distSq / max(cosLight, 1e-8f);
+
+    return pdfSolidAngle;
 }
 
 float PowerHeuristic(float pdfA, float pdfB)
@@ -440,7 +448,8 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
 
     
     payload.emission = 0.0f;
-    
+    payload.isEmissive = 0.0f;
+
     //if (mat.TexIndex >= 0)
       //  mat.DiffuseAlbedo = textures[mat.TexIndex].SampleLevel(sampAniso, uv, 0);
     
@@ -455,9 +464,9 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     if (mat.isEmissive)
     {
         float3 Le = mat.EmissiveColor;
-        
         if (payload.depth == 1)
         {
+            payload.isEmissive = 1;
             payload.emission = Le;
         }
         else if (payload.lastBounceWasDelta != 0)

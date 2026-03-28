@@ -15,6 +15,7 @@ struct PathPayload
     float3 normal; // shading normal
     float3 wi; // sampled next direction
     float3 emission; // emission at this hit (or env)
+    int isEmissive; // 1 if hit emissive surface, 0 otherwise
     float3 bsdfOverPdf; // f * cosTheta / pdf
 
     float pdf; // last sample pdf (optional, for debugging)

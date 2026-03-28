@@ -262,11 +262,11 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_PresentUAV;
 
 	int m_DenoiseStep = 1;
-	int m_DenoisePasses = 7;
-	float m_SigmaColor = 0.2f;
-	float m_SigmaAlbedo = 0.11f;
-	float m_SigmaNormal = 3.0f;
-	float m_SigmaDepth = 6.5f;
+	int m_DenoisePasses = 5;
+	float m_SigmaColor = 0.75f;
+	float m_SigmaAlbedo = 0.25f;
+	float m_SigmaNormal = 0.2f;
+	float m_SigmaDepth = 0.5f;
 	int useHistory = 1;
 
 	void CreateDenoiseConstantBuffer();
@@ -350,7 +350,7 @@ private:
 	void UpdateMediumConstantBuffer();
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_MediumCB;
 	MediumParams m_MediumParams;
-	bool m_UseFog = true;
+	bool m_UseFog = false;
 	float m_FogMaxDistance = 120.0f;
 	float m_SigmaT = 0.01f;
 

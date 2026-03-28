@@ -112,17 +112,41 @@ float3 PostProcessColor(float3 hdrColor)
             color.rgb = PostProcessColor(color.rgb);
         }
         Output[coord] = color;
+        float3 m1 = FirstMomentOld[coord].rgb;
+        float3 m2 = SecondMomentOld[coord].rgb;
+
         return;
     }
+    
+    if (Normal[coord].w > 0.0f)
+    {
+        if (passNum == 0)
+        {
+            Output[coord] = Input[coord];
+            return;
+        }
+        else
+        {
+            Output[coord] = TARadiance[coord];
+            return;
+        }
+    }
+    
     
     int2 dim;
     Input.GetDimensions(dim.x, dim.y);
     
     if (coord.x < 0 || coord.y < 0 || coord.x >= dim.x || coord.y >= dim.y)
         return;
-    
-    float4 centerColor = Input[coord];
-    
+    float4 centerColor = 0.0f;
+    if (passNum == 0)
+    {
+        centerColor = Input[coord];
+    }
+    else
+    {
+        float4 centerColor = TARadiance[coord];
+    }
     
     float4 centerN = Normal[coord];
     float centerDepth = Depth[coord];
@@ -131,7 +155,9 @@ float3 PostProcessColor(float3 hdrColor)
     
     float3 centerBase = SafeAlbedo(centerAlbedo);
     float3 centerDemod = centerColor.rgb / centerBase;
-
+    
+    centerDemod = clamp(centerDemod, 0.0f, 10.0f);
+    
     float3 N0 = normalize(centerN.xyz * 2.0f - 1.0f);
     float Z0 = centerDepth;
 
@@ -154,7 +180,17 @@ float3 PostProcessColor(float3 hdrColor)
             if (p.x < 0 || p.y < 0 || p.x >= dim.x || p.y >= dim.y)
                 continue;
 
-            float4 c = TARadiance[p];
+            float4 c = 0.0f;
+            
+            if (passNum == 0)
+            {
+                c = Input[p];
+            }
+            else
+            {
+                c = TARadiance[p];
+            }
+            
             
             float4 n = Normal[p];
             float z = Depth[p];
@@ -178,12 +214,11 @@ float3 PostProcessColor(float3 hdrColor)
 
             // Depth weight (difference in depth)
             float dz = abs(Zi - Z0);
-           float  nW = exp(-(nDiff2 * nDiff2) / (2.0 * gNormalSigma * gNormalSigma));
+            float nW = exp(-(nDiff2 * nDiff2) / (2.0 * gNormalSigma * gNormalSigma));
             float zW = exp(-(dz * dz) / (2.0 * gDepthSigma * gDepthSigma));
             float3 da = albedoI - centerAlbedo;
             float albedoDiff2 = dot(da, da);
-            float aW = exp(-(albedoDiff2) / (2.0 * gAlbedoSigma * gAlbedoSigma));
-            
+            float aW = 1.0f;
 
             float3 variance = max(m2 - m1 * m1, 0.0f);
             float varScalar = max(dot(variance, float3(0.3333, 0.3333, 0.3333)), 1e-6f);
@@ -191,7 +226,7 @@ float3 PostProcessColor(float3 hdrColor)
             float varNorm = sqrt(varScalar);
             varNorm = min(varNorm, 1.0f);
 
-            float sigma = gColorSigma + varNorm * 2.0f;
+            float sigma = gColorSigma * (1.0f + 0.5f * varNorm);
             float sigmaSafe = max(sigma, 1e-4f);
             
             float lW = exp(-(dl * dl) / (2.0 * sigmaSafe * sigmaSafe));
@@ -202,8 +237,10 @@ float3 PostProcessColor(float3 hdrColor)
     }
 
     float3 filteredDemod = (wsum > 0.0f) ? (sum / wsum) : centerDemod;
-    float3 result = filteredDemod * centerAlbedo;
+    float3 result = filteredDemod * centerBase;
     
+        
+
     if (IsLastPass == 1)
     {
         result = PostProcessColor(result);
@@ -213,6 +250,8 @@ float3 PostProcessColor(float3 hdrColor)
     {
         Output[coord] = float4(result, centerColor.a);
     }
-    
+    //float4 n = Normal[coord];
+    //float mask = n.w > 0.5f ? 1.0f : 0.0f;
+    //Output[coord] = float4(mask, mask, mask, 1.0f);
 }
 

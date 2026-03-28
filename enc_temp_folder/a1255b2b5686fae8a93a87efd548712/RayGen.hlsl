@@ -111,6 +111,8 @@ void RayGen()
 
         float3 finalRadiance = 0.0f;
 
+
+    
         const int MaxBounces = 12;
 
         for (int bounce = 0; bounce < MaxBounces; ++bounce)

@@ -27,7 +27,7 @@ void Miss(inout PathPayload payload)
     
     payload.hitSomething = 0;
     payload.tHit = 1e20f;
-    
+    payload.isEmissive = 0;
 //   payload.emission = envColor;
     payload.hitSomething = 0;
     payload.firstHitAlbedo = 0.0f;

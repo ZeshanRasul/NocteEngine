@@ -1564,9 +1564,9 @@ void Renderer::BuildMaterials()
 	dragon->FresnelR0 = XMFLOAT3(0.04f, 0.04f, 0.04f);
 	dragon->Roughness = 0.85f;
 	dragon->metallic = 0.0f;
-	dragon->IsReflective = true;
-	dragon->IsRefractive = true;
-	dragon->Ior = 1.5f;
+	dragon->IsReflective = false;
+	dragon->IsRefractive = false;
+	dragon->Ior = 1.0f;
 	dragon->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	dragon->isEmissive = 0;
 
@@ -3637,9 +3637,9 @@ void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 void Renderer::CreateAreaLightConstantBuffer()
 {
 	m_AreaLightData.Position = XMFLOAT3(0.0f, 55.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(25.0f, 25.0f, 25.0f);
-	m_AreaLightData.U = XMFLOAT3(8.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 8.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(6.25f, 6.25f, 6.25f);
+	m_AreaLightData.U = XMFLOAT3(16.0f, 0.0f, 0.0f);
+	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 16.0f);
 
 	XMVECTOR U = XMLoadFloat3(&m_AreaLightData.U);
 	XMVECTOR V = XMLoadFloat3(&m_AreaLightData.V);
