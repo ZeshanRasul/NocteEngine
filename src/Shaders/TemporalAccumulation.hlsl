@@ -51,7 +51,8 @@ cbuffer cbPass : register(b2)
     float cbPerObjectPad2;
     float cbPerObjectPad3;
     float4 gAmbientLight;
-    
+    int directPresent;
+
     Light gLights[MaxLights];
 };
 

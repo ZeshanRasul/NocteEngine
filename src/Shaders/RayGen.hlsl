@@ -8,6 +8,7 @@ RWTexture2D<float4> gOutput : register(u0);
 RWTexture2D<float4> gAccumBuf : register(u1);
 RWTexture2D<float4> gNormal : register(u2);
 RWTexture2D<float> gDepth : register(u3);
+RWTexture2D<float> gPresent : register(u4);
 
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0);
@@ -31,6 +32,7 @@ cbuffer cbPass : register(b0)
     float cbPerObjectPad2;
     float cbPerObjectPad3;
     float4 gAmbientLight;
+    int directPresent;
     
     Light gLights[MaxLights];
 };
@@ -203,6 +205,7 @@ void RayGen()
   //  float depth = primaryDepth;
     gDepth[launchIndex] = primaryDepth;
     gAccumBuf[launchIndex] = float4(finalColor, 1.0f);
+    gPresent[launchIndex] = float4(finalColor, 1.0f);
     
 }
 

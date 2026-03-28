@@ -166,6 +166,7 @@ private:
 	std::vector<std::shared_ptr<Material>> m_Materials;
 
 	PassConstants m_MainPassCB;
+	int directPresent = false;
 	UINT m_skullVertCount = 0;
 
 	////////////////

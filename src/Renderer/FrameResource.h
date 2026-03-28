@@ -44,6 +44,7 @@ struct PassConstants
 	float cbPerObjectPad2 = 0.0f;
 	float cbPerObjectPad3 = 0.0f;
 	XMFLOAT4 AmbientLight = { 0.2f, 0.2f, 1.0f, 1.0f };
+	int directPresent = false;
 
 	Light Lights[MaxLights];
 };
