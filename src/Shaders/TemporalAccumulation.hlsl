@@ -73,12 +73,7 @@ SamplerState LinearClampSampler : register(s0);
 void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
     int2 coord = int2(dispatchThreadId.xy);
-    if (useTemporalAccumulation == 0)
-    {
-        TARadiance[coord] = Input[coord];
-        Output[coord] = Input[coord];
-        return;
-    }
+ 
 
 
     int2 dim;
@@ -220,6 +215,12 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     prevUV.x >= 0.0f && prevUV.x <= 1.0f &&
     prevUV.y >= 0.0f && prevUV.y <= 1.0f;
   
+    if (useTemporalAccumulation == 0)
+    {
+        TARadiance[coord] = float4(history, 1.0f);
+        Output[coord] = float4(history, 1.0f);
+        return;
+    }
     
     linearDepth = Depth[coord];
     depthValid = isfinite(linearDepth) && linearDepth > 1e-5f;
