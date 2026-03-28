@@ -537,14 +537,6 @@ void Renderer::Draw(bool useRaster)
 				m_CbvSrvUavDescriptorSize);
 			m_CommandList->SetComputeRootDescriptorTable(3, t2Handle);
 
-			//// RootParam[3]: UAV u1-u4 (Moment buffers output)
-			//int momentIndexUAV = (m_CurrentNewMoment == m_FirstMomentBuffer.Get())
-			//	? UAV_FirstMoment : UAV_OldFirstMoment;
-			//auto u1Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
-			//	m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
-			//	momentIndexUAV,
-			//	m_CbvSrvUavDescriptorSize);
-			//m_CommandList->SetComputeRootDescriptorTable(3, u1Handle);
 			// RootParam[3]: UAV u1-u2 = new first/second moments
 			auto u1Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
 				m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
@@ -559,14 +551,6 @@ void Renderer::Draw(bool useRaster)
 				m_CbvSrvUavDescriptorSize);
 			m_CommandList->SetComputeRootDescriptorTable(4, t3Handle);
 
-			//// RootParam[4]: SRV t3-t6 (Moment buffers input - old moments)
-			//int momentIndexSRV = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get())
-			//	? SRV_OldFirstMoment : SRV_FirstMoment;
-			//t3Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
-			//	m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
-			//	momentIndexSRV,
-			//	m_CbvSrvUavDescriptorSize);
-			//m_CommandList->SetComputeRootDescriptorTable(4, t3Handle);
 
 			// RootParam[5]: UAV u5 - TARadiance output (index 24)
 			auto u5Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
