@@ -567,6 +567,9 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     payload.pdf = bsdf.pdf;
     
     float3 selfEmit = 0.0f;
+    if (mat.isEmissive)
+    {
+    }
     payload.emission = selfEmit + LdContrib;
     
     payload.prevBsdfPdf = bsdf.pdf;

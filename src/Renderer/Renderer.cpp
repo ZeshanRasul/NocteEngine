@@ -1430,6 +1430,8 @@ void Renderer::BuildMaterials()
 	boxMat->metallic = 0.01f;
 	boxMat->Ior = 1.0f;
 	boxMat->IsReflective = false;
+	boxMat->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	boxMat->isEmissive = 0;
 
 	auto bricks0 = std::make_unique<Material>();
 	bricks0->Name = "bricks0";
@@ -1440,6 +1442,8 @@ void Renderer::BuildMaterials()
 	bricks0->Roughness = 0.90f;
 	bricks0->metallic = 0.01f;
 	bricks0->IsReflective = false;
+	bricks0->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	bricks0->isEmissive = 0;
 
 	auto stone0 = std::make_unique<Material>();
 	stone0->Name = "stone0";
@@ -1449,6 +1453,9 @@ void Renderer::BuildMaterials()
 	stone0->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
 	stone0->Roughness = 0.9f;
 	stone0->metallic = 0.1f;
+	stone0->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	stone0->isEmissive = 0;
+
 
 	auto skullMat = std::make_unique<Material>();
 	skullMat->Name = "skullMat";
@@ -1460,6 +1467,8 @@ void Renderer::BuildMaterials()
 	skullMat->metallic = 0.0f;
 	skullMat->Ior = 1.0f;
 	skullMat->IsReflective = false;
+	skullMat->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	skullMat->isEmissive = 0;
 
 	auto tile0 = std::make_unique<Material>();
 	tile0->Name = "tile0";
@@ -1470,7 +1479,8 @@ void Renderer::BuildMaterials()
 	tile0->Roughness = 0.8f;
 	tile0->metallic = 0.05f;
 	tile0->IsReflective = false;
-
+	tile0->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	tile0->isEmissive = 0;
 
 	auto sphereMat = std::make_unique<Material>();
 	sphereMat->Name = "sphere";
@@ -1480,8 +1490,10 @@ void Renderer::BuildMaterials()
 	sphereMat->FresnelR0 = XMFLOAT3(0.04f, 0.04f, 0.04f);
 	sphereMat->Roughness = 0.2f;
 	sphereMat->metallic = 0.0f;
-	skullMat->Ior = 1.0f;
-	skullMat->IsReflective = false;
+	sphereMat->Ior = 1.0f;
+	sphereMat->IsReflective = false;
+	sphereMat->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	sphereMat->isEmissive = 0;
 
 	auto tile1 = std::make_unique<Material>();
 	tile1->Name = "tile1";
@@ -1504,6 +1516,8 @@ void Renderer::BuildMaterials()
 	tile2->Roughness = 0.8f;
 	tile2->metallic = 0.05f;
 	tile2->IsReflective = false;
+	tile2->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	tile2->isEmissive = 0;
 
 	auto tile3 = std::make_unique<Material>();
 	tile3->Name = "tile3";
@@ -1514,6 +1528,7 @@ void Renderer::BuildMaterials()
 	tile3->Roughness = 0.8f;
 	tile3->metallic = 0.05f;
 	tile3->IsReflective = false;
+	tile3->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
 
 	auto tile4 = std::make_unique<Material>();
 	tile4->Name = "tile4";
@@ -1524,6 +1539,8 @@ void Renderer::BuildMaterials()
 	tile4->Roughness = 0.8f;
 	tile4->metallic = 0.65f;
 	tile4->IsReflective = true;
+	tile4->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	tile4->isEmissive = 0;
 
 	auto tile5 = std::make_unique<Material>();
 	tile5->Name = "tile5";
@@ -1534,8 +1551,10 @@ void Renderer::BuildMaterials()
 	tile5->Roughness = 0.01f;
 	tile5->metallic = 0.05f;
 	tile5->IsReflective = false;
-	//	tile5->IsRefractive = true;
-	//	tile5->Ior = 1.5f;
+	tile5->IsRefractive = false;
+	tile5->Ior = 1.5f;
+	tile5->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	tile0->isEmissive = 0;
 
 	auto dragon = std::make_unique<Material>();
 	dragon->Name = "dragon";
@@ -1548,7 +1567,8 @@ void Renderer::BuildMaterials()
 	dragon->IsReflective = true;
 	dragon->IsRefractive = true;
 	dragon->Ior = 1.5f;
-
+	dragon->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	dragon->isEmissive = 0;
 
 	//m_Materials.push_back(std::move(boxMat));
 	//m_Materials.push_back(std::move(bricks0));

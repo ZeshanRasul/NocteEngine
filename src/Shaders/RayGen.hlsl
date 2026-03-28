@@ -80,7 +80,7 @@ void RayGen()
     float3 primaryNormal = float3(0, 0, 1);
     float primaryDepth = 1.0f;
     bool primarySet = false;
-
+    float3 finalColor = 0.0f;
     float3 sppSum = 0.0f;
     
     for (int s = 0; s < SPP; ++s)
@@ -184,10 +184,12 @@ void RayGen()
         sppSum += finalRadiance;
         float3 viewPos = mul(float4(payload.hitPos, 1.0f), gView).xyz;
         primaryDepth = viewPos.z;
-    }
+     //   finalColor = payload.emission;
 
-    float3 finalColor = sppSum / (float) SPP;
-     
+    }
+   
+    finalColor = sppSum / (float) SPP;
+    
     float3 nEncoded = primarySet ? (primaryNormal * 0.5f + 0.5f) : float3(0.5f, 0.5f, 1.0f);
     gNormal[launchIndex] = float4(nEncoded, 1.0f);
     
