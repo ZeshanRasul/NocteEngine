@@ -1,3 +1,6 @@
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb/stb_image_write.h"
+
 #include "DXRHelper.h"
 #include "nv_helpers_dx12/BottomLevelASGenerator.h"
 #include "nv_helpers_dx12/RaytracingPipelineGenerator.h"
@@ -170,7 +173,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateMediumConstantBuffer();
 	CreateShaderBindingTable();
 	CreateImGuiDescriptorHeap();
-
+	CreateReadbackBuffer();
 	//m_CurrentOldMoment = m_OldFirstMomentBuffer.Get();
 	//m_CurrentNewMoment = m_FirstMomentBuffer.Get();
 	m_FinalDenoiseBuffer = m_AccumulationBuffer.Get();
@@ -836,6 +839,93 @@ void Renderer::Draw(bool useRaster)
 
 		m_CommandList->CopyResource(CurrentBackBuffer(), m_PresentUAV.Get());
 
+
+		if (m_SaveImage)
+		{
+			auto desc = m_PresentUAV->GetDesc();
+	
+			D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
+			UINT numRows = 0;
+			UINT64 rowSizeInBytes = 0;
+			UINT64 totalBytes = 0;
+
+			m_Device->GetCopyableFootprints(
+				&desc,
+				0,
+				1,
+				0,
+				&footprint,
+				&numRows,
+				&rowSizeInBytes,
+				&totalBytes
+			);
+
+			D3D12_TEXTURE_COPY_LOCATION src = {};
+			src.pResource = m_PresentUAV.Get();
+			src.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+			src.SubresourceIndex = 0;
+
+			CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_READBACK);
+
+			CD3DX12_RESOURCE_DESC descRB = CD3DX12_RESOURCE_DESC::Buffer(totalBytes);
+
+			m_Device->CreateCommittedResource(
+				&heapProps,
+				D3D12_HEAP_FLAG_NONE,
+				&descRB,
+				D3D12_RESOURCE_STATE_COPY_DEST,
+				nullptr,
+				IID_PPV_ARGS(&m_ReadbackBuffer)
+			);
+
+
+			// Describe copy destination
+			D3D12_TEXTURE_COPY_LOCATION dst = {};
+			dst.pResource = m_ReadbackBuffer.Get();
+			dst.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+			dst.PlacedFootprint = footprint;
+
+			const UINT width = static_cast<UINT>(desc.Width);
+			const UINT height = desc.Height;
+
+
+
+
+			m_CommandList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+
+			ThrowIfFailed(m_CommandList->Close());
+			ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
+			m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+
+			m_CurrentFrameResource->Fence = ++m_CurrentFence;
+			FlushCommandQueue();
+			m_CommandList->Reset(m_CommandAllocator.Get(), m_PipelineStateObjects["opaque"].Get());
+
+			void* mapped = nullptr;
+			m_ReadbackBuffer->Map(0, nullptr, &mapped);
+
+			unsigned char* base = reinterpret_cast<unsigned char*>(mapped);
+
+			std::vector<unsigned char> image(width * height * 4);
+
+			for (UINT y = 0; y < height; ++y)
+			{
+				const unsigned char* srcRow = base + footprint.Offset + y * footprint.Footprint.RowPitch;
+				unsigned char* dstRow = image.data() + y * width * 4;
+
+				memcpy(dstRow, srcRow, width * 4);
+			}
+
+			std::string filename = ("frame_") + std::to_string(m_FrameIndex) + ".png";
+
+			stbi_write_png(filename.c_str(), width, height, 4, image.data(), width * 4);
+
+			m_ReadbackBuffer->Unmap(0, nullptr);
+			m_SaveImage = false;
+
+		}
+	
+
 		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 			m_PresentUAV.Get(),
 			D3D12_RESOURCE_STATE_COPY_SOURCE,
@@ -941,8 +1031,6 @@ void Renderer::Draw(bool useRaster)
 		m_CommandList->ResourceBarrier(2, barriers);
 	}
 
-
-
 	UpdateFrameIndexRNGCBuffer();
 
 	heaps = { m_ImGuiSrvHeap.Get() };
@@ -969,6 +1057,7 @@ void Renderer::Draw(bool useRaster)
 	m_CurrentFrameResource->Fence = ++m_CurrentFence;
 
 	m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence);
+
 
 }
 
@@ -2833,7 +2922,7 @@ void Renderer::UpdateMediumConstantBuffer()
 	mediumParams.gFogPadding = { 0.0f, 0.0f, 0.0f };
 
 	const uint32_t bufferSize = sizeof(MediumParams);
-	
+
 	uint8_t* pData = nullptr;
 	m_MediumCB->Map(0, nullptr, reinterpret_cast<void**>(&pData));
 	memcpy(pData, &mediumParams, bufferSize);
@@ -3740,7 +3829,7 @@ void Renderer::RenderImGuiDebugWindow()
 
 	if (ImGui::Button("Save Image"))
 	{
-		SaveCurrentFrame();
+		m_SaveImage = true;
 	}
 
 	ImGui::Text("FrameIndex: %d", m_FrameIndex);
@@ -3794,6 +3883,14 @@ void Renderer::RenderImGuiDebugWindow()
 	ImGui::End();
 
 }
+
+void Renderer::CreateReadbackBuffer()
+{
+	//UINT64 bufferSize = width * height * 4 * sizeof(float); // assuming float4
+
+
+}
+
 
 void Renderer::CreateModelBuffers(Model& model, Microsoft::WRL::ComPtr<ID3D12Resource>& vb, Microsoft::WRL::ComPtr<ID3D12Resource>& ib, D3D12_VERTEX_BUFFER_VIEW& vbv, D3D12_INDEX_BUFFER_VIEW& ibv)
 {

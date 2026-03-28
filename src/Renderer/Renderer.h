@@ -367,6 +367,9 @@ private:
 	D3D12_GPU_DESCRIPTOR_HANDLE imguiGpuStart;
 	void RenderImGuiDebugWindow();
 
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_ReadbackBuffer;
+	void CreateReadbackBuffer();
+	bool m_SaveImage = false;
 
 	std::vector<bool> m_IsInstanceReflective;
 

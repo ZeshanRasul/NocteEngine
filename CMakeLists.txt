@@ -30,6 +30,7 @@ file(GLOB APP_SOURCES
     "include/imgui/*.cpp"
     "include/imgui/backends/*.h"
     "include/imgui/backends/*.cpp"
+    "include/stb/*.h"
     "include/tinyobj/*.h"
     "src/*.cpp"
     "src/*.h"

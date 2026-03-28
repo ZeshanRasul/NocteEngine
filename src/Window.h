@@ -13,8 +13,8 @@ struct WindowProps
 	unsigned int Height;
 
 	WindowProps(const std::string& title = "Windows Framework",
-		unsigned int width = 1280,
-		unsigned int height = 960)
+		unsigned int width = 1920,
+		unsigned int height = 1080)
 		:
 		Title(title),
 		Width(width),
