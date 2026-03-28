@@ -76,6 +76,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     if (useTemporalAccumulation == 0)
     {
         TARadiance[coord] = Input[coord];
+        Output[coord] = Input[coord];
         return;
     }
 

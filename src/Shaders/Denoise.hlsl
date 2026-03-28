@@ -111,7 +111,10 @@ float3 PostProcessColor(float3 hdrColor)
         {
             color.rgb = PostProcessColor(color.rgb);
         }
-        Output[coord] = color;
+        else
+        {
+            Output[coord] = Input[coord];
+        }
         float3 m1 = FirstMomentOld[coord].rgb;
         float3 m2 = SecondMomentOld[coord].rgb;
 

@@ -9,6 +9,10 @@
 #include "nv_helpers_dx12/TopLevelASGenerator.h"
 #include "nv_helpers_dx12/ShaderBindingTableGenerator.h"
 #include <dxcapi.h>
+#include <chrono>
+#include <iomanip>
+#include <sstream>
+#include <filesystem>
 
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_win32.h"
@@ -338,7 +342,7 @@ private:
 	void UpdateFrameIndexRNGCBuffer();
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_FrameIndexCB;
 	int m_FrameIndex = 0;
-	int m_MaxFrames = 2056;
+	int m_MaxFrames = 4096;
 	int m_SPP = 1;
 	bool m_UseTemporal = true;
 	bool m_UseDenoiser = true;
@@ -408,6 +412,23 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_DragonIndexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW m_DragonVBView;
 	D3D12_INDEX_BUFFER_VIEW m_DragonIBView;
+
+	std::string GetTimestampString()
+	{
+		auto now = std::chrono::system_clock::now();
+		std::time_t time = std::chrono::system_clock::to_time_t(now);
+
+		std::tm tm{};
+#ifdef _WIN32
+		localtime_s(&tm, &time);
+#else
+		localtime_r(&time, &tm);
+#endif
+
+		std::ostringstream oss;
+		oss << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S");
+		return oss.str();
+	}
 };
 
 struct PerInstanceData

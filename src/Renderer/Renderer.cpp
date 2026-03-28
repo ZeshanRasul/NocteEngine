@@ -9,6 +9,7 @@
 #include "glm/glm.hpp"
 #include "glm/gtc/type_ptr.hpp"
 #include "Renderer.h"
+#include <iostream>
 
 
 const int gNumFrameResources = 1;
@@ -386,6 +387,11 @@ void Renderer::Draw(bool useRaster)
 		if (!m_StartCaptureSequenceNextFrame)
 		{
 			m_FrameIndex = 0;
+		}
+		else
+		{
+			m_FrameIndex = 0;
+			m_StartCaptureSequenceNextFrame = false;
 		}
 
 		m_PrevCamPos = m_EyePos;
@@ -941,10 +947,18 @@ void Renderer::Draw(bool useRaster)
 				memcpy(dstRow, srcRow, width * 4);
 			}
 
-			std::string filename = ("frame_") + std::to_string(m_FrameIndex) + ".png";
+			std::string folderName = GetTimestampString() + "_cornell_skull_dragon";
+			std::filesystem::path runPath = std::filesystem::path("experiments/runs") / folderName;
+			std::filesystem::create_directories(runPath);
+			std::string filename = ("frame_") + std::to_string(m_FrameIndex) + "SPP" + ".png";
+			std::filesystem::path fullPath = runPath / filename;
 
-			stbi_write_png(filename.c_str(), width, height, 4, image.data(), width * 4);
+			int result = stbi_write_jpg(fullPath.string().c_str(), width, height, 4, image.data(), width * 4);
 
+			if (!result)
+			{
+				std::cerr << "Failed to write image: " << fullPath << std::endl;
+			}
 			m_ReadbackBuffer->Unmap(0, nullptr);
 			m_SaveImage = false;
 		}
@@ -963,7 +977,7 @@ void Renderer::Draw(bool useRaster)
 		if (m_CaptureRequested)
 		{
 			m_ClearAccumulation = true;
-			m_StartCaptureSequenceNextFrame = true;
+			m_StartCaptureSequenceNextFrame = false;
 		}
 	}
 
@@ -3893,6 +3907,9 @@ void Renderer::RenderImGuiDebugWindow()
 
 	if (ImGui::Button("Capture 64 SPP"))
 		RequestCapture(64);
+	
+	if (ImGui::Button("Capture 4096 SPP"))
+		RequestCapture(4096);
 
 	ImGui::Text("FrameIndex: %d", m_FrameIndex);
 
@@ -3958,9 +3975,11 @@ void Renderer::RequestCapture(int spp)
 	m_TargetCaptureSPP = spp;
 	m_CurrentAccumSPP = 0;
 	m_CaptureRequested = true;
-	m_ResetAccumulation = true;
-	m_ClearAccumulation = true;
+	m_StartCaptureSequenceNextFrame = true;
+//	m_ResetAccumulation = true;
+//	m_ClearAccumulation = true;
 	m_FrameIndex = 0;
+	m_SaveImage = true;
 }
 
 
