@@ -1361,7 +1361,7 @@ void Renderer::BuildMaterials()
 	tile1->Name = "tile1";
 	tile1->MatCBIndex = 6;
 	tile1->DiffuseSrvHeapIndex = 2;
-	tile1->DiffuseAlbedo = XMFLOAT4(Colors::Olive);
+	tile1->DiffuseAlbedo = XMFLOAT4(m_AreaLightData.Radiance.x, m_AreaLightData.Radiance.y, m_AreaLightData.Radiance.z, 1.0f);
 	tile1->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile1->Roughness = 0.8f;
 	tile1->metallic = 0.05f;
@@ -2836,7 +2836,7 @@ void Renderer::UpdateDenoiseConstantBuffer(int step, int pass)
 	denoiseConstants.sigmaColor = baseSigmaColor;
 	denoiseConstants.sigmaNormal = baseSigmaNormal;
 	denoiseConstants.sigmaDepth = baseSigmaDepth;
-	denoiseConstants.sigmaAlbedo = m_SigmaAlbedo;
+	denoiseConstants.sigmaAlbedo = step;
 	denoiseConstants.stepWidth = m_DenoiseStep; // 1
 	denoiseConstants.invResolution = { 1.0f / (float)m_ClientWidth, 1.0f / (float)m_ClientHeight };
 	denoiseConstants.pass = pass;

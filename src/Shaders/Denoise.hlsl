@@ -36,6 +36,11 @@ RWTexture2D<float4> SecondMomentNew : register(u2);
 static const float gKernel[5] = { 1.0 / 16.0, 1.0 / 4.0, 3.0 / 8.0, 1.0 / 4.0, 1.0 / 16.0 };
 static const int gOffsets[5] = { -2, -1, 0, 1, 2 };
 
+float3 SafeAlbedo(float3 a)
+{
+    return max(a, float3(0.04f, 0.04f, 0.04f));
+}
+
 float3 LinearToSRGB(float3 x)
 {
     const float a = 0.055f;
@@ -112,15 +117,18 @@ float3 PostProcessColor(float3 hdrColor)
     float4 centerAlbedo4 = Albedo[coord];
     float3 centerAlbedo = centerAlbedo4.rgb;
     
-    // We stored normals encoded to [0,1]; decode to [-1,1]
+    float3 centerBase = SafeAlbedo(centerAlbedo);
+    float3 centerDemod = centerColor.rgb / centerBase;
+
     float3 N0 = normalize(centerN.xyz * 2.0f - 1.0f);
     float Z0 = centerDepth;
 
     float3 sum = 0.0f;
     float wsum = 0.0f;
 
-    // Small luminance for range weighting (optional)
-    float centerLum = dot(centerColor.rgb, float3(0.299, 0.587, 0.114));
+    float centerLum = dot(centerDemod, float3(0.299, 0.587, 0.114));
+    float3 m1 = FirstMomentOld[coord].rgb;
+    float3 m2 = SecondMomentOld[coord].rgb;
 
     [unroll]
     for (int j = 0; j < 5; ++j)
@@ -139,6 +147,9 @@ float3 PostProcessColor(float3 hdrColor)
             float4 n = Normal[p];
             float z = Depth[p];
             float3 albedoI = Albedo[p].rgb;
+            float3 albedoSafeI = SafeAlbedo(albedoI);
+            float3 cDemod = c.rgb / albedoSafeI;
+
             float3 Ni = normalize(n.xyz * 2.0f - 1.0f);
             float Zi = z;
 
@@ -146,24 +157,21 @@ float3 PostProcessColor(float3 hdrColor)
 
             // Normal weight
             float nDiff2 = max(0.0f, 1.0f - dot(N0, Ni)); // 0 if same direction
-            float nW = exp(-nDiff2 * gNormalSigma);
 
             // Optional color/luminance weight
-            float lum = dot(c.rgb, float3(0.299, 0.587, 0.114));
+            float lum = dot(cDemod, float3(0.299, 0.587, 0.114));
             float dl = abs(lum - centerLum);
         //    float lW = exp(-dl * gColorSigma);
 
 
             // Depth weight (difference in depth)
             float dz = abs(Zi - Z0);
-            nW = exp(-(nDiff2 * nDiff2) / (2.0 * gNormalSigma * gNormalSigma));
+           float  nW = exp(-(nDiff2 * nDiff2) / (2.0 * gNormalSigma * gNormalSigma));
             float zW = exp(-(dz * dz) / (2.0 * gDepthSigma * gDepthSigma));
             float3 da = albedoI - centerAlbedo;
             float albedoDiff2 = dot(da, da);
             float aW = exp(-(albedoDiff2) / (2.0 * gAlbedoSigma * gAlbedoSigma));
             
-            float3 m1 = FirstMomentOld[coord].rgb;
-            float3 m2 = SecondMomentOld[coord].rgb;
 
             float3 variance = max(m2 - m1 * m1, 0.0f);
             float varScalar = max(dot(variance, float3(0.3333, 0.3333, 0.3333)), 1e-6f);
@@ -176,21 +184,22 @@ float3 PostProcessColor(float3 hdrColor)
             
             float lW = exp(-(dl * dl) / (2.0 * sigmaSafe * sigmaSafe));
             float w = k * nW * zW * lW * aW;
-            sum += c.rgb * w;
+            sum += cDemod.rgb * w;
             wsum += w;
         }
     }
 
-    float3 result = (wsum > 0.0f) ? (sum / wsum) : centerColor.rgb;
-
+    float3 filteredDemod = (wsum > 0.0f) ? (sum / wsum) : centerDemod;
+    float3 result = filteredDemod * centerAlbedo;
+    
     if (IsLastPass == 1)
     {
         result = PostProcessColor(result);
         Output[coord] = float4(result, centerColor.a);
-    } 
+    }
     else
     {
-        Output[coord] = float4(TARadiance[coord]);
+        Output[coord] = float4(result, centerColor.a);
     }
     
 }
