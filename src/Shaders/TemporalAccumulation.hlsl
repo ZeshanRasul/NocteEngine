@@ -94,11 +94,11 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     float3 rayDirVS = normalize(pView.xyz);
     
     bool depthValid = isfinite(linearDepth) && linearDepth > 1e-5f;
-    if (!depthValid)
-    {
-        Output[coord] = float4(1, 0, 1, 1);
-        return;
-    }
+    //if (!depthValid)
+    //{
+    //    Output[coord] = float4(1, 0, 1, 1);
+    //    return;
+    //}
 
     
     float t = linearDepth / max(1e-6f, rayDirVS.z);
@@ -112,11 +112,11 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     isfinite(worldH.w) &&
     abs(worldH.w) > 1e-6f;
 
-    if (!worldValid)
-    {
-        TARadiance[coord] = float4(1, 0, 1, 1);
-        return;
-    }
+    //if (!worldValid)
+    //{
+    //    TARadiance[coord] = float4(1, 0, 1, 1);
+    //    return;
+    //}
     
     float3 worldPos = worldH.xyz / worldH.w;
 
@@ -141,7 +141,7 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
         return;
     }
 
-    if (!valid)
+    if (!valid || !worldValid || !depthValid)
     {
         TARadiance[coord] = float4(C, 1.0f);
         FirstMomentNew[coord] = float4(C, 1.0f);

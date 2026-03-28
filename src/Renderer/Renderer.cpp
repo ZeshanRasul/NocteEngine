@@ -394,13 +394,13 @@ void Renderer::Draw(bool useRaster)
 			m_StartCaptureSequenceNextFrame = false;
 		}
 
-			m_PrevCamPos = m_EyePos;
-			XMStoreFloat4x4(&m_PrevView, XMLoadFloat4x4(&m_View));
-			float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-			clearColor[0] = 0.0f;
-			clearColor[1] = 0.0f;
-			clearColor[2] = 0.0f;
-			clearColor[3] = 0.0f;
+		m_PrevCamPos = m_EyePos;
+		XMStoreFloat4x4(&m_PrevView, XMLoadFloat4x4(&m_View));
+		float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+		clearColor[0] = 0.0f;
+		clearColor[1] = 0.0f;
+		clearColor[2] = 0.0f;
+		clearColor[3] = 0.0f;
 		if (m_UseTemporal)
 		{
 
@@ -427,44 +427,44 @@ void Renderer::Draw(bool useRaster)
 				0,
 				nullptr);
 		}
-			m_CommandList->ClearUnorderedAccessViewFloat(
-				CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), UAV_OldFirstMoment, m_CbvSrvUavDescriptorSize),
-				CD3DX12_CPU_DESCRIPTOR_HANDLE(m_SrvUavCPUHeap->GetCPUDescriptorHandleForHeapStart(), 1, m_CbvSrvUavDescriptorSize),
-				m_OldFirstMomentBuffer.Get(),
-				clearColor,
-				0,
-				nullptr);
-			m_CommandList->ClearUnorderedAccessViewFloat(
-				CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), UAV_OldSecondMoment, m_CbvSrvUavDescriptorSize),
-				CD3DX12_CPU_DESCRIPTOR_HANDLE(m_SrvUavCPUHeap->GetCPUDescriptorHandleForHeapStart(), 2, m_CbvSrvUavDescriptorSize),
-				m_OldSecondMomentBuffer.Get(),
-				clearColor,
-				0,
-				nullptr);
-			m_CommandList->ClearUnorderedAccessViewFloat(
-				CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), UAV_FirstMoment, m_CbvSrvUavDescriptorSize),
-				CD3DX12_CPU_DESCRIPTOR_HANDLE(m_SrvUavCPUHeap->GetCPUDescriptorHandleForHeapStart(), 3, m_CbvSrvUavDescriptorSize),
-				m_FirstMomentBuffer.Get(),
-				clearColor,
-				0,
-				nullptr);
-			m_CommandList->ClearUnorderedAccessViewFloat(
-				CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), UAV_SecondMoment, m_CbvSrvUavDescriptorSize),
-				CD3DX12_CPU_DESCRIPTOR_HANDLE(m_SrvUavCPUHeap->GetCPUDescriptorHandleForHeapStart(), 4, m_CbvSrvUavDescriptorSize),
-				m_SecondMomentBuffer.Get(),
-				clearColor,
-				0,
-				nullptr);
+		m_CommandList->ClearUnorderedAccessViewFloat(
+			CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), UAV_OldFirstMoment, m_CbvSrvUavDescriptorSize),
+			CD3DX12_CPU_DESCRIPTOR_HANDLE(m_SrvUavCPUHeap->GetCPUDescriptorHandleForHeapStart(), 1, m_CbvSrvUavDescriptorSize),
+			m_OldFirstMomentBuffer.Get(),
+			clearColor,
+			0,
+			nullptr);
+		m_CommandList->ClearUnorderedAccessViewFloat(
+			CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), UAV_OldSecondMoment, m_CbvSrvUavDescriptorSize),
+			CD3DX12_CPU_DESCRIPTOR_HANDLE(m_SrvUavCPUHeap->GetCPUDescriptorHandleForHeapStart(), 2, m_CbvSrvUavDescriptorSize),
+			m_OldSecondMomentBuffer.Get(),
+			clearColor,
+			0,
+			nullptr);
+		m_CommandList->ClearUnorderedAccessViewFloat(
+			CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), UAV_FirstMoment, m_CbvSrvUavDescriptorSize),
+			CD3DX12_CPU_DESCRIPTOR_HANDLE(m_SrvUavCPUHeap->GetCPUDescriptorHandleForHeapStart(), 3, m_CbvSrvUavDescriptorSize),
+			m_FirstMomentBuffer.Get(),
+			clearColor,
+			0,
+			nullptr);
+		m_CommandList->ClearUnorderedAccessViewFloat(
+			CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), UAV_SecondMoment, m_CbvSrvUavDescriptorSize),
+			CD3DX12_CPU_DESCRIPTOR_HANDLE(m_SrvUavCPUHeap->GetCPUDescriptorHandleForHeapStart(), 4, m_CbvSrvUavDescriptorSize),
+			m_SecondMomentBuffer.Get(),
+			clearColor,
+			0,
+			nullptr);
 
-			useHistory = 0;
+		useHistory = 0;
 
-			D3D12_RESOURCE_BARRIER barriers2[1];
+		D3D12_RESOURCE_BARRIER barriers2[1];
 
-			barriers2[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-				m_OldFirstMomentBuffer.Get(),
-				D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-			m_CommandList->ResourceBarrier(_countof(barriers2), barriers2);
+		barriers2[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_OldFirstMomentBuffer.Get(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		m_CommandList->ResourceBarrier(_countof(barriers2), barriers2);
 
 		m_ClearAccumulation = false;
 	}
@@ -689,12 +689,12 @@ void Renderer::Draw(bool useRaster)
 		m_CommandList->ResourceBarrier(_countof(barriers2), barriers2);
 	}
 
-	if (m_UseDenoiser || m_UseTemporal)
+	const int numPasses = m_DenoisePasses;
+	ID3D12Resource* src = nullptr;
+	ID3D12Resource* dest = nullptr;
+	for (int pass = 0; pass < numPasses; ++pass)
 	{
-		const int numPasses = m_DenoisePasses;
-		ID3D12Resource* src = nullptr;
-		ID3D12Resource* dest = nullptr;
-		for (int pass = 0; pass < numPasses; ++pass)
+		if (m_UseDenoiser && m_UseTemporal)
 		{
 
 			m_PostProcessData[pass].IsLastPass = (pass == numPasses - 1) ? 1 : 0;
@@ -739,9 +739,10 @@ void Renderer::Draw(bool useRaster)
 				}
 				else
 				{
-					src = (dest == m_DenoisePong.Get()) ? m_DenoisePong.Get() : m_DenoisePing.Get();
+					src = (dest == m_DenoisePong.Get()) ? m_DenoisePing.Get() : m_DenoisePong.Get();
 
 				}
+
 				dest = m_PresentUAV.Get();
 
 				m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
@@ -751,7 +752,9 @@ void Renderer::Draw(bool useRaster)
 
 				m_FinalDenoiseBuffer = src;
 			}
-
+		}
+		if (m_UseDenoiser || m_UseTemporal)
+		{
 			std::vector<ID3D12DescriptorHeap*> heaps = { m_SrvUavHeap.Get(), m_SamplerHeap.Get() };
 			m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
 			m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
@@ -808,36 +811,122 @@ void Renderer::Draw(bool useRaster)
 				(src == m_DenoisePing.Get()) ? SRV_DenoisePing :
 				SRV_DenoisePong;
 
+			if (m_UseDenoiser && !m_UseTemporal)
+			{
+				// In non-temporal case, we read directly from TA output, so SRV index is based on that, not ping/pong.
+				srvIndex = (src == m_FinalDenoiseBuffer) ? SRV_Accumulation : srvIndex;
+
+
+				const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, uavIndex, m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootConstantBufferView(9, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
+				m_CommandList->SetComputeRootConstantBufferView(10, m_PostProcessConstantBuffer[pass]->GetGPUVirtualAddress()); // denoise step
+				m_CommandList->SetComputeRootConstantBufferView(11, m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress()); // scene data like view/proj matrices
+				m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
+				const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvIndex, m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
+				const auto pingpongSrvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, SRV_Normal, m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(2, pingpongSrvTableBase);
+				//const auto motionBuffers = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart, m_CbvSrvUavDescriptorSize);
+				//m_CommandList->SetComputeRootDescriptorTable(3, motionBuffers);
+				//const auto motionBuffers2 = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart2, m_CbvSrvUavDescriptorSize);
+				//m_CommandList->SetComputeRootDescriptorTable(4, motionBuffers2);
+
+				auto u0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+					24,
+					m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(5, u0Handle);
+
+				auto t0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+					25,
+					m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(6, t0Handle);
+
+				UINT gx = (m_ClientWidth + 7) / 8;
+				UINT gy = (m_ClientHeight + 7) / 8;
+				m_CommandList->Dispatch(gx, gy, 1);
+
+			}
+
+			if (m_UseDenoiser && m_UseTemporal)
+			{
+				// In temporal case, the first pass reads from TA output, but subsequent passes read from ping/pong, so we need to adjust the SRV index for the first pass.
+				if (pass == 0)
+				{
+					srvIndex = SRV_Accumulation;
+				}
+				else 				
+				{
+					srvIndex = (src == m_DenoisePing.Get()) ? SRV_DenoisePing : SRV_DenoisePong;
+				}
+
+
+				const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, uavIndex, m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootConstantBufferView(9, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
+				m_CommandList->SetComputeRootConstantBufferView(10, m_PostProcessConstantBuffer[pass]->GetGPUVirtualAddress()); // denoise step
+				m_CommandList->SetComputeRootConstantBufferView(11, m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress()); // scene data like view/proj matrices
+				m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
+				const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvIndex, m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
+				const auto pingpongSrvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, SRV_Normal, m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(2, pingpongSrvTableBase);
+				//const auto motionBuffers = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart, m_CbvSrvUavDescriptorSize);
+				//m_CommandList->SetComputeRootDescriptorTable(3, motionBuffers);
+				//const auto motionBuffers2 = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart2, m_CbvSrvUavDescriptorSize);
+				//m_CommandList->SetComputeRootDescriptorTable(4, motionBuffers2);
+
+				auto u0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+					24,
+					m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(5, u0Handle);
+
+				auto t0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+					25,
+					m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(6, t0Handle);
+
+				UINT gx = (m_ClientWidth + 7) / 8;
+				UINT gy = (m_ClientHeight + 7) / 8;
+				m_CommandList->Dispatch(gx, gy, 1);
+
+			}
+
+			if (m_UseTemporal && !m_UseDenoiser)
+			{
+
+				src = m_AccumulationBuffer.Get();
+				dest = m_PresentUAV.Get();
+
+				const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, uavIndex, m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootConstantBufferView(9, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
+				m_CommandList->SetComputeRootConstantBufferView(10, m_PostProcessConstantBuffer[pass]->GetGPUVirtualAddress()); // denoise step
+				m_CommandList->SetComputeRootConstantBufferView(11, m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress()); // scene data like view/proj matrices
+				m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
+				const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvIndex, m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
+				const auto pingpongSrvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, SRV_Normal, m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(2, pingpongSrvTableBase);
+				//const auto motionBuffers = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart, m_CbvSrvUavDescriptorSize);
+				//m_CommandList->SetComputeRootDescriptorTable(3, motionBuffers);
+				//const auto motionBuffers2 = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart2, m_CbvSrvUavDescriptorSize);
+				//m_CommandList->SetComputeRootDescriptorTable(4, motionBuffers2);
+
+				auto u0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+					24,
+					m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(5, u0Handle);
+
+				auto t0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+					25,
+					m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(6, t0Handle);
+
+				UINT gx = (m_ClientWidth + 7) / 8;
+				UINT gy = (m_ClientHeight + 7) / 8;
+				m_CommandList->Dispatch(gx, gy, 1);
+			}
+
 			//int motionIndexStart = m_CurrentNewMoment == m_FirstMomentBuffer.Get() ? SRV_FirstMoment : SRV_FirstMoment;
 			//int motionIndexStart2 = m_CurrentOldMoment == m_OldFirstMomentBuffer.Get() ? SRV_OldFirstMoment : SRV_FirstMoment;
-
-			const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, uavIndex, m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootConstantBufferView(9, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
-			m_CommandList->SetComputeRootConstantBufferView(10, m_PostProcessConstantBuffer[pass]->GetGPUVirtualAddress()); // denoise step
-			m_CommandList->SetComputeRootConstantBufferView(11, m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress()); // scene data like view/proj matrices
-			m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
-			const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvIndex, m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
-			const auto pingpongSrvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, SRV_Normal, m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootDescriptorTable(2, pingpongSrvTableBase);
-			//const auto motionBuffers = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart, m_CbvSrvUavDescriptorSize);
-			//m_CommandList->SetComputeRootDescriptorTable(3, motionBuffers);
-			//const auto motionBuffers2 = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart2, m_CbvSrvUavDescriptorSize);
-			//m_CommandList->SetComputeRootDescriptorTable(4, motionBuffers2);
-
-			auto u0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
-				24,
-				m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootDescriptorTable(5, u0Handle);
-
-			auto t0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
-				25,
-				m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootDescriptorTable(6, t0Handle);
-
-			UINT gx = (m_ClientWidth + 7) / 8;
-			UINT gy = (m_ClientHeight + 7) / 8;
-			m_CommandList->Dispatch(gx, gy, 1);
 
 			//m_IsLastPass = 0;
 
