@@ -262,10 +262,10 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_PresentUAV;
 
 	int m_DenoiseStep = 1;
-	int m_DenoisePasses = 5;
-	float m_SigmaColor = 0.1f;
+	int m_DenoisePasses = 7;
+	float m_SigmaColor = 0.2f;
 	float m_SigmaAlbedo = 0.11f;
-	float m_SigmaNormal = 6.0f;
+	float m_SigmaNormal = 3.0f;
 	float m_SigmaDepth = 6.5f;
 	int useHistory = 1;
 
@@ -308,10 +308,10 @@ private:
 
 	void CreatePostProcessConstantBuffer();
 	void UpdatePostProcessConstantBuffer(int pass, int num_passes);
-	UINT MAX_PASSES = 5;
-	PostProcessData m_PostProcessData[5];
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_PostProcessConstantBuffer[5];
-	float m_Exposure = 1.75f;
+	UINT MAX_PASSES = 7;
+	PostProcessData m_PostProcessData[7];
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_PostProcessConstantBuffer[7];
+	float m_Exposure = 0.75f;
 	int m_ToneMapMode = 2;
 	int m_DebugMode = 0;
 	int m_IsLastPass = 0;

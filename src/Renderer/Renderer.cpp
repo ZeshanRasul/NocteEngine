@@ -2836,8 +2836,8 @@ void Renderer::UpdateDenoiseConstantBuffer(int step, int pass)
 	denoiseConstants.sigmaColor = baseSigmaColor;
 	denoiseConstants.sigmaNormal = baseSigmaNormal;
 	denoiseConstants.sigmaDepth = baseSigmaDepth;
-	denoiseConstants.sigmaAlbedo = step;
-	denoiseConstants.stepWidth = m_DenoiseStep; // 1
+	denoiseConstants.sigmaAlbedo = m_SigmaAlbedo;
+	denoiseConstants.stepWidth = step;
 	denoiseConstants.invResolution = { 1.0f / (float)m_ClientWidth, 1.0f / (float)m_ClientHeight };
 	denoiseConstants.pass = pass;
 	denoiseConstants.useHistory = useHistory;
@@ -3399,11 +3399,22 @@ void Renderer::CreatePostProcessConstantBuffer()
 	m_PostProcessData[4].IsLastPass = 0;
 
 
+	m_PostProcessData[5].Exposure = m_Exposure;
+	m_PostProcessData[5].ToneMapMode = m_ToneMapMode;
+	m_PostProcessData[5].DebugMode = m_DebugMode;
+	m_PostProcessData[5].IsLastPass = 0;
+
+
+	m_PostProcessData[6].Exposure = m_Exposure;
+	m_PostProcessData[6].ToneMapMode = m_ToneMapMode;
+	m_PostProcessData[6].DebugMode = m_DebugMode;
+	m_PostProcessData[6].IsLastPass = 0;
+
 	for (int pass = 0; pass < MAX_PASSES; pass++)
 	{
 
 		m_PostProcessConstantBuffer[pass] = nv_helpers_dx12::CreateBuffer(
-			m_Device.Get(), sizeof(m_PostProcessData[pass]), D3D12_RESOURCE_FLAG_NONE,
+			m_Device.Get(), sizeof(PostProcessData), D3D12_RESOURCE_FLAG_NONE,
 			D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
 
 		uint8_t* pData;
@@ -3436,9 +3447,9 @@ void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 void Renderer::CreateAreaLightConstantBuffer()
 {
 	m_AreaLightData.Position = XMFLOAT3(0.0f, 55.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(45.0f, 45.0f, 45.0f);
-	m_AreaLightData.U = XMFLOAT3(12.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 12.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(25.0f, 25.0f, 25.0f);
+	m_AreaLightData.U = XMFLOAT3(8.0f, 0.0f, 0.0f);
+	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 8.0f);
 
 	XMVECTOR U = XMLoadFloat3(&m_AreaLightData.U);
 	XMVECTOR V = XMLoadFloat3(&m_AreaLightData.V);
