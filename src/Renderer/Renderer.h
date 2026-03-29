@@ -33,7 +33,7 @@ public:
 	bool InitializeD3D12(HWND& windowHandle);
 	bool Shutdown();
 	void Update(float dt, Camera& cam);
-	void Draw(bool useRaster);
+	bool Draw(bool useRaster);
 
 private:
 	void CreateDebugController();
@@ -349,7 +349,7 @@ private:
 	void UpdateFrameIndexRNGCBuffer();
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_FrameIndexCB;
 	int m_FrameIndex = 0;
-	int m_MaxFrames = 4096;
+	int m_MaxFrames = 6000;
 	int m_SPP = 1;
 	bool m_UseTemporal = false;
 	bool m_UseDenoiser = false;

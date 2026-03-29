@@ -42,7 +42,10 @@ int Application::Run()
 			return *ecode;
 		}
 		m_Renderer->Update(m_GameTimer.DeltaTime(), m_Window->GetCamera());
-		m_Renderer->Draw(m_Window->m_Raster);
+		if (!(m_Renderer->Draw(m_Window->m_Raster)))
+		{
+			return 0;
+		}
 	}
 
 	return 0;

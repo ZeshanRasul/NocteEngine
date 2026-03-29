@@ -141,6 +141,8 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 
 	m_FrameIndex = 0;
+	m_MaxIterations = 4096;
+	m_MaxFrames = 4096;
 
 	m_RenderSettings = {};
 	m_RenderSettings.SamplingStrategy = SamplingMode::Balanced;
@@ -170,7 +172,8 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 		<< "Next Variance Bucket Index" << ","
 		<< "Mean Luminance" << ","
 		<< "Luminance Variance" << ","
-		<< "Bright Pixel Ratio" << "\n";
+		<< "Bright Pixel Ratio" << ","
+		<< "Epsilon" << "\n";
 
 	vp.TopLeftX = 0.0f;
 	vp.TopLeftY = 0.0f;
@@ -322,7 +325,7 @@ static inline void TransitionIfNeeded(
 	cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(res, before, after));
 }
 
-void Renderer::Draw(bool useRaster)
+bool Renderer::Draw(bool useRaster)
 {
 
 	ImGui_ImplDX12_NewFrame();
@@ -413,13 +416,13 @@ void Renderer::Draw(bool useRaster)
 	}
 	if ((m_ClearAccumulation && m_StartCaptureSequenceNextFrame) || camPosChanged || hasViewChanged)
 	{
-		if (!m_StartCaptureSequenceNextFrame)
+		if (camPosChanged || hasViewChanged)
 		{
 			m_FrameIndex = 0;
 		}
 		else
 		{
-			m_FrameIndex = 0;
+		//	m_FrameIndex = 0;
 			m_StartCaptureSequenceNextFrame = false;
 		}
 
@@ -1168,9 +1171,14 @@ void Renderer::Draw(bool useRaster)
 			m_FrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
 			m_CurrentState = BucketizeState(m_FrameStats, m_MaxIterations);
 		}
-
-		m_NextFrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
-		m_NextState = BucketizeState(m_NextFrameStats, m_MaxIterations);
+		else if (m_FrameIndex > 1)
+		{
+			m_NextFrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
+			m_NextState = BucketizeState(m_NextFrameStats, m_MaxIterations);
+		}
+		else
+		{
+		}
 
 		float m_reward = m_CurrentState.VarianceBucket - m_NextState.VarianceBucket;
 
@@ -1193,6 +1201,15 @@ void Renderer::Draw(bool useRaster)
 			<< m_FrameStats.BrightPixelRatio << ","
 			<< m_RLController.GetEpsilon() << "\n";
 
+		m_FrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
+		m_CurrentState = BucketizeState(m_FrameStats, m_MaxIterations);
+
+		if (m_FrameIndex == m_MaxIterations)
+		{
+			m_TargetCaptureSPP = m_FrameIndex;
+			m_SaveImage = true;
+			m_CurrentAccumSPP = 0;
+		}
 		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 			m_PresentUAV.Get(),
 			D3D12_RESOURCE_STATE_COPY_SOURCE,
@@ -1311,7 +1328,7 @@ void Renderer::Draw(bool useRaster)
 			}
 			m_ReadbackBuffer->Unmap(0, nullptr);
 			m_SaveImage = false;
-			m_FrameIndex = 0;
+			//	m_FrameIndex = 0;
 		}
 
 
@@ -1454,6 +1471,8 @@ void Renderer::Draw(bool useRaster)
 	m_CurrentFrameResource->Fence = ++m_CurrentFence;
 
 	m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence);
+
+	return true;
 
 }
 
@@ -4380,7 +4399,7 @@ void Renderer::RequestCapture(int spp)
 	//	m_ResetAccumulation = true;
 	m_ClearAccumulation = true;
 	m_FrameIndex = 0;
-	m_SaveImage = true;
+	m_SaveImage = false;
 }
 
 
