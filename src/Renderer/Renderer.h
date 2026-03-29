@@ -6,6 +6,9 @@
 #include "UploadBuffer.h"
 #include "FrameResource.h"
 #include "../Camera.h"
+
+#include "RenderSettings.h"
+
 #include "nv_helpers_dx12/TopLevelASGenerator.h"
 #include "nv_helpers_dx12/ShaderBindingTableGenerator.h"
 #include <dxcapi.h>
@@ -430,6 +433,17 @@ private:
 		oss << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S");
 		return oss.str();
 	}
+
+	////////// RL Experiment //////////
+	public:
+		RenderSettings& GetRenderSettings() { return m_RenderSettings; }
+		const RenderSettings& GetRenderSettings() const { return m_RenderSettings; }
+
+		void SetSamplingMode(SamplingMode mode) { m_RenderSettings.SamplingStrategy = mode; }
+		SamplingMode GetSamplingMode() const { return m_RenderSettings.SamplingStrategy; }
+
+	private:
+		RenderSettings m_RenderSettings;
 };
 
 struct PerInstanceData

@@ -65,6 +65,14 @@ cbuffer cbPass : register(b0)
     float cbPerObjectPad3;
     float4 gAmbientLight;
     int directPresent;
+    int SamplingMode;
+    float BSDFSampleProbability;
+    float LightSampleProbability;
+
+    int MaxBounces;
+    int FrameIndex;
+    int UseNEE;
+    int cbPerObjectPad4;
 
     Light gLights[MaxLights];
 };

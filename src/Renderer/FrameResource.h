@@ -46,6 +46,15 @@ struct PassConstants
 	XMFLOAT4 AmbientLight = { 0.2f, 0.2f, 1.0f, 1.0f };
 	int directPresent = false;
 
+	int SamplingMode;
+	float BSDFSampleProbability;
+	float LightSampleProbability;
+
+	int MaxBounces;
+	int FrameIndex;
+	int UseNEE;
+	int cbPerObjectPad4;
+
 	Light Lights[MaxLights];
 };
 

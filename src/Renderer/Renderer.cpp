@@ -11,6 +11,7 @@
 #include "Renderer.h"
 #include <iostream>
 
+#include "SamplingModes.h"
 
 const int gNumFrameResources = 1;
 const int gNumRayTypes = 2;
@@ -2301,6 +2302,17 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.cbPerObjectPad3 = 0.5f;
 	m_MainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
 	m_MainPassCB.directPresent =  (m_UseDenoiser || m_UseTemporal) ? 0 : 1;
+
+	m_MainPassCB.SamplingMode = static_cast<int>(m_RenderSettings.SamplingStrategy);
+
+	SamplingModeParams modeParams = GetSamplingModeParams(m_RenderSettings.SamplingStrategy);
+	m_MainPassCB.BSDFSampleProbability = modeParams.BsdfProbability;
+	m_MainPassCB.LightSampleProbability = modeParams.LightProbability;
+
+	m_MainPassCB.MaxBounces = m_RenderSettings.MaxBounces;
+	m_MainPassCB.FrameIndex = m_FrameIndex;
+	m_MainPassCB.UseNEE = m_RenderSettings.useNEE ? 1 : 0;
+
 
 	m_MainPassCB.Lights[0].Strength = { 4.6f, 4.6f, 4.6f };
 	m_MainPassCB.Lights[0].Direction = { 0.3f, -0.46f, 0.7f };
