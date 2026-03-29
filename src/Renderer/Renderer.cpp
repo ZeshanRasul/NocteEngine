@@ -1127,10 +1127,10 @@ void Renderer::Draw(bool useRaster)
 				memcpy(dstRow, srcRow, width * 4);
 			}
 
-			std::string folderName = GetTimestampString() + "_cornell_skull_dragon";
+			std::string folderName = GetTimestampString() + "_cornell_skull_dragon"+ std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy));
 			std::filesystem::path runPath = std::filesystem::path("experiments/runs") / folderName;
 			std::filesystem::create_directories(runPath);
-			std::string filename = ("frame_") + std::to_string(m_FrameIndex) + "SPP" + ".png";
+			std::string filename = std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy)) + ("frame_") + std::to_string(m_FrameIndex) + "SPP" + ".png";
 			std::filesystem::path fullPath = runPath / filename;
 
 			int result = stbi_write_jpg(fullPath.string().c_str(), width, height, 4, image.data(), width * 4);
