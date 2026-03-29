@@ -15,3 +15,14 @@ struct RLStepResult
     RLAction Action = RLAction::Balanced;
     float Reward = 0.0f;
 };
+
+inline const char* GetActionName(RLAction action)
+{
+    switch (action)
+    {
+    case RLAction::BSDFHeavy:  return "BSDFHeavy";
+    case RLAction::Balanced:   return "Balanced";
+    case RLAction::LightHeavy: return "LightHeavy";
+    default:                   return "Unknown";
+    }
+}

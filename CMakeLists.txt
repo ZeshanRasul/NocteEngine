@@ -38,6 +38,8 @@ file(GLOB APP_SOURCES
     "src/Events/*.h"
     "src/Renderer/*.cpp"
     "src/Renderer/*.h"
+    "src/RL/*.cpp"
+    "src/RL/*.h"
     "src/Utils/*.cpp"
     "src/Utils/*.h"
 )

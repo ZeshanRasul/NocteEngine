@@ -9,6 +9,7 @@
 
 #include "RenderSettings.h"
 #include "FrameStats.h"
+#include "../RL/RLState.h"
 
 #include "nv_helpers_dx12/TopLevelASGenerator.h"
 #include "nv_helpers_dx12/ShaderBindingTableGenerator.h"
@@ -456,6 +457,10 @@ private:
 			"Balanced",
 			"Light Heavy"
 		};
+
+		DiscreteState m_CurrentState;
+		std::string m_CurrentStateName = "Unknown";
+		int m_MaxIterations = 4096;
 };
 
 struct PerInstanceData

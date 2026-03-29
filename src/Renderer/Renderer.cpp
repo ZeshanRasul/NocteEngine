@@ -153,6 +153,19 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 	m_MetricsFileName = filename;
 
+	std::ofstream file(m_Fullpath, std::ios::app);
+
+
+	file << "Iteration" << ","
+		<< "State" << ","
+		<< "Action" << ","
+		<< "Reward Placeholder" << ","
+		<< "Variance Bucket" << ","
+		<< "Variance Bucket Index" << ","
+		<< "Mean Luminance" << ","
+		<< "Luminance Variance" << ","
+		<< "Bright Pixel Ratio" << "\n";
+
 	vp.TopLeftX = 0.0f;
 	vp.TopLeftY = 0.0f;
 	vp.Width = m_ClientWidth;
@@ -1145,8 +1158,14 @@ void Renderer::Draw(bool useRaster)
 
 		std::string actionName = samplingModeNames[static_cast<int>(m_RenderSettings.SamplingStrategy)];
 
+		m_CurrentState = BucketizeState(m_FrameStats, m_MaxIterations);
+
 		file << m_FrameStats.Iteration << ","
+			<< m_CurrentState.ToIndex() << ","
 			<< actionName << ","
+			<< "Reward Placeholder" << ","
+			<< GetVarianceBucketName(m_CurrentState.VarianceBucket) << ","
+			<< m_CurrentState.VarianceBucket << ","
 			<< m_FrameStats.MeanLuminance << ","
 			<< m_FrameStats.LuminanceVariance << ","
 			<< m_FrameStats.BrightPixelRatio << "\n";
