@@ -62,7 +62,7 @@ cbuffer cbPass : register(b2)
     int cbPerObjectPad4;
 
     Light gLights[MaxLights];
-};
+}
 
 Texture2D<float4> Input : register(t0);
 Texture2D<float> Depth : register(t2);

@@ -142,6 +142,11 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 	m_FrameIndex = 0;
 
+	m_RenderSettings = {};
+	m_RenderSettings.SamplingStrategy = SamplingMode::Balanced;
+	m_RenderSettings.MaxBounces = 8;
+
+
 	vp.TopLeftX = 0.0f;
 	vp.TopLeftY = 0.0f;
 	vp.Width = m_ClientWidth;
@@ -4159,6 +4164,27 @@ void Renderer::RenderImGuiDebugWindow()
 	ImGui::InputFloat("Area Light V", &m_AreaLightData.V.z);
 	ImGui::End();
 
+	ImGui::Begin("RL Settings");
+
+	const char* samplingModes[] =
+	{
+		"BSDF Heavy",
+		"Balanced",
+		"Light Heavy"
+	};
+
+	int currentMode = static_cast<int>(m_RenderSettings.SamplingStrategy);
+
+	if (ImGui::Combo("Sampling Strategy", &currentMode, samplingModes, IM_ARRAYSIZE(samplingModes)))
+	{
+		m_RenderSettings.SamplingStrategy = static_cast<SamplingMode>(currentMode);
+
+		UpdateMainPassCB();
+
+		m_ClearAccumulation = true;
+	}
+
+	ImGui::End();
 }
 
 void Renderer::CreateReadbackBuffer()
