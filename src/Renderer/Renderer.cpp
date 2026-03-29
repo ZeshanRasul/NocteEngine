@@ -387,7 +387,7 @@ void Renderer::Draw(bool useRaster)
 			break;
 		}
 	}
-	if ((m_ClearAccumulation && m_StartCaptureSequenceNextFrame) || camPosChanged || hasViewChanged)
+	if ((m_ClearAccumulation && m_StartCaptureSequenceNextFrame) || camPosChanged || hasViewChanged || m_ClearAccumulation)
 	{
 		if (!m_StartCaptureSequenceNextFrame)
 		{
@@ -1034,14 +1034,14 @@ void Renderer::Draw(bool useRaster)
 		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 		m_CommandList->CopyResource(CurrentBackBuffer(), m_PresentUAV.Get());
 
-		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		//	m_PresentUAV.Get(),
-		//	D3D12_RESOURCE_STATE_COPY_SOURCE,
-		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		//	CurrentBackBuffer(),
-		//	D3D12_RESOURCE_STATE_COPY_DEST,
-		//	D3D12_RESOURCE_STATE_RENDER_TARGET));
+		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_PresentUAV.Get(),
+			D3D12_RESOURCE_STATE_COPY_SOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			CurrentBackBuffer(),
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			D3D12_RESOURCE_STATE_RENDER_TARGET));
 	}
 
 
@@ -1110,7 +1110,7 @@ void Renderer::Draw(bool useRaster)
 
 		m_CurrentFrameResource->Fence = ++m_CurrentFence;
 		FlushCommandQueue();
-		m_CommandList->Reset(m_CommandAllocator.Get(), m_PipelineStateObjects["opaque"].Get());
+		m_CommandList->Reset(m_CommandAllocator.Get(), nullptr);
 
 		void* mapped = nullptr;
 		m_ReadbackBuffer->Map(0, nullptr, &mapped);
@@ -1150,10 +1150,10 @@ void Renderer::Draw(bool useRaster)
 			D3D12_RESOURCE_STATE_COPY_SOURCE,
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 
-		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			CurrentBackBuffer(),
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_RENDER_TARGET));
+		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		//	CurrentBackBuffer(),
+		//	D3D12_RESOURCE_STATE_COPY_DEST,
+		//	D3D12_RESOURCE_STATE_RENDER_TARGET));
 	}
 
 
@@ -1385,6 +1385,7 @@ void Renderer::Draw(bool useRaster)
 	m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
 
 
+	m_CommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, nullptr);
 
 	ImGui::Render();
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_CommandList.Get());
@@ -4305,6 +4306,7 @@ void Renderer::RenderImGuiDebugWindow()
 		UpdateMainPassCB();
 
 		m_ClearAccumulation = true;
+		m_FrameIndex = 0;
 	}
 
 	ImGui::End();
