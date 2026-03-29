@@ -1,4 +1,5 @@
 #pragma once
+#include "../Renderer/RenderSettings.h"
 
 enum class RLAction
 {
@@ -24,5 +25,16 @@ inline const char* GetActionName(RLAction action)
     case RLAction::Balanced:   return "Balanced";
     case RLAction::LightHeavy: return "LightHeavy";
     default:                   return "Unknown";
+    }
+}
+
+inline SamplingMode ToSamplingMode(RLAction action)
+{
+    switch (action)
+    {
+    case RLAction::BSDFHeavy:  return SamplingMode::BSDFHeavy;
+    case RLAction::Balanced:   return SamplingMode::Balanced;
+    case RLAction::LightHeavy: return SamplingMode::LightHeavy;
+    default:                   return SamplingMode::Balanced;
     }
 }
