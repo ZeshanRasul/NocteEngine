@@ -10,6 +10,7 @@
 #include "RenderSettings.h"
 #include "FrameStats.h"
 #include "../RL/RLState.h"
+#include "../RL/RLController.h"
 
 #include "nv_helpers_dx12/TopLevelASGenerator.h"
 #include "nv_helpers_dx12/ShaderBindingTableGenerator.h"
@@ -350,8 +351,8 @@ private:
 	int m_FrameIndex = 0;
 	int m_MaxFrames = 4096;
 	int m_SPP = 1;
-	bool m_UseTemporal = true;
-	bool m_UseDenoiser = true;
+	bool m_UseTemporal = false;
+	bool m_UseDenoiser = false;
 	bool m_ClearAccumulation = false;
 	void ClearAccumulation() {};
 	void SaveCurrentFrame();
@@ -445,8 +446,10 @@ private:
 		SamplingMode GetSamplingMode() const { return m_RenderSettings.SamplingStrategy; }
 
 	private:
+		RLController m_RLController;
 		RenderSettings m_RenderSettings;
 		FrameStats m_FrameStats;
+		FrameStats m_NextFrameStats;
 		std::vector<XMFLOAT4> m_FrameImageData;
 		std::string m_MetricsFileName;
 		std::filesystem::path m_Fullpath;
@@ -459,8 +462,13 @@ private:
 		};
 
 		DiscreteState m_CurrentState;
+		DiscreteState m_NextState;
 		std::string m_CurrentStateName = "Unknown";
 		int m_MaxIterations = 4096;
+
+		float m_Reward = 0.0f;
+
+		bool m_UseRL = true;
 };
 
 struct PerInstanceData

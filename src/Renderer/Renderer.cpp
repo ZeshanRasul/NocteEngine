@@ -146,6 +146,11 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	m_RenderSettings.SamplingStrategy = SamplingMode::Balanced;
 	m_RenderSettings.MaxBounces = 12;
 
+	m_RLController.Initialize(0.0f);
+	m_RLController.SetAlpha(0.1f);
+	m_RLController.SetGamma(0.9f);
+	m_RLController.SetEpsilon(0.1f);
+
 	std::filesystem::path metricsPath = std::filesystem::path("metrics");
 	std::filesystem::create_directories(metricsPath);
 	std::string filename = "metrics" + GetTimestampString() + ".csv";
@@ -155,13 +160,14 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 	std::ofstream file(m_Fullpath, std::ios::app);
 
-
 	file << "Iteration" << ","
 		<< "State" << ","
 		<< "Action" << ","
-		<< "Reward Placeholder" << ","
+		<< "Reward" << ","
 		<< "Variance Bucket" << ","
 		<< "Variance Bucket Index" << ","
+		<< "Next Variance Bucket Index" << ","
+		<< "Next Variance Bucket Index" << ","
 		<< "Mean Luminance" << ","
 		<< "Luminance Variance" << ","
 		<< "Bright Pixel Ratio" << "\n";
@@ -405,7 +411,7 @@ void Renderer::Draw(bool useRaster)
 			break;
 		}
 	}
-	if ((m_ClearAccumulation && m_StartCaptureSequenceNextFrame) || camPosChanged || hasViewChanged || m_ClearAccumulation)
+	if ((m_ClearAccumulation && m_StartCaptureSequenceNextFrame) || camPosChanged || hasViewChanged)
 	{
 		if (!m_StartCaptureSequenceNextFrame)
 		{
@@ -710,290 +716,292 @@ void Renderer::Draw(bool useRaster)
 		m_CommandList->ResourceBarrier(_countof(barriers2), barriers2);
 	}
 
-	const int numPasses = m_DenoisePasses;
-	ID3D12Resource* src = nullptr;
-	ID3D12Resource* dest = nullptr;
-	for (int pass = 0; pass < numPasses; ++pass)
+	if (m_UseDenoiser || m_UseTemporal)
 	{
-		if (m_UseDenoiser && m_UseTemporal)
+		const int numPasses = m_DenoisePasses;
+		ID3D12Resource* src = nullptr;
+		ID3D12Resource* dest = nullptr;
+		for (int pass = 0; pass < numPasses; ++pass)
 		{
-
-			m_PostProcessData[pass].IsLastPass = (pass == numPasses - 1) ? 1 : 0;
-			UpdateDenoiseConstantBuffer(1 << pass, pass);
-			UpdatePostProcessConstantBuffer(pass, numPasses);
-
-
-			if (pass == 0)
+			if (m_UseDenoiser && m_UseTemporal)
 			{
-				src = m_FinalDenoiseBuffer;
-				dest = m_FinalDenoiseBuffer == m_DenoisePing.Get() ? m_DenoisePong.Get() : m_DenoisePing.Get();
-				D3D12_RESOURCE_BARRIER barriers[1];
 
-			}
-			else if (pass < numPasses - 1)
-			{
-				// Intermediate passes: ping-pong between ping and pong.
-				// If last pass was to ping, now read ping and write pong, and vice versa.
-				src = (dest == m_DenoisePing.Get()) ? m_DenoisePing.Get() : m_DenoisePong.Get();
-				dest = (dest == m_DenoisePing.Get()) ? m_DenoisePong.Get() : m_DenoisePing.Get();
-				//
-				auto srcWas = (src == m_DenoisePing.Get()) ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-				// Transition src to SRV (read)
-				m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-					src, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
-				//			 Transition dest to UAV (write)
+				m_PostProcessData[pass].IsLastPass = (pass == numPasses - 1) ? 1 : 0;
+				UpdateDenoiseConstantBuffer(1 << pass, pass);
+				UpdatePostProcessConstantBuffer(pass, numPasses);
 
-				if (pass != 1)
-				{
 
-					m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-						dest, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-				}
-
-			}
-			else
-			{
-				// Last pass: write to present UAV.
-				if (m_UseTemporal && !m_UseDenoiser)
+				if (pass == 0)
 				{
 					src = m_FinalDenoiseBuffer;
+					dest = m_FinalDenoiseBuffer == m_DenoisePing.Get() ? m_DenoisePong.Get() : m_DenoisePing.Get();
+					D3D12_RESOURCE_BARRIER barriers[1];
+
+				}
+				else if (pass < numPasses - 1)
+				{
+					// Intermediate passes: ping-pong between ping and pong.
+					// If last pass was to ping, now read ping and write pong, and vice versa.
+					src = (dest == m_DenoisePing.Get()) ? m_DenoisePing.Get() : m_DenoisePong.Get();
+					dest = (dest == m_DenoisePing.Get()) ? m_DenoisePong.Get() : m_DenoisePing.Get();
+					//
+					auto srcWas = (src == m_DenoisePing.Get()) ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+					// Transition src to SRV (read)
+					m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+						src, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+					//			 Transition dest to UAV (write)
+
+					if (pass != 1)
+					{
+
+						m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+							dest, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+					}
+
 				}
 				else
 				{
-					src = (dest == m_DenoisePong.Get()) ? m_DenoisePing.Get() : m_DenoisePong.Get();
+					// Last pass: write to present UAV.
+					if (m_UseTemporal && !m_UseDenoiser)
+					{
+						src = m_FinalDenoiseBuffer;
+					}
+					else
+					{
+						src = (dest == m_DenoisePong.Get()) ? m_DenoisePing.Get() : m_DenoisePong.Get();
 
+					}
+
+					dest = m_PresentUAV.Get();
+
+					m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+						src, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+					//	UpdateDenoiseConstantBuffer(1 << pass, pass);
+
+
+					m_FinalDenoiseBuffer = src;
+				}
+			}
+
+			std::vector<ID3D12DescriptorHeap*> heaps = { m_SrvUavHeap.Get(), m_SamplerHeap.Get() };
+			m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
+			m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
+			m_CommandList->SetPipelineState(m_DenoisePSO.Get());
+
+			const auto heapStart = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
+			int offsetFromStart = 0;
+			if (dest == m_DenoisePing.Get())
+			{
+				// Denoise Ping UAV
+				offsetFromStart = 0;
+			}
+			else if (dest == m_DenoisePong.Get())
+			{
+				// Denoise Pong UAV
+				offsetFromStart = 1;
+			}
+			else if (dest == m_PresentUAV.Get())
+			{
+				// Present UAV
+				offsetFromStart = 2;
+			}
+
+			int srvOffsetFromStart = 0;
+
+			if (src == m_AccumulationBuffer.Get())
+			{
+				// Accumulation Buffer SRV
+				srvOffsetFromStart = 2;
+			}
+			else if (src == m_DenoisePing.Get())
+			{
+				// Denoise Ping SRV
+				srvOffsetFromStart = 0;
+			}
+			else if (src == m_DenoisePong.Get())
+			{
+				// Denoise Pong SRV
+				srvOffsetFromStart = 1;
+			}
+
+			//if (pass == numPasses)
+			//{
+			//	m_IsLastPass = 1;
+			//}
+
+
+
+			if (m_UseDenoiser && !m_UseTemporal)
+			{
+				// In non-temporal case, we read directly from TA output, so SRV index is based on that, not ping/pong.
+			//	srvIndex = (src == m_FinalDenoiseBuffer) ? SRV_Accumulation : srvIndex;
+				//int uavIndex =
+				//	(dest == m_DenoisePing.Get()) ? UAV_DenoisePing :
+				//	(dest == m_DenoisePong.Get()) ? UAV_DenoisePong :
+				//	UAV_Present;
+
+				//int srvIndex =
+				//	(src == m_AccumulationBuffer.Get()) ? SRV_Accumulation :
+				//	(src == m_DenoisePing.Get()) ? SRV_DenoisePing :
+				//	SRV_DenoisePong;
+
+				int uavIndex = src == m_FinalDenoiseBuffer ? UAV_DenoisePing : UAV_DenoisePong;
+				int srvIndex = dest == m_DenoisePong.Get() ? SRV_DenoisePing : SRV_DenoisePong;
+
+				if (pass == numPasses - 1)
+				{
+					uavIndex = UAV_Present;
 				}
 
+				const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, uavIndex, m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootConstantBufferView(9, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
+				m_CommandList->SetComputeRootConstantBufferView(10, m_PostProcessConstantBuffer[pass]->GetGPUVirtualAddress()); // denoise step
+				m_CommandList->SetComputeRootConstantBufferView(11, m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress()); // scene data like view/proj matrices
+				m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
+				const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvIndex, m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
+				const auto pingpongSrvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, SRV_Normal, m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(2, pingpongSrvTableBase);
+				//const auto motionBuffers = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart, m_CbvSrvUavDescriptorSize);
+				//m_CommandList->SetComputeRootDescriptorTable(3, motionBuffers);
+				//const auto motionBuffers2 = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart2, m_CbvSrvUavDescriptorSize);
+				//m_CommandList->SetComputeRootDescriptorTable(4, motionBuffers2);
+
+				auto u0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+					24,
+					m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(5, u0Handle);
+
+				auto t0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+					25,
+					m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(6, t0Handle);
+
+				UINT gx = (m_ClientWidth + 7) / 8;
+				UINT gy = (m_ClientHeight + 7) / 8;
+				m_CommandList->Dispatch(gx, gy, 1);
+
+			}
+
+			if (m_UseDenoiser && m_UseTemporal)
+			{
+				int srvIndex = 0;
+				int uavIndex = 0;
+
+				// In temporal case, the first pass reads from TA output, but subsequent passes read from ping/pong, so we need to adjust the SRV index for the first pass.
+				if (pass == 0)
+				{
+					srvIndex = SRV_Accumulation;
+					uavIndex = (dest == m_DenoisePing.Get()) ? UAV_DenoisePing : UAV_DenoisePong;
+				}
+				else if (pass < numPasses - 2)
+				{
+					srvIndex = (src == m_DenoisePing.Get()) ? SRV_DenoisePing : SRV_DenoisePong;
+					uavIndex = (dest == m_DenoisePong.Get()) ? UAV_DenoisePing : UAV_DenoisePong;
+				}
+				else
+				{
+					srvIndex = (src == m_DenoisePing.Get()) ? SRV_DenoisePing : SRV_DenoisePong;
+					uavIndex = UAV_Present;
+				}
+
+				const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, uavIndex, m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootConstantBufferView(9, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
+				m_CommandList->SetComputeRootConstantBufferView(10, m_PostProcessConstantBuffer[pass]->GetGPUVirtualAddress()); // denoise step
+				m_CommandList->SetComputeRootConstantBufferView(11, m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress()); // scene data like view/proj matrices
+				m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
+				const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvIndex, m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
+				const auto pingpongSrvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, SRV_Normal, m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(2, pingpongSrvTableBase);
+				//const auto motionBuffers = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart, m_CbvSrvUavDescriptorSize);
+				//m_CommandList->SetComputeRootDescriptorTable(3, motionBuffers);
+				//const auto motionBuffers2 = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart2, m_CbvSrvUavDescriptorSize);
+				//m_CommandList->SetComputeRootDescriptorTable(4, motionBuffers2);
+
+				auto u0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+					24,
+					m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(5, u0Handle);
+
+				auto t0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+					25,
+					m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(6, t0Handle);
+
+				UINT gx = (m_ClientWidth + 7) / 8;
+				UINT gy = (m_ClientHeight + 7) / 8;
+				m_CommandList->Dispatch(gx, gy, 1);
+
+			}
+
+			if (m_UseTemporal && !m_UseDenoiser)
+			{
+
+				src = m_AccumulationBuffer.Get();
 				dest = m_PresentUAV.Get();
 
-				m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-					src, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
-				//	UpdateDenoiseConstantBuffer(1 << pass, pass);
+				int uavIndex = UAV_Present;
+				int srvIndex = SRV_Accumulation;
 
+				const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, uavIndex, m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootConstantBufferView(9, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
+				m_CommandList->SetComputeRootConstantBufferView(10, m_PostProcessConstantBuffer[pass]->GetGPUVirtualAddress()); // denoise step
+				m_CommandList->SetComputeRootConstantBufferView(11, m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress()); // scene data like view/proj matrices
+				m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
+				const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvIndex, m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
+				const auto pingpongSrvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, SRV_Normal, m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(2, pingpongSrvTableBase);
+				//const auto motionBuffers = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart, m_CbvSrvUavDescriptorSize);
+				//m_CommandList->SetComputeRootDescriptorTable(3, motionBuffers);
+				//const auto motionBuffers2 = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart2, m_CbvSrvUavDescriptorSize);
+				//m_CommandList->SetComputeRootDescriptorTable(4, motionBuffers2);
 
-				m_FinalDenoiseBuffer = src;
-			}
-		}
+				auto u0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+					24,
+					m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(5, u0Handle);
 
-		std::vector<ID3D12DescriptorHeap*> heaps = { m_SrvUavHeap.Get(), m_SamplerHeap.Get() };
-		m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
-		m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
-		m_CommandList->SetPipelineState(m_DenoisePSO.Get());
+				auto t0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+					25,
+					m_CbvSrvUavDescriptorSize);
+				m_CommandList->SetComputeRootDescriptorTable(6, t0Handle);
 
-		const auto heapStart = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
-		int offsetFromStart = 0;
-		if (dest == m_DenoisePing.Get())
-		{
-			// Denoise Ping UAV
-			offsetFromStart = 0;
-		}
-		else if (dest == m_DenoisePong.Get())
-		{
-			// Denoise Pong UAV
-			offsetFromStart = 1;
-		}
-		else if (dest == m_PresentUAV.Get())
-		{
-			// Present UAV
-			offsetFromStart = 2;
-		}
-
-		int srvOffsetFromStart = 0;
-
-		if (src == m_AccumulationBuffer.Get())
-		{
-			// Accumulation Buffer SRV
-			srvOffsetFromStart = 2;
-		}
-		else if (src == m_DenoisePing.Get())
-		{
-			// Denoise Ping SRV
-			srvOffsetFromStart = 0;
-		}
-		else if (src == m_DenoisePong.Get())
-		{
-			// Denoise Pong SRV
-			srvOffsetFromStart = 1;
-		}
-
-		//if (pass == numPasses)
-		//{
-		//	m_IsLastPass = 1;
-		//}
-
-
-
-		if (m_UseDenoiser && !m_UseTemporal)
-		{
-			// In non-temporal case, we read directly from TA output, so SRV index is based on that, not ping/pong.
-		//	srvIndex = (src == m_FinalDenoiseBuffer) ? SRV_Accumulation : srvIndex;
-			//int uavIndex =
-			//	(dest == m_DenoisePing.Get()) ? UAV_DenoisePing :
-			//	(dest == m_DenoisePong.Get()) ? UAV_DenoisePong :
-			//	UAV_Present;
-
-			//int srvIndex =
-			//	(src == m_AccumulationBuffer.Get()) ? SRV_Accumulation :
-			//	(src == m_DenoisePing.Get()) ? SRV_DenoisePing :
-			//	SRV_DenoisePong;
-
-			int uavIndex = src == m_FinalDenoiseBuffer ? UAV_DenoisePing : UAV_DenoisePong;
-			int srvIndex = dest == m_DenoisePong.Get() ? SRV_DenoisePing : SRV_DenoisePong;
-
-			if (pass == numPasses - 1)
-			{
-				uavIndex = UAV_Present;
+				UINT gx = (m_ClientWidth + 7) / 8;
+				UINT gy = (m_ClientHeight + 7) / 8;
+				m_CommandList->Dispatch(gx, gy, 1);
 			}
 
-			const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, uavIndex, m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootConstantBufferView(9, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
-			m_CommandList->SetComputeRootConstantBufferView(10, m_PostProcessConstantBuffer[pass]->GetGPUVirtualAddress()); // denoise step
-			m_CommandList->SetComputeRootConstantBufferView(11, m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress()); // scene data like view/proj matrices
-			m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
-			const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvIndex, m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
-			const auto pingpongSrvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, SRV_Normal, m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootDescriptorTable(2, pingpongSrvTableBase);
-			//const auto motionBuffers = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart, m_CbvSrvUavDescriptorSize);
-			//m_CommandList->SetComputeRootDescriptorTable(3, motionBuffers);
-			//const auto motionBuffers2 = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart2, m_CbvSrvUavDescriptorSize);
-			//m_CommandList->SetComputeRootDescriptorTable(4, motionBuffers2);
+			//int motionIndexStart = m_CurrentNewMoment == m_FirstMomentBuffer.Get() ? SRV_FirstMoment : SRV_FirstMoment;
+			//int motionIndexStart2 = m_CurrentOldMoment == m_OldFirstMomentBuffer.Get() ? SRV_OldFirstMoment : SRV_FirstMoment;
 
-			auto u0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
-				24,
-				m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootDescriptorTable(5, u0Handle);
+			//m_IsLastPass = 0;
 
-			auto t0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
-				25,
-				m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootDescriptorTable(6, t0Handle);
-
-			UINT gx = (m_ClientWidth + 7) / 8;
-			UINT gy = (m_ClientHeight + 7) / 8;
-			m_CommandList->Dispatch(gx, gy, 1);
-
+			//if (pass == numPasses - 1)
+			//{
+			//	m_IsLastPass = 1;
+			//}
 		}
-
-		if (m_UseDenoiser && m_UseTemporal)
 		{
-			int srvIndex = 0;
-			int uavIndex = 0;
-
-			// In temporal case, the first pass reads from TA output, but subsequent passes read from ping/pong, so we need to adjust the SRV index for the first pass.
-			if (pass == 0)
-			{
-				srvIndex = SRV_Accumulation;
-				uavIndex = (dest == m_DenoisePing.Get()) ? UAV_DenoisePing : UAV_DenoisePong;
-			}
-			else if (pass < numPasses - 2)
-			{
-				srvIndex = (src == m_DenoisePing.Get()) ? SRV_DenoisePing : SRV_DenoisePong;
-				uavIndex = (dest == m_DenoisePong.Get()) ? UAV_DenoisePing : UAV_DenoisePong;
-			}
-			else
-			{
-				srvIndex = (src == m_DenoisePing.Get()) ? SRV_DenoisePing : SRV_DenoisePong;
-				uavIndex = UAV_Present;
-			}
-
-			const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, uavIndex, m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootConstantBufferView(9, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
-			m_CommandList->SetComputeRootConstantBufferView(10, m_PostProcessConstantBuffer[pass]->GetGPUVirtualAddress()); // denoise step
-			m_CommandList->SetComputeRootConstantBufferView(11, m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress()); // scene data like view/proj matrices
-			m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
-			const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvIndex, m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
-			const auto pingpongSrvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, SRV_Normal, m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootDescriptorTable(2, pingpongSrvTableBase);
-			//const auto motionBuffers = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart, m_CbvSrvUavDescriptorSize);
-			//m_CommandList->SetComputeRootDescriptorTable(3, motionBuffers);
-			//const auto motionBuffers2 = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart2, m_CbvSrvUavDescriptorSize);
-			//m_CommandList->SetComputeRootDescriptorTable(4, motionBuffers2);
-
-			auto u0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
-				24,
-				m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootDescriptorTable(5, u0Handle);
-
-			auto t0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
-				25,
-				m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootDescriptorTable(6, t0Handle);
-
-			UINT gx = (m_ClientWidth + 7) / 8;
-			UINT gy = (m_ClientHeight + 7) / 8;
-			m_CommandList->Dispatch(gx, gy, 1);
-
+			ID3D12Resource* finalSrc = src;
+			ID3D12Resource* prevSrc = src == m_DenoisePing.Get() ? m_DenoisePong.Get() : m_DenoisePing.Get();
+			D3D12_RESOURCE_BARRIER barriers[1];
+			//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			//	src,
+			//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+			//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
+			//m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 		}
-
-		if (m_UseTemporal && !m_UseDenoiser)
-		{
-
-			src = m_AccumulationBuffer.Get();
-			dest = m_PresentUAV.Get();
-
-			int uavIndex = UAV_Present;
-			int srvIndex = SRV_Accumulation;
-
-			const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, uavIndex, m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootConstantBufferView(9, m_DenoiseCB->GetGPUVirtualAddress()); // denoise step
-			m_CommandList->SetComputeRootConstantBufferView(10, m_PostProcessConstantBuffer[pass]->GetGPUVirtualAddress()); // denoise step
-			m_CommandList->SetComputeRootConstantBufferView(11, m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress()); // scene data like view/proj matrices
-			m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
-			const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, srvIndex, m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
-			const auto pingpongSrvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, SRV_Normal, m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootDescriptorTable(2, pingpongSrvTableBase);
-			//const auto motionBuffers = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart, m_CbvSrvUavDescriptorSize);
-			//m_CommandList->SetComputeRootDescriptorTable(3, motionBuffers);
-			//const auto motionBuffers2 = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart2, m_CbvSrvUavDescriptorSize);
-			//m_CommandList->SetComputeRootDescriptorTable(4, motionBuffers2);
-
-			auto u0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
-				24,
-				m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootDescriptorTable(5, u0Handle);
-
-			auto t0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
-				25,
-				m_CbvSrvUavDescriptorSize);
-			m_CommandList->SetComputeRootDescriptorTable(6, t0Handle);
-
-			UINT gx = (m_ClientWidth + 7) / 8;
-			UINT gy = (m_ClientHeight + 7) / 8;
-			m_CommandList->Dispatch(gx, gy, 1);
-		}
-
-		//int motionIndexStart = m_CurrentNewMoment == m_FirstMomentBuffer.Get() ? SRV_FirstMoment : SRV_FirstMoment;
-		//int motionIndexStart2 = m_CurrentOldMoment == m_OldFirstMomentBuffer.Get() ? SRV_OldFirstMoment : SRV_FirstMoment;
-
-		//m_IsLastPass = 0;
-
-		//if (pass == numPasses - 1)
-		//{
-		//	m_IsLastPass = 1;
-		//}
+		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_DenoisePing.Get(),
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_DenoisePong.Get(),
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 	}
-	{
-		ID3D12Resource* finalSrc = src;
-		ID3D12Resource* prevSrc = src == m_DenoisePing.Get() ? m_DenoisePong.Get() : m_DenoisePing.Get();
-		D3D12_RESOURCE_BARRIER barriers[1];
-		//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-		//	src,
-		//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS); // or SRV from previous frame
-		//m_CommandList->ResourceBarrier(_countof(barriers), barriers);
-	}
-	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		m_DenoisePing.Get(),
-		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		m_DenoisePong.Get(),
-		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-
 
 	//if (m_UseTemporal && !m_UseDenoiser)
 	//{
@@ -1064,6 +1072,7 @@ void Renderer::Draw(bool useRaster)
 
 
 	// RL Setup
+	if (m_UseRL && m_FrameIndex >= 1)
 	{
 		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 			m_PresentUAV.Get(),
@@ -1117,9 +1126,6 @@ void Renderer::Draw(bool useRaster)
 		const UINT width = static_cast<UINT>(desc.Width);
 		const UINT height = desc.Height;
 
-
-
-
 		m_CommandList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
 
 		ThrowIfFailed(m_CommandList->Close());
@@ -1152,23 +1158,40 @@ void Renderer::Draw(bool useRaster)
 			m_FrameImageData.push_back(XMFLOAT4(image[i], image[i + 1], image[i + 2], image[i + 3]));
 		}
 
-		m_FrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
 
 		std::ofstream file(m_Fullpath, std::ios::app);
 
 		std::string actionName = samplingModeNames[static_cast<int>(m_RenderSettings.SamplingStrategy)];
 
-		m_CurrentState = BucketizeState(m_FrameStats, m_MaxIterations);
+		if (m_FrameIndex == 1)
+		{
+			m_FrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
+			m_CurrentState = BucketizeState(m_FrameStats, m_MaxIterations);
+		}
+
+		m_NextFrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
+		m_NextState = BucketizeState(m_NextFrameStats, m_MaxIterations);
+
+		float m_reward = m_CurrentState.VarianceBucket - m_NextState.VarianceBucket;
+
+		RLAction chosenAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
+
+		m_RLController.Update(m_CurrentState.ToIndex(), chosenAction, m_reward, m_NextState.ToIndex());
+
+		m_RenderSettings.SamplingStrategy = ToSamplingMode(chosenAction);
 
 		file << m_FrameStats.Iteration << ","
 			<< m_CurrentState.ToIndex() << ","
 			<< actionName << ","
-			<< "Reward Placeholder" << ","
+			<< m_reward << ","
 			<< GetVarianceBucketName(m_CurrentState.VarianceBucket) << ","
 			<< m_CurrentState.VarianceBucket << ","
+			<< GetVarianceBucketName(m_NextState.VarianceBucket) << ","
+			<< m_NextState.VarianceBucket << ","
 			<< m_FrameStats.MeanLuminance << ","
 			<< m_FrameStats.LuminanceVariance << ","
-			<< m_FrameStats.BrightPixelRatio << "\n";
+			<< m_FrameStats.BrightPixelRatio << ","
+			<< m_RLController.GetEpsilon() << "\n";
 
 		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 			m_PresentUAV.Get(),
@@ -4330,11 +4353,13 @@ void Renderer::RenderImGuiDebugWindow()
 
 		UpdateMainPassCB();
 
-	//	m_ClearAccumulation = true;
-	//	m_FrameIndex = 0;
-	//	m_MetricsFileName = "metrics" + GetTimestampString() + std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy)) + ".csv";
+		//	m_ClearAccumulation = true;
+		//	m_FrameIndex = 0;
+		//	m_MetricsFileName = "metrics" + GetTimestampString() + std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy)) + ".csv";
 
 	}
+
+	ImGui::Text("RL Sampling Strategy: %s", samplingModes[currentMode]);
 
 	ImGui::End();
 }

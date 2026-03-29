@@ -34,7 +34,6 @@ public:
 	void SetEpsilon(float epsilon) { m_Epsilon = epsilon; }
 	float GetEpsilon() const { return m_Epsilon; }
 
-private:
     int ActionToIndex(RLAction action) const
     {
         return static_cast<int>(action);
@@ -44,6 +43,7 @@ private:
     {
         return static_cast<RLAction>(index);
     }
+private:
 
     int GetBestActionIndex(int stateIndex) const
     {
