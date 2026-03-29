@@ -145,6 +145,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	m_RenderSettings = {};
 	m_RenderSettings.SamplingStrategy = SamplingMode::Balanced;
 	m_RenderSettings.MaxBounces = 8;
+	m_MetricsFileName = "metrics" + GetTimestampString() + std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy)) + ".csv";
 
 
 	vp.TopLeftX = 0.0f;
@@ -1136,9 +1137,7 @@ void Renderer::Draw(bool useRaster)
 
 		m_FrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
 
-		std::string fileName = GetTimestampString() + "metrics" + std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy)) + ".csv";
-
-		std::ofstream file(fileName, std::ios::app);
+		std::ofstream file(m_MetricsFileName, std::ios::app);
 
 		file << m_FrameStats.Iteration << ","
 			<< m_FrameStats.MeanLuminance << ","
@@ -4307,6 +4306,8 @@ void Renderer::RenderImGuiDebugWindow()
 
 		m_ClearAccumulation = true;
 		m_FrameIndex = 0;
+		m_MetricsFileName = "metrics" + GetTimestampString() + std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy)) + ".csv";
+
 	}
 
 	ImGui::End();

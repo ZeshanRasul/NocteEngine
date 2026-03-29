@@ -447,6 +447,7 @@ private:
 		RenderSettings m_RenderSettings;
 		FrameStats m_FrameStats;
 		std::vector<XMFLOAT4> m_FrameImageData;
+		std::string m_MetricsFileName;
 };
 
 struct PerInstanceData
