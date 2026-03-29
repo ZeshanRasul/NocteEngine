@@ -448,6 +448,14 @@ private:
 		FrameStats m_FrameStats;
 		std::vector<XMFLOAT4> m_FrameImageData;
 		std::string m_MetricsFileName;
+		std::filesystem::path m_Fullpath;
+
+		const char* samplingModeNames[3] =
+		{
+			"BSDF Heavy",
+			"Balanced",
+			"Light Heavy"
+		};
 };
 
 struct PerInstanceData

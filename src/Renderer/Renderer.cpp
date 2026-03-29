@@ -144,9 +144,14 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 	m_RenderSettings = {};
 	m_RenderSettings.SamplingStrategy = SamplingMode::Balanced;
-	m_RenderSettings.MaxBounces = 8;
-	m_MetricsFileName = "metrics" + GetTimestampString() + std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy)) + ".csv";
+	m_RenderSettings.MaxBounces = 12;
 
+	std::filesystem::path metricsPath = std::filesystem::path("metrics");
+	std::filesystem::create_directories(metricsPath);
+	std::string filename = "metrics" + GetTimestampString() + ".csv";
+	m_Fullpath = metricsPath / filename;
+
+	m_MetricsFileName = filename;
 
 	vp.TopLeftX = 0.0f;
 	vp.TopLeftY = 0.0f;
@@ -225,7 +230,6 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	imguiGpuStart = m_ImGuiSrvHeap->GetGPUDescriptorHandleForHeapStart();
 
 	ImGui_ImplDX12_Init(&init_info);
-
 	//	ImGui::StyleColorsDark();
 		//ImGui::StyleColorsLight();
 
@@ -1137,9 +1141,12 @@ void Renderer::Draw(bool useRaster)
 
 		m_FrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
 
-		std::ofstream file(m_MetricsFileName, std::ios::app);
+		std::ofstream file(m_Fullpath, std::ios::app);
+
+		std::string actionName = samplingModeNames[static_cast<int>(m_RenderSettings.SamplingStrategy)];
 
 		file << m_FrameStats.Iteration << ","
+			<< actionName << ","
 			<< m_FrameStats.MeanLuminance << ","
 			<< m_FrameStats.LuminanceVariance << ","
 			<< m_FrameStats.BrightPixelRatio << "\n";
@@ -4304,9 +4311,9 @@ void Renderer::RenderImGuiDebugWindow()
 
 		UpdateMainPassCB();
 
-		m_ClearAccumulation = true;
-		m_FrameIndex = 0;
-		m_MetricsFileName = "metrics" + GetTimestampString() + std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy)) + ".csv";
+	//	m_ClearAccumulation = true;
+	//	m_FrameIndex = 0;
+	//	m_MetricsFileName = "metrics" + GetTimestampString() + std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy)) + ".csv";
 
 	}
 
