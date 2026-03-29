@@ -1033,7 +1033,129 @@ void Renderer::Draw(bool useRaster)
 
 		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 		m_CommandList->CopyResource(CurrentBackBuffer(), m_PresentUAV.Get());
+
+		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		//	m_PresentUAV.Get(),
+		//	D3D12_RESOURCE_STATE_COPY_SOURCE,
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		//	CurrentBackBuffer(),
+		//	D3D12_RESOURCE_STATE_COPY_DEST,
+		//	D3D12_RESOURCE_STATE_RENDER_TARGET));
 	}
+
+
+	// RL Setup
+	{
+		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_PresentUAV.Get(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_COPY_SOURCE));
+
+
+		auto desc = m_PresentUAV->GetDesc();
+
+		D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
+		UINT numRows = 0;
+		UINT64 rowSizeInBytes = 0;
+		UINT64 totalBytes = 0;
+
+		m_Device->GetCopyableFootprints(
+			&desc,
+			0,
+			1,
+			0,
+			&footprint,
+			&numRows,
+			&rowSizeInBytes,
+			&totalBytes
+		);
+
+		D3D12_TEXTURE_COPY_LOCATION src = {};
+		src.pResource = m_PresentUAV.Get();
+		src.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+		src.SubresourceIndex = 0;
+
+		CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_READBACK);
+
+		CD3DX12_RESOURCE_DESC descRB = CD3DX12_RESOURCE_DESC::Buffer(totalBytes);
+
+		m_Device->CreateCommittedResource(
+			&heapProps,
+			D3D12_HEAP_FLAG_NONE,
+			&descRB,
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			nullptr,
+			IID_PPV_ARGS(&m_ReadbackBuffer)
+		);
+
+
+		// Describe copy destination
+		D3D12_TEXTURE_COPY_LOCATION dst = {};
+		dst.pResource = m_ReadbackBuffer.Get();
+		dst.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+		dst.PlacedFootprint = footprint;
+
+		const UINT width = static_cast<UINT>(desc.Width);
+		const UINT height = desc.Height;
+
+
+
+
+		m_CommandList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+
+		ThrowIfFailed(m_CommandList->Close());
+		ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
+		m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+
+		m_CurrentFrameResource->Fence = ++m_CurrentFence;
+		FlushCommandQueue();
+		m_CommandList->Reset(m_CommandAllocator.Get(), m_PipelineStateObjects["opaque"].Get());
+
+		void* mapped = nullptr;
+		m_ReadbackBuffer->Map(0, nullptr, &mapped);
+
+		unsigned char* base = reinterpret_cast<unsigned char*>(mapped);
+
+		std::vector<unsigned char> image(width * height * 4);
+
+		for (UINT y = 0; y < height; ++y)
+		{
+			const unsigned char* srcRow = base + footprint.Offset + y * footprint.Footprint.RowPitch;
+			unsigned char* dstRow = image.data() + y * width * 4;
+
+			memcpy(dstRow, srcRow, width * 4);
+		}
+
+		m_FrameImageData.clear();
+
+		for (UINT i = 0; i < height * width; i = i + 4)
+		{
+			m_FrameImageData.push_back(XMFLOAT4(image[i], image[i + 1], image[i + 2], image[i + 3]));
+		}
+
+		m_FrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
+
+		std::string fileName = GetTimestampString() + "metrics" + std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy)) + ".csv";
+
+		std::ofstream file(fileName, std::ios::app);
+
+		file << m_FrameStats.Iteration << ","
+			<< m_FrameStats.MeanLuminance << ","
+			<< m_FrameStats.LuminanceVariance << ","
+			<< m_FrameStats.BrightPixelRatio << "\n";
+
+		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_PresentUAV.Get(),
+			D3D12_RESOURCE_STATE_COPY_SOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+
+		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			CurrentBackBuffer(),
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			D3D12_RESOURCE_STATE_RENDER_TARGET));
+	}
+
 
 	if (m_TargetCaptureSPP > 0)
 	{
@@ -1127,7 +1249,7 @@ void Renderer::Draw(bool useRaster)
 				memcpy(dstRow, srcRow, width * 4);
 			}
 
-			std::string folderName = GetTimestampString() + "_cornell_skull_dragon"+ std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy));
+			std::string folderName = GetTimestampString() + "_cornell_skull_dragon" + std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy));
 			std::filesystem::path runPath = std::filesystem::path("experiments/runs") / folderName;
 			std::filesystem::create_directories(runPath);
 			std::string filename = std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy)) + ("frame_") + std::to_string(m_FrameIndex) + "SPP" + ".png";
@@ -1161,6 +1283,7 @@ void Renderer::Draw(bool useRaster)
 			m_StartCaptureSequenceNextFrame = false;
 		}
 	}
+
 
 
 	//ID3D12Resource* secondOldMoment = (m_CurrentOldMoment == m_OldFirstMomentBuffer.Get()) ? m_OldSecondMomentBuffer.Get() : m_SecondMomentBuffer.Get();
@@ -2306,7 +2429,7 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.cbPerObjectPad2 = 0.5f;
 	m_MainPassCB.cbPerObjectPad3 = 0.5f;
 	m_MainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
-	m_MainPassCB.directPresent =  (m_UseDenoiser || m_UseTemporal) ? 0 : 1;
+	m_MainPassCB.directPresent = (m_UseDenoiser || m_UseTemporal) ? 0 : 1;
 
 	m_MainPassCB.SamplingMode = static_cast<int>(m_RenderSettings.SamplingStrategy);
 

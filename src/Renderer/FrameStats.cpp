@@ -1,26 +1,42 @@
-//FrameStats ComputeFrameStats(const std::vector<float4>& image, int iteration) {
-//    FrameStats stats;
-//    // Compute mean luminance
-//    for (const auto& pixel : image) {
-//        stats.MeanLuminance += pixel.y; // Assuming pixel.y is the luminance
-//    }
-//    stats.MeanLuminance /= image.size();
-//
-//    // Compute luminance variance
-//    for (const auto& pixel : image) {
-//        float luminance = pixel.y;
-//        stats.LuminanceVariance += (luminance - stats.MeanLuminance) * (luminance - stats.MeanLuminance);
-//    }
-//    stats.LuminanceVariance /= image.size();
-//
-//    // Compute bright pixel ratio
-//    for (const auto& pixel : image) {
-//        if (pixel.y > 1.0f) { // Assuming bright pixels have luminance > 1.0
-//            stats.BrightPixelRatio++;
-//        }
-//    }
-//    stats.BrightPixelRatio /= image.size();
-//
-//    stats.Iteration = iteration;
-//    return stats;
-//};
+#include "FrameStats.h"
+
+FrameStats ComputeFrameStats(const std::vector<DirectX::XMFLOAT4>& image, int iteration)
+{
+    FrameStats stats;
+    stats.Iteration = iteration;
+
+    if (image.empty())
+        return stats;
+
+    const size_t pixelCount = image.size();
+
+    double sum = 0.0;
+    double sumSq = 0.0;
+    int brightCount = 0;
+
+    // --- First pass ---
+    for (const auto& p : image)
+    {
+        float L = ComputeLuminance(p.x, p.y, p.z);
+
+        sum += L;
+        sumSq += (double)L * (double)L;
+
+        // simple threshold for "bright"
+        if (L > 1.0f)
+            brightCount++;
+    }
+
+    double mean = sum / (double)pixelCount;
+    double variance = (sumSq / (double)pixelCount) - (mean * mean);
+
+    // Clamp to avoid negative due to precision
+    if (variance < 0.0)
+        variance = 0.0;
+
+    stats.MeanLuminance = (float)mean;
+    stats.LuminanceVariance = (float)variance;
+    stats.BrightPixelRatio = (float)brightCount / (float)pixelCount;
+
+    return stats;
+}

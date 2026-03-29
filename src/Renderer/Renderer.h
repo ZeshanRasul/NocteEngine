@@ -8,6 +8,7 @@
 #include "../Camera.h"
 
 #include "RenderSettings.h"
+#include "FrameStats.h"
 
 #include "nv_helpers_dx12/TopLevelASGenerator.h"
 #include "nv_helpers_dx12/ShaderBindingTableGenerator.h"
@@ -444,6 +445,8 @@ private:
 
 	private:
 		RenderSettings m_RenderSettings;
+		FrameStats m_FrameStats;
+		std::vector<XMFLOAT4> m_FrameImageData;
 };
 
 struct PerInstanceData
