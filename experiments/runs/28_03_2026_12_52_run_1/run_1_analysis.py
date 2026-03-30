@@ -43,6 +43,25 @@ def save_strip(images, labels, path):
     # Save image
     iio.imwrite(path, (strip * 255).astype(np.uint8))
 
+def save_square_comparison(images, titles, path):
+    assert len(images) == 4, "This function expects exactly 4 images for a 2x2 grid."
+
+    fig, axes = plt.subplots(2, 2, figsize=(6, 6))  # square figure
+
+    # Flatten for easy iteration
+    axes = axes.flatten()
+
+    for i, ax in enumerate(axes):
+        ax.imshow(images[i])
+        ax.set_title(titles[i], fontsize=10)
+        ax.axis("off")
+
+    # Tight layout for paper-ready look
+    plt.subplots_adjust(wspace=0.02, hspace=0.15)
+
+    # Save high quality
+    plt.savefig(path, dpi=300, bbox_inches='tight', pad_inches=0.02)
+    plt.close(fig)
 
 # ----------------------------
 # Main Function
@@ -90,6 +109,18 @@ def main():
         strip_path
     )
     print(f"Saved comparison strip → {strip_path}")
+    
+    grid_path = os.path.join(output_dir, "comparison_grid.png")
+
+    save_square_comparison(
+        [img_1, img_16, img_64, img_gt],
+        ["1 spp", "16 spp", "64 spp", "4096 spp"],
+        grid_path
+    )
+    
+    print(f"Saved comparison grid → {grid_path}")
+    
+
 
 
 # ----------------------------
