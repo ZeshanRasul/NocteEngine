@@ -1208,11 +1208,10 @@ bool Renderer::Draw(bool useRaster)
 			epsilon = 0.05f * expf(-0.0001f * m_FrameStats.Iteration);
 			m_RLController.SetEpsilon(epsilon);
 
-			if (m_FrameIndex % 16 == 0)
-			{
-				m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
-				m_RenderSettings.SamplingStrategy = ToSamplingMode(m_CurrentAction);
-			}
+
+			m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
+			m_RenderSettings.SamplingStrategy = ToSamplingMode(m_CurrentAction);
+
 
 		}
 		std::string actionName = samplingModeNames[static_cast<int>(m_RenderSettings.SamplingStrategy)];
