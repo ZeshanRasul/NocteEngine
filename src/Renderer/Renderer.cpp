@@ -1192,7 +1192,7 @@ bool Renderer::Draw(bool useRaster)
 		else
 		{
 		}
-	//	m_CurrentAction = RLAction::Balanced;
+		//	m_CurrentAction = RLAction::Balanced;
 		float m_reward = 0.0f;
 		if (m_UseRL)
 		{
@@ -1208,8 +1208,11 @@ bool Renderer::Draw(bool useRaster)
 			epsilon = 0.05f * expf(-0.0001f * m_FrameStats.Iteration);
 			m_RLController.SetEpsilon(epsilon);
 
-			m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
-			m_RenderSettings.SamplingStrategy = ToSamplingMode(m_CurrentAction);
+			if (m_FrameIndex % 16 == 0)
+			{
+				m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
+				m_RenderSettings.SamplingStrategy = ToSamplingMode(m_CurrentAction);
+			}
 
 		}
 		std::string actionName = samplingModeNames[static_cast<int>(m_RenderSettings.SamplingStrategy)];
@@ -1529,10 +1532,10 @@ bool Renderer::Draw(bool useRaster)
 	ThrowIfFailed(m_SwapChain->Present(0, 0));
 	m_CurrentBackBuffer = (m_CurrentBackBuffer + 1) % SwapChainBufferCount;
 
-//	m_CurrentFrameResource->Fence = ++m_CurrentFence;
+	//	m_CurrentFrameResource->Fence = ++m_CurrentFence;
 	FlushCommandQueue();
 
-//	m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence);
+	//	m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence);
 
 	return true;
 
