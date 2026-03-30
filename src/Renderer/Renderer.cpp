@@ -512,6 +512,41 @@ bool Renderer::Draw(bool useRaster)
 		m_AccumulationBuffer.Get(),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+
+	if (!m_UseTemporal && !m_UseDenoiser)
+	{
+
+		int uavIndex = UAV_Present;
+		int srvIndex = SRV_Accumulation;
+		std::vector<ID3D12DescriptorHeap*> heaps = { m_SrvUavHeap.Get(), m_SamplerHeap.Get() };
+		m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
+		m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
+		m_CommandList->SetPipelineState(m_DenoisePSO.Get());
+
+		const auto uavTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), uavIndex, m_CbvSrvUavDescriptorSize);
+		m_CommandList->SetComputeRootDescriptorTable(0, uavTableBase);
+		const auto srvTableBase = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), srvIndex, m_CbvSrvUavDescriptorSize);
+		m_CommandList->SetComputeRootDescriptorTable(1, srvTableBase);
+		//const auto motionBuffers = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart, m_CbvSrvUavDescriptorSize);
+		//m_CommandList->SetComputeRootDescriptorTable(3, motionBuffers);
+		//const auto motionBuffers2 = CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, motionIndexStart2, m_CbvSrvUavDescriptorSize);
+		//m_CommandList->SetComputeRootDescriptorTable(4, motionBuffers2);
+
+		auto u0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+			24,
+			m_CbvSrvUavDescriptorSize);
+		m_CommandList->SetComputeRootDescriptorTable(5, u0Handle);
+
+		auto t0Handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(),
+			25,
+			m_CbvSrvUavDescriptorSize);
+		m_CommandList->SetComputeRootDescriptorTable(6, t0Handle);
+
+		UINT gx = (m_ClientWidth + 7) / 8;
+		UINT gy = (m_ClientHeight + 7) / 8;
+		m_CommandList->Dispatch(gx, gy, 1);
+	}
+
 	if (m_UseTemporal)
 	{
 
@@ -1817,6 +1852,7 @@ void Renderer::BuildShadersAndInputLayout()
 	m_PsByteCode = d3dUtil::CompileShader(L"Shaders\\pixel.hlsl", nullptr, "PS", "ps_5_0");
 	m_CsByteCode = d3dUtil::CompileShader(L"Shaders\\Denoise.hlsl", nullptr, "CSMain", "cs_5_0");
 	m_TACsByteCode = d3dUtil::CompileShader(L"Shaders\\TemporalAccumulation.hlsl", nullptr, "CSMain", "cs_5_0");
+	m_FPCsByteCode = d3dUtil::CompileShader(L"Shaders\\FinalPass.hlsl", nullptr, "CSMain", "cs_5_0");
 
 	m_InputLayoutDescs =
 	{
@@ -3341,6 +3377,16 @@ void Renderer::CreateComputePipelineStateObjects()
 	TAPsoDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
 	ThrowIfFailed(m_Device->CreateComputePipelineState(&TAPsoDesc, IID_PPV_ARGS(&m_TemporalAccumulationPSO)));
+
+	D3D12_COMPUTE_PIPELINE_STATE_DESC finalPassPsoDesc = {};
+	finalPassPsoDesc.pRootSignature = m_DenoiseRootSignature.Get();
+	finalPassPsoDesc.CS = {
+		reinterpret_cast<BYTE*>(m_FPCsByteCode->GetBufferPointer()),
+		m_FPCsByteCode->GetBufferSize()
+	};
+	finalPassPsoDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+
+	ThrowIfFailed(m_Device->CreateComputePipelineState(&finalPassPsoDesc, IID_PPV_ARGS(&m_FinalPassPSO)));
 }
 
 void Renderer::CreatePresentUAV()

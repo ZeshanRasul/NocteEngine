@@ -543,6 +543,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
             if (NdotL > 0.0f)
             {
                 float3 f = EvaluateDisneyBRDF(mat, N, V, L);
+                f * mat.DiffuseAlbedo.rgb;
                 
                 if (pdfBSDF > 0.0f)
                 {
