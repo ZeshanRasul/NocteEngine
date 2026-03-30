@@ -1192,7 +1192,7 @@ bool Renderer::Draw(bool useRaster)
 		}
 
 		m_FrameImageData.clear();
-		m_FrameImageData.reserve(width* height);
+		m_FrameImageData.reserve(width * height);
 
 		for (UINT i = 0; i < height * width * 4; i = i + 4)
 		{
@@ -1201,8 +1201,6 @@ bool Renderer::Draw(bool useRaster)
 
 
 		std::ofstream file(m_Fullpath, std::ios::app);
-
-		std::string actionName = samplingModeNames[static_cast<int>(m_RenderSettings.SamplingStrategy)];
 
 		if (m_FrameIndex == 1)
 		{
@@ -1221,6 +1219,7 @@ bool Renderer::Draw(bool useRaster)
 		else
 		{
 		}
+		m_CurrentAction = RLAction::Balanced;
 		float m_reward = 0.0f;
 		if (m_UseRL)
 		{
@@ -1232,21 +1231,18 @@ bool Renderer::Draw(bool useRaster)
 			}
 
 
+			float epsilon = m_RLController.GetEpsilon();
+			epsilon = 0.05f * expf(-0.0001f * m_FrameStats.Iteration);
+			m_RLController.SetEpsilon(epsilon);
 
 			m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
 			m_RenderSettings.SamplingStrategy = ToSamplingMode(m_CurrentAction);
 
-			float epsilon = m_RLController.GetEpsilon();
-			epsilon = 0.05f * expf(-0.0001f * m_FrameStats.Iteration);
-			m_RLController.SetEpsilon(epsilon);
 		}
+		std::string actionName = samplingModeNames[static_cast<int>(m_RenderSettings.SamplingStrategy)];
 
 
 
-		m_FrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
-		m_PrevAction = m_CurrentAction;
-		m_PrevState = m_CurrentState;
-		m_HasPrevState = true;
 
 		file << m_FrameStats.Iteration << ","
 			<< (m_UseRL ? "RL" : "Baseline") << ","
@@ -1262,6 +1258,12 @@ bool Renderer::Draw(bool useRaster)
 			<< m_FrameStats.LogLuminanceVariance << ","
 			<< m_FrameStats.BrightPixelRatio << ","
 			<< m_RLController.GetEpsilon() << "\n";
+
+		m_FrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
+		m_PrevAction = m_CurrentAction;
+		m_PrevState = m_CurrentState;
+		m_PrevFrameStats = m_FrameStats;
+		m_HasPrevState = true;
 
 		if (m_FrameIndex == m_MaxIterations)
 		{

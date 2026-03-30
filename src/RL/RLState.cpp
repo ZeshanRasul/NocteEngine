@@ -4,9 +4,9 @@ namespace
 {
 	int BucketizeVariance(float variance)
 	{
-		if (variance < 1000.0f)
+		if (variance < 8.0f)
 			return 0;
-		else if (variance < 3000.0f)
+		else if (variance < 10.0f)
 			return 1;
 		
 		return 2;
