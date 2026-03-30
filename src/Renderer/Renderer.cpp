@@ -1196,21 +1196,38 @@ bool Renderer::Draw(bool useRaster)
 		float m_reward = 0.0f;
 		if (m_UseRL)
 		{
+			if (!m_HasPrevState)
+			{
+				m_PrevState = m_CurrentState;
+				m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
+				m_PrevAction = m_CurrentAction;
+				m_RenderSettings.SamplingStrategy = ToSamplingMode(m_CurrentAction);
+			}
+
 			if (m_HasPrevState)
 			{
-				m_reward = m_PrevFrameStats.LogLuminanceVariance - m_FrameStats.LogLuminanceVariance;
-				m_reward = std::clamp(m_reward, -1.0f, 1.0f);
-				m_RLController.Update(m_PrevState.ToIndex(), m_PrevAction, m_reward, m_CurrentState.ToIndex());
+				m_reward = (m_PrevFrameStats.LogLuminanceVariance - m_FrameStats.LogLuminanceVariance) * 100.0f;
+				//m_reward = std::clamp(m_reward, -1.0f, 1.0f);
+				m_AccumulatedReward += m_reward;
 			}
 
 
-			float epsilon = m_RLController.GetEpsilon();
-			epsilon = 0.05f * expf(-0.0001f * m_FrameStats.Iteration);
-			m_RLController.SetEpsilon(epsilon);
 
+			if (m_FrameIndex % 16 == 0)
+			{
+				float windowReward = std::clamp(m_AccumulatedReward, -1.0f, 1.0f);
+				m_RLController.Update(m_PrevState.ToIndex(), m_PrevAction, windowReward, m_CurrentState.ToIndex());
+				float epsilon = m_RLController.GetEpsilon();
+				epsilon = std::max(0.05f, 0.2f * exp(-0.00005f * m_FrameIndex));
+				m_RLController.SetEpsilon(epsilon);
 
-			m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
-			m_RenderSettings.SamplingStrategy = ToSamplingMode(m_CurrentAction);
+				m_PrevState = m_CurrentState;
+
+				m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
+				m_PrevAction = m_CurrentAction;
+				m_RenderSettings.SamplingStrategy = ToSamplingMode(m_CurrentAction);
+				m_AccumulatedReward = 0.0f;
+			}
 
 
 		}
@@ -1234,9 +1251,6 @@ bool Renderer::Draw(bool useRaster)
 			<< m_FrameStats.BrightPixelRatio << ","
 			<< m_RLController.GetEpsilon() << "\n";
 
-		m_FrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
-		m_PrevAction = m_CurrentAction;
-		m_PrevState = m_CurrentState;
 		m_PrevFrameStats = m_FrameStats;
 		m_HasPrevState = true;
 		m_MaxIterations = 4096;

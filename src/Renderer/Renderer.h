@@ -471,6 +471,7 @@ private:
 		RLAction m_PrevAction = RLAction::Balanced;
 		RLAction m_CurrentAction = RLAction::Balanced;
 		float m_Reward = 0.0f;
+		float m_AccumulatedReward = 0.0f;
 
 		bool m_UseRL = true;
 };
