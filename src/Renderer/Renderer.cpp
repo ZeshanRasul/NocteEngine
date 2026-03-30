@@ -197,6 +197,12 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateComputePipelineStateObjects();
 	CreateCameraBuffer();
 	CreateFrameIndexRNGCBuffer();
+	m_RLQTable.resize(NumStates* NumActions);
+	CreateReadbackBuffer();
+	CreateRLQTableBuffer();
+	CreateRLQTableUploadBuffer();
+	CreateRLTransitionBuffer(m_ClientWidth, m_ClientHeight);
+	CreateRLTransitionReadbackBuffer();
 	CreateDenoisingResources();
 
 	CreateAccelerationStructures();
@@ -207,12 +213,6 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRaytracingOutputBuffer();
 	CreatePresentUAV();
 	CreateAccumulationBuffer();
-	m_RLQTable.resize(NumStates * NumActions);
-	CreateReadbackBuffer();
-	CreateRLQTableBuffer();
-	CreateRLQTableUploadBuffer();
-	CreateRLTransitionBuffer(m_ClientWidth, m_ClientHeight);
-	CreateRLTransitionReadbackBuffer();
 	CreateShaderResourceHeap();
 	CreateShaderResourceCPUHeap();
 	CreateSamplerHeap();
@@ -264,6 +264,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 	ImGui_ImplDX12_Init(&init_info);
 	//	ImGui::StyleColorsDark();
+		//ImGui::StyleColorsLight();
 		//ImGui::StyleColorsLight();
 
 		// Setup scaling
@@ -2697,7 +2698,8 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
 		{ 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 6},
 		{ 4, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 9},
 		{ 1, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 26},
-
+		{ 5, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 29},
+		{ 2, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 30}
 		}
 	);
 	rsc.AddHeapRangesParameter(
@@ -2724,8 +2726,8 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 	rsc.AddHeapRangesParameter(
 		{ { 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2},
 		{ 4, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 15},
-		{ 0, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 27},
-		{ 5, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 28},
+		{ 6, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 27},
+		{ 0, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 28},
 
 		});
 	rsc.AddHeapRangesParameter(
@@ -2811,6 +2813,7 @@ void Renderer::CreateShaderResourceCPUHeap()
 
 	m_AccumulationBufferUavHandleCPU = srvHandle;
 
+
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	uavDesc = {};
@@ -2879,7 +2882,7 @@ void Renderer::CreateSamplerHeap()
 
 void Renderer::CreateShaderResourceHeap()
 {
-	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 85, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 31, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -3607,6 +3610,7 @@ void Renderer::CreateShaderBindingTable()
 				(void*)m_PostProcessConstantBuffer[0]->GetGPUVirtualAddress(),
 				(void*)m_MediumCB->GetGPUVirtualAddress(),
 				heapPointer,
+				(void*)m_RLQTableUploadBuffer->GetGPUVirtualAddress(),
 		});
 
 	m_SbtHelper.AddMissProgram(L"Miss", {});

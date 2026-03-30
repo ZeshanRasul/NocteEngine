@@ -81,13 +81,7 @@ void RayGen()
     
     uint linearIndex = DispatchRaysIndex().y * 1920 + DispatchRaysIndex().x;
 
-    RLTransitionGPU record;
-    record.StateIndex = stateIndex;
-    record.ActionIndex = actionIndex;
-    record.Reward = reward;
-    record.Valid = 1;
 
-    gRLTransitions[linearIndex] = record;
     float2 pixel = (float2) DispatchRaysIndex() + 0.5f;
     float2 ndc = pixel / float2(DispatchRaysDimensions().xy);
     ndc = ndc * 2.0f - 1.0f;
@@ -97,6 +91,12 @@ void RayGen()
     float4 pView = mul(pClip, gInvProj);
     pView /= pView.w;
 
+    RLTransitionGPU record;
+    record.StateIndex = pixel % 3;
+    record.ActionIndex = pixel % 5;
+    record.Reward = pixel;
+    record.Valid = 1;
+    
     float3 originWS = gEyePosW;
     float3 dirWS = normalize(mul(float4(pView.xyz, 0), gInvView).xyz);
 
