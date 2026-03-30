@@ -448,9 +448,9 @@ private:
 		SamplingMode GetSamplingMode() const { return m_RenderSettings.SamplingStrategy; }
 
 	private:
-		RLController m_RLController;
-		RenderSettings m_RenderSettings;
-		FrameStats m_FrameStats;
+		RLController m_RLController = {};
+		RenderSettings m_RenderSettings = {};
+		FrameStats m_FrameStats = {};
 		FrameStats m_PrevFrameStats = {};
 		std::vector<XMFLOAT4> m_FrameImageData;
 		std::string m_MetricsFileName;
@@ -463,8 +463,8 @@ private:
 			"Light Heavy"
 		};
 
-		DiscreteState m_CurrentState;
-		DiscreteState m_PrevState;
+		DiscreteState m_CurrentState = {};
+		DiscreteState m_PrevState = {};
 		bool m_HasPrevState = false;
 		std::string m_CurrentStateName = "Unknown";
 		int m_MaxIterations = 4096;

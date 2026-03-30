@@ -11,7 +11,7 @@ cbuffer PostProcess : register(b0)
 void CSMain(uint3 dtid : SV_DispatchThreadID)
 {
     float3 hdr = AccumInput[dtid.xy].rgb;
-    hdr /= max((float) AccumulatedSPP, 1.0);
+ //   hdr /= max((float) AccumulatedSPP, 1.0);
     hdr *= Exposure;
 
     float3 mapped = hdr / (1.0 + hdr);

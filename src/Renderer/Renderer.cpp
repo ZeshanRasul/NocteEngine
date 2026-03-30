@@ -1063,53 +1063,26 @@ bool Renderer::Draw(bool useRaster)
 	//		D3D12_RESOURCE_STATE_COPY_DEST,
 	//		D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 	//}
-	if (!m_UseTemporal && !m_UseDenoiser)
+	if (!m_UseTemporal && !m_UseDenoiser && !m_UseRL)
 	{
-		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_AccumulationBuffer.Get(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_COPY_SOURCE));
-		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_PresentUAV.Get(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_COPY_DEST));
-		m_CommandList->CopyResource(m_PresentUAV.Get(), m_AccumulationBuffer.Get());
-		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_AccumulationBuffer.Get(),
-			D3D12_RESOURCE_STATE_COPY_SOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_PresentUAV.Get(),
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		//	m_AccumulationBuffer.Get(),
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		//	D3D12_RESOURCE_STATE_COPY_SOURCE));
+		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		//	m_PresentUAV.Get(),
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		//	D3D12_RESOURCE_STATE_COPY_DEST));
+		//m_CommandList->CopyResource(m_PresentUAV.Get(), m_AccumulationBuffer.Get());
+		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		//	m_AccumulationBuffer.Get(),
+		//	D3D12_RESOURCE_STATE_COPY_SOURCE,
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		//	m_PresentUAV.Get(),
+		//	D3D12_RESOURCE_STATE_COPY_DEST,
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 	}
-	{
-
-		D3D12_RESOURCE_BARRIER barriers[2];
-
-		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_PresentUAV.Get(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,    // last state we used it as UAV
-			D3D12_RESOURCE_STATE_COPY_SOURCE);
-
-		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
-			CurrentBackBuffer(),
-			D3D12_RESOURCE_STATE_RENDER_TARGET,
-			D3D12_RESOURCE_STATE_COPY_DEST);
-
-		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
-		m_CommandList->CopyResource(CurrentBackBuffer(), m_PresentUAV.Get());
-
-		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_PresentUAV.Get(),
-			D3D12_RESOURCE_STATE_COPY_SOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			CurrentBackBuffer(),
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_RENDER_TARGET));
-	}
-
 
 	// RL Setup
 	if (m_FrameIndex >= 1)
@@ -1219,7 +1192,7 @@ bool Renderer::Draw(bool useRaster)
 		else
 		{
 		}
-		m_CurrentAction = RLAction::Balanced;
+	//	m_CurrentAction = RLAction::Balanced;
 		float m_reward = 0.0f;
 		if (m_UseRL)
 		{
@@ -1264,17 +1237,44 @@ bool Renderer::Draw(bool useRaster)
 		m_PrevState = m_CurrentState;
 		m_PrevFrameStats = m_FrameStats;
 		m_HasPrevState = true;
-
-		if (m_FrameIndex == m_MaxIterations)
+		m_MaxIterations = 4096;
+		if (m_FrameStats.Iteration == m_MaxIterations)
 		{
 			m_TargetCaptureSPP = m_FrameIndex;
 			m_SaveImage = true;
 			m_CurrentAccumSPP = 0;
 		}
-		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_PresentUAV.Get(),
-			D3D12_RESOURCE_STATE_COPY_SOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+
+		{
+			D3D12_RESOURCE_BARRIER barriers[2];
+
+			barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+				m_PresentUAV.Get(),
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS,    // last state we used it as UAV
+				D3D12_RESOURCE_STATE_COPY_SOURCE);
+
+			barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+				CurrentBackBuffer(),
+				D3D12_RESOURCE_STATE_RENDER_TARGET,
+				D3D12_RESOURCE_STATE_COPY_DEST);
+
+			m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+			m_CommandList->CopyResource(CurrentBackBuffer(), m_PresentUAV.Get());
+
+			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+				m_PresentUAV.Get(),
+				D3D12_RESOURCE_STATE_COPY_SOURCE,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+				CurrentBackBuffer(),
+				D3D12_RESOURCE_STATE_COPY_DEST,
+				D3D12_RESOURCE_STATE_RENDER_TARGET));
+		}
+
+		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		//	m_PresentUAV.Get(),
+		//	D3D12_RESOURCE_STATE_COPY_SOURCE,
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 
 		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 		//	CurrentBackBuffer(),
@@ -1283,7 +1283,7 @@ bool Renderer::Draw(bool useRaster)
 	}
 
 
-	if (m_TargetCaptureSPP > 0)
+	if (m_TargetCaptureSPP > 1)
 	{
 		m_CurrentAccumSPP++;
 		if (m_CurrentAccumSPP > m_TargetCaptureSPP)
@@ -1529,9 +1529,10 @@ bool Renderer::Draw(bool useRaster)
 	ThrowIfFailed(m_SwapChain->Present(0, 0));
 	m_CurrentBackBuffer = (m_CurrentBackBuffer + 1) % SwapChainBufferCount;
 
-	m_CurrentFrameResource->Fence = ++m_CurrentFence;
+//	m_CurrentFrameResource->Fence = ++m_CurrentFence;
+	FlushCommandQueue();
 
-	m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence);
+//	m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence);
 
 	return true;
 
@@ -3765,14 +3766,14 @@ void Renderer::CreateAccelerationStructures()
 		// AreaLight
 		{ planeBottomLevelBuffers.pResult,
 		  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
-		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(220.0f)) *
 		  XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z)},
 
-		// Front wall (z = +20), normal pointing into the box (-Z)
+		// Back wall (z = +20), normal pointing into the box (-Z)
 		{ planeBottomLevelBuffers.pResult,
 		  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
 		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
-		  XMMatrixTranslation(0.0f, 40.0f, 60.0f) },
+		  XMMatrixTranslation(0.0f, -8.0f, 60.0f) },
 
 		// Left wall (x = -20), normal pointing into the box (+X)
 		{ planeBottomLevelBuffers.pResult,
@@ -3792,7 +3793,7 @@ void Renderer::CreateAccelerationStructures()
 
 		{ planeBottomLevelBuffers.pResult,
 		  XMMatrixScaling(28.0f, 1.0f, 28.0f) *
-		  XMMatrixTranslation(0.0f, 50.0f, 0.0f) },
+		  XMMatrixTranslation(0.0f, 2.0f, 0.0f) },
 
 		//// Sphere on the left: radius ~3 at y = 3
 		//{ sphereBottomLevelBuffers.pResult,
@@ -4108,7 +4109,7 @@ void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 55.0f, 0.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 55.0f, 70.0f);
 	m_AreaLightData.Radiance = XMFLOAT3(6.25f, 6.25f, 6.25f);
 	m_AreaLightData.U = XMFLOAT3(16.0f, 0.0f, 0.0f);
 	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 16.0f);

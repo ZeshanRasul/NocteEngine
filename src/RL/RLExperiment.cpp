@@ -15,7 +15,7 @@ public:
     void EndRun();
 
     bool Enabled = true;
-    int MaxIterations = 32;
+    int MaxIterations = 4096;
 
 private:
     RLController m_Controller;
