@@ -53,11 +53,35 @@ def save_square_comparison(images, titles, path):
 
     for i, ax in enumerate(axes):
         ax.imshow(images[i])
-        ax.set_title(titles[i], fontsize=10)
+        ax.text(0.5, -0.05, titles[i],
+        transform=ax.transAxes,
+        ha='center', va='top', fontsize=9)        
         ax.axis("off")
 
     # Tight layout for paper-ready look
-    plt.subplots_adjust(wspace=0.02, hspace=0.15)
+    plt.subplots_adjust(wspace=0.02, hspace=0.02)
+
+    # Save high quality
+    plt.savefig(path, dpi=300, bbox_inches='tight', pad_inches=0.02)
+    plt.close(fig)
+
+def save_row_comparison(images, titles, path):
+    assert len(images) == 2, "This function expects exactly 4 images for a 2x2 grid."
+
+    fig, axes = plt.subplots(1, 2, figsize=(6, 6))  # square figure
+
+    # Flatten for easy iteration
+    axes = axes.flatten()
+
+    for i, ax in enumerate(axes):
+        ax.imshow(images[i])
+        ax.text(0.5, -0.05, titles[i],
+        transform=ax.transAxes,
+        ha='center', va='top', fontsize=9)        
+        ax.axis("off")
+
+    # Tight layout for paper-ready look
+    plt.subplots_adjust(wspace=0.02, hspace=0.02)
 
     # Save high quality
     plt.savefig(path, dpi=300, bbox_inches='tight', pad_inches=0.02)
@@ -120,7 +144,25 @@ def main():
     
     print(f"Saved comparison grid → {grid_path}")
     
+    row1_path = os.path.join(output_dir, "comparison_row1.png")
+    
+    save_row_comparison(
+        [img_1, img_16],
+        ["1 spp", "16 spp"],
+        row1_path
+    )
+    
+    print(f"Saved comparison row1 → {row1_path}")
+    
+    row2_path = os.path.join(output_dir, "comparison_row2.png")
 
+    save_row_comparison(
+        [img_64, img_gt],
+        ["64 spp", "4096 spp"],
+        row2_path
+    )
+    
+    print(f"Saved comparison row2 → {row2_path}")
 
 
 # ----------------------------

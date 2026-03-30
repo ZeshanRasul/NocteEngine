@@ -9,9 +9,9 @@ While I have previous experience with rasterization-based engines made in Direct
 
 Most recent results following implementation of MIS, NEE, denoising and temporal accumulation:
 
-[![Nocte Engine DXR Path Tracing](./docs/images/comparison_strip.png)](./docs/images/comparison_strip.png)
+[![Nocte Engine DXR Path Tracing](./docs/images/comparison_row1.png)](./docs/images/comparison_row1_.png)
 
-From left to right, 1spp, 16spp, 64spp and 4096spp with denoising and temporal accumulation enabled.
+[![Nocte Engine DXR Path Tracing](./docs/images/comparison_row2.png)](./docs/images/comparison_row2.png)
 
 The images below showcase various visual results achieved with Nocte Engine throughout development. Each scene highlights different aspects of the engine's capabilities.
 
