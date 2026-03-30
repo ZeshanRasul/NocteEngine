@@ -3772,7 +3772,7 @@ void Renderer::CreateAccelerationStructures()
 		{ planeBottomLevelBuffers.pResult,
 		  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
 		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
-		  XMMatrixTranslation(0.0f, 60.0f, 60.0f) },
+		  XMMatrixTranslation(0.0f, 40.0f, 60.0f) },
 
 		// Left wall (x = -20), normal pointing into the box (+X)
 		{ planeBottomLevelBuffers.pResult,
@@ -3791,8 +3791,8 @@ void Renderer::CreateAccelerationStructures()
 		// ----------------------------------------------------
 
 		{ planeBottomLevelBuffers.pResult,
-		  XMMatrixScaling(6.0f, 1.0f, 6.0f) *
-		  XMMatrixTranslation(12.0f, 0.0f, 8.0f) },
+		  XMMatrixScaling(28.0f, 1.0f, 28.0f) *
+		  XMMatrixTranslation(0.0f, 50.0f, 0.0f) },
 
 		//// Sphere on the left: radius ~3 at y = 3
 		//{ sphereBottomLevelBuffers.pResult,

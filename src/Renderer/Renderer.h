@@ -472,7 +472,7 @@ private:
 		RLAction m_CurrentAction = RLAction::Balanced;
 		float m_Reward = 0.0f;
 
-		bool m_UseRL = true;
+		bool m_UseRL = false;
 };
 
 struct PerInstanceData
