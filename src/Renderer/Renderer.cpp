@@ -163,6 +163,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	std::ofstream file(m_Fullpath, std::ios::app);
 
 	file << "Iteration" << ","
+		<< "Using RL?" << ","
 		<< "State" << ","
 		<< "Action" << ","
 		<< "Reward" << ","
@@ -172,6 +173,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 		<< "Next Variance Bucket Index" << ","
 		<< "Mean Luminance" << ","
 		<< "Luminance Variance" << ","
+		<< "Log Luminance Variance" << ","
 		<< "Bright Pixel Ratio" << ","
 		<< "Epsilon" << "\n";
 
@@ -422,7 +424,7 @@ bool Renderer::Draw(bool useRaster)
 		}
 		else
 		{
-		//	m_FrameIndex = 0;
+			//	m_FrameIndex = 0;
 			m_StartCaptureSequenceNextFrame = false;
 		}
 
@@ -1075,7 +1077,7 @@ bool Renderer::Draw(bool useRaster)
 
 
 	// RL Setup
-	if (m_UseRL && m_FrameIndex >= 1)
+	if (m_FrameIndex >= 1)
 	{
 		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 			m_PresentUAV.Get(),
@@ -1155,10 +1157,11 @@ bool Renderer::Draw(bool useRaster)
 		}
 
 		m_FrameImageData.clear();
+		m_FrameImageData.reserve(width* height);
 
-		for (UINT i = 0; i < height * width; i = i + 4)
+		for (UINT i = 0; i < height * width * 4; i = i + 4)
 		{
-			m_FrameImageData.push_back(XMFLOAT4(image[i], image[i + 1], image[i + 2], image[i + 3]));
+			m_FrameImageData.push_back(XMFLOAT4(static_cast<float>(image[i]), static_cast<float>(image[i + 1]), static_cast<float>(image[i + 2]), static_cast<float>(image[i + 3])));
 		}
 
 
@@ -1170,39 +1173,60 @@ bool Renderer::Draw(bool useRaster)
 		{
 			m_FrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
 			m_CurrentState = BucketizeState(m_FrameStats, m_MaxIterations);
+			m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
+
 		}
 		else if (m_FrameIndex > 1)
 		{
-			m_NextFrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
-			m_NextState = BucketizeState(m_NextFrameStats, m_MaxIterations);
+			m_FrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
+			m_CurrentState = BucketizeState(m_FrameStats, m_MaxIterations);
+			m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
+
 		}
 		else
 		{
 		}
+		float m_reward = 0.0f;
+		if (m_UseRL)
+		{
+			if (m_HasPrevState)
+			{
+				m_reward = m_PrevFrameStats.LogLuminanceVariance - m_FrameStats.LogLuminanceVariance;
+				m_reward = std::clamp(m_reward, -1.0f, 1.0f);
+				m_RLController.Update(m_PrevState.ToIndex(), m_PrevAction, m_reward, m_CurrentState.ToIndex());
+			}
 
-		float m_reward = m_CurrentState.VarianceBucket - m_NextState.VarianceBucket;
 
-		RLAction chosenAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
 
-		m_RLController.Update(m_CurrentState.ToIndex(), chosenAction, m_reward, m_NextState.ToIndex());
+			m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
+			m_RenderSettings.SamplingStrategy = ToSamplingMode(m_CurrentAction);
 
-		m_RenderSettings.SamplingStrategy = ToSamplingMode(chosenAction);
+			float epsilon = m_RLController.GetEpsilon();
+			epsilon = 0.05f * expf(-0.0001f * m_FrameStats.Iteration);
+			m_RLController.SetEpsilon(epsilon);
+		}
+
+
+
+		m_FrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
+		m_PrevAction = m_CurrentAction;
+		m_PrevState = m_CurrentState;
+		m_HasPrevState = true;
 
 		file << m_FrameStats.Iteration << ","
+			<< (m_UseRL ? "RL" : "Baseline") << ","
 			<< m_CurrentState.ToIndex() << ","
 			<< actionName << ","
 			<< m_reward << ","
+			<< GetVarianceBucketName(m_PrevState.VarianceBucket) << ","
+			<< m_PrevState.VarianceBucket << ","
 			<< GetVarianceBucketName(m_CurrentState.VarianceBucket) << ","
 			<< m_CurrentState.VarianceBucket << ","
-			<< GetVarianceBucketName(m_NextState.VarianceBucket) << ","
-			<< m_NextState.VarianceBucket << ","
 			<< m_FrameStats.MeanLuminance << ","
 			<< m_FrameStats.LuminanceVariance << ","
+			<< m_FrameStats.LogLuminanceVariance << ","
 			<< m_FrameStats.BrightPixelRatio << ","
 			<< m_RLController.GetEpsilon() << "\n";
-
-		m_FrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
-		m_CurrentState = BucketizeState(m_FrameStats, m_MaxIterations);
 
 		if (m_FrameIndex == m_MaxIterations)
 		{

@@ -32,7 +32,7 @@ namespace
 DiscreteState BucketizeState(const FrameStats& stats, int maxIterations)
 {
 	DiscreteState state;
-	state.VarianceBucket = BucketizeVariance(stats.LuminanceVariance);
+	state.VarianceBucket = BucketizeVariance(stats.LogLuminanceVariance);
 	state.ProgressBucket = BucketizeProgress(stats.Iteration, maxIterations);
 	return state;
 }

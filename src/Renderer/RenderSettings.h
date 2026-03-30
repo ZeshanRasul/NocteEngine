@@ -10,7 +10,7 @@ enum class SamplingMode
 struct RenderSettings
 {
 	SamplingMode SamplingStrategy = SamplingMode::Balanced;
-	int MaxBounces = 8;
+	int MaxBounces = 12;
 	int SamplesPerFrame = 1;
 
 	bool useNEE = true;

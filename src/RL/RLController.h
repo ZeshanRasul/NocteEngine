@@ -63,7 +63,7 @@ private:
 private:
     float m_Alpha = 0.1f;
     float m_Gamma = 0.9f;
-    float m_Epsilon = 0.1f;
+    float m_Epsilon = 0.05f;
 
     std::array<std::array<float, NumActions>, NumStates> m_Q{};
 };

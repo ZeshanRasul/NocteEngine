@@ -36,6 +36,7 @@ FrameStats ComputeFrameStats(const std::vector<DirectX::XMFLOAT4>& image, int it
 
     stats.MeanLuminance = (float)mean;
     stats.LuminanceVariance = (float)variance;
+    stats.LogLuminanceVariance = (float)logf(1.0f + variance);
     stats.BrightPixelRatio = (float)brightCount / (float)pixelCount;
 
     return stats;

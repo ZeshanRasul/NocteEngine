@@ -449,7 +449,7 @@ private:
 		RLController m_RLController;
 		RenderSettings m_RenderSettings;
 		FrameStats m_FrameStats;
-		FrameStats m_NextFrameStats;
+		FrameStats m_PrevFrameStats = {};
 		std::vector<XMFLOAT4> m_FrameImageData;
 		std::string m_MetricsFileName;
 		std::filesystem::path m_Fullpath;
@@ -462,13 +462,15 @@ private:
 		};
 
 		DiscreteState m_CurrentState;
-		DiscreteState m_NextState;
+		DiscreteState m_PrevState;
+		bool m_HasPrevState = false;
 		std::string m_CurrentStateName = "Unknown";
 		int m_MaxIterations = 4096;
-
+		RLAction m_PrevAction = RLAction::Balanced;
+		RLAction m_CurrentAction = RLAction::Balanced;
 		float m_Reward = 0.0f;
 
-		bool m_UseRL = true;
+		bool m_UseRL = false;
 };
 
 struct PerInstanceData

@@ -519,88 +519,80 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     float xi2 = Rand(payload.seed);
     
-    bool chooseBSDF = xi2 < BSDFSampleProbability;
-    
-    if (chooseBSDF)
-    {
-        BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);
-   
-        if (!bsdf.valid || all(bsdf.fOverPdf == 0.0f))
-        {
-            payload.done = 1;
-            return;
-        }
-    
-        float3 fOverPdf = bsdf.fOverPdf;
-        float maxBsdfLum = 20.0f; // try 10–50, tweak later
+    bool useDirectLighting = xi2 < LightSampleProbability;
 
-        float lum = dot(fOverPdf, float3(0.2126, 0.7152, 0.0722));
-        if (lum > maxBsdfLum)
-        {
-            fOverPdf *= maxBsdfLum / lum;
-        }
+    if (useDirectLighting)
+    {
+        LightSample lightSample = SampleAreaLight(pW, N, payload.seed);
+        float3 L = lightSample.dir;
+
+        const float shadowEpsilon = 1e-3f;
     
-        payload.wi = bsdf.wi;
-        payload.bsdfOverPdf = bsdf.fOverPdf;
-        payload.pdf = bsdf.pdf;
-        
-        payload.prevBsdfPdf = bsdf.pdf;
-        payload.prevHitPos = payload.hitPos;
-        payload.lastBounceWasDelta = bsdf.delta ? 1 : 0;
-        
-        if (all(bsdf.fOverPdf == 0.0f) || bsdf.pdf <= 0.0f)
+        float pdfLight = max(lightSample.pdf, 1e-6f);
+        float pdfBSDF = PdfDisneyBRDF(mat, N, V, L);
+                
+        pdfBSDF = max(pdfBSDF, 0.0f);
+
+        bool occluded = IsOccluded(pW + N * shadowEpsilon, lightSample.dir, lightSample.dist - 1e-4f);
+        float wLight = 0.0f;
+        if (!occluded)
         {
-            payload.done = 1;
+            
+            float NdotL = saturate(dot(N, L));
+            
+            if (NdotL > 0.0f)
+            {
+                float3 f = EvaluateDisneyBRDF(mat, N, V, L);
+                
+                if (pdfBSDF > 0.0f)
+                {
+                    float pdfL2 = pdfLight * pdfLight;
+                    float pdfBSDF2 = pdfBSDF * pdfBSDF;
+                
+                    wLight = pdfL2 / max(pdfL2 + pdfBSDF2, 1e-8f);
+                
+                                    
+
+                }
+                LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
+                LdContrib = LdContrib / max(LightSampleProbability, 1e-6f);
+            }
+         
         }
-        else
-        {
-            payload.done = 0;
-        }
+    }
+    
+    BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);
+   
+    if (!bsdf.valid || all(bsdf.fOverPdf == 0.0f))
+    {
+        payload.done = 1;
+        return;
+    }
+    
+    float3 fOverPdf = bsdf.fOverPdf;
+    float maxBsdfLum = 20.0f; // try 10–50, tweak later
+
+    float lum = dot(fOverPdf, float3(0.2126, 0.7152, 0.0722));
+    if (lum > maxBsdfLum)
+    {
+        fOverPdf *= maxBsdfLum / lum;
+    }
+    
+    payload.wi = bsdf.wi;
+    payload.bsdfOverPdf = fOverPdf;
+    payload.pdf = bsdf.pdf;
+        
+    payload.prevBsdfPdf = bsdf.pdf;
+    payload.prevHitPos = payload.hitPos;
+    payload.lastBounceWasDelta = bsdf.delta ? 1 : 0;
+
+    if (all(fOverPdf == 0.0f) || bsdf.pdf <= 0.0f)
+    {
+        payload.done = 1;
     }
     else
     {
-        LightSample lightSample = SampleAreaLight(pW, N, payload.seed);
-        const float shadowEpsilon = 1e-3f;
-    
-        if (lightSample.pdf > 0.0f)
-        {
-            bool occluded = IsOccluded(pW + N * shadowEpsilon, lightSample.dir, lightSample.dist - 1e-4f);
- 
-            if (!occluded)
-            {
-                float3 L = lightSample.dir;
-            
-                float NdotL = saturate(dot(N, L));
-            
-                if (NdotL > 0.0f)
-                {
-                    float3 f = EvaluateDisneyBRDF(mat, N, V, L);
-                    float pdfBSDF = PdfDisneyBRDF(mat, N, V, L);
-                
-                    pdfBSDF = max(pdfBSDF, 0.0f);
-                
-                    if (pdfBSDF > 0.0f)
-                    {
-                    // Multiple importance sampling weight (power heuristic)
-                        float pdfLight = lightSample.pdf;
-                        float pdfL2 = pdfLight * pdfLight;
-                        float pdfBSDF2 = pdfBSDF * pdfBSDF;
-                
-                        float wLight = pdfL2 / max(pdfL2 + pdfBSDF2, 1e-8f);
-                
-                                    
-                        LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
-                        float maxDirectLum = 10.0f;
-
-                        float lumLd = dot(LdContrib, float3(0.2126, 0.7152, 0.0722));
-                        if (lumLd > maxDirectLum)
-                        {
-                            LdContrib *= maxDirectLum / lumLd;
-                        }
-                    }
-                }
-            }
-        }
+        payload.done = 0;
     }
       
     float3 ambient = float3(0.04, 0.04, 0.04);
