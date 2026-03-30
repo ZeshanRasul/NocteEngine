@@ -171,6 +171,10 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 		<< "Variance Bucket Index" << ","
 		<< "Next Variance Bucket Index" << ","
 		<< "Next Variance Bucket Index" << ","
+		<< "Luminance Bucket" << ","
+		<< "Luminance Bucket Index" << ","
+		<< "Bright Pixel Ratio Bucket" << ","
+		<< "Bright Pixel Ratio Bucket Index" << ","
 		<< "Mean Luminance" << ","
 		<< "Luminance Variance" << ","
 		<< "Log Luminance Variance" << ","
@@ -508,11 +512,35 @@ bool Renderer::Draw(bool useRaster)
 	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
 	m_CommandList->DispatchRays(&desc);
 	// AccumulationBuffer: UAV (RayGen output) -> SRV (TA input)
-	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+	/*m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 		m_AccumulationBuffer.Get(),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));*/
+//	if (m_FrameIndex == 0)
+	{
+		D3D12_RESOURCE_BARRIER barriers[2];
+		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_AccumulationBuffer.Get(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_COPY_SOURCE);
+		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_AccumulationHistoryBuffer.Get(),
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_COPY_DEST);
+		m_CommandList->ResourceBarrier(2, barriers);
 
+		m_CommandList->CopyResource(m_AccumulationHistoryBuffer.Get(), m_AccumulationBuffer.Get());
+
+		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_AccumulationBuffer.Get(),
+			D3D12_RESOURCE_STATE_COPY_SOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_AccumulationHistoryBuffer.Get(),
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		m_CommandList->ResourceBarrier(2, barriers);
+	}
 	if (!m_UseTemporal && !m_UseDenoiser)
 	{
 
@@ -1088,12 +1116,12 @@ bool Renderer::Draw(bool useRaster)
 	if (m_FrameIndex >= 1)
 	{
 		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_PresentUAV.Get(),
+			m_AccumulationBuffer.Get(),
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 			D3D12_RESOURCE_STATE_COPY_SOURCE));
 
 
-		auto desc = m_PresentUAV->GetDesc();
+		auto desc = m_AccumulationBuffer->GetDesc();
 
 		D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
 		UINT numRows = 0;
@@ -1112,7 +1140,7 @@ bool Renderer::Draw(bool useRaster)
 		);
 
 		D3D12_TEXTURE_COPY_LOCATION src = {};
-		src.pResource = m_PresentUAV.Get();
+		src.pResource = m_AccumulationBuffer.Get();
 		src.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
 		src.SubresourceIndex = 0;
 
@@ -1154,24 +1182,20 @@ bool Renderer::Draw(bool useRaster)
 
 		unsigned char* base = reinterpret_cast<unsigned char*>(mapped);
 
-		std::vector<unsigned char> image(width * height * 4);
+		const UINT bytesPerPixel = sizeof(float) * 4; // 16
+		const UINT rowBytes = width * bytesPerPixel;
+
+		std::vector<XMFLOAT4> image(width * height);
 
 		for (UINT y = 0; y < height; ++y)
 		{
 			const unsigned char* srcRow = base + footprint.Offset + y * footprint.Footprint.RowPitch;
-			unsigned char* dstRow = image.data() + y * width * 4;
+			unsigned char* dstRow = reinterpret_cast<unsigned char*>(image.data()) + y * rowBytes;
 
-			memcpy(dstRow, srcRow, width * 4);
+			memcpy(dstRow, srcRow, rowBytes);
 		}
 
-		m_FrameImageData.clear();
-		m_FrameImageData.reserve(width * height);
-
-		for (UINT i = 0; i < height * width * 4; i = i + 4)
-		{
-			m_FrameImageData.push_back(XMFLOAT4(static_cast<float>(image[i]), static_cast<float>(image[i + 1]), static_cast<float>(image[i + 2]), static_cast<float>(image[i + 3])));
-		}
-
+		m_FrameImageData = image;
 
 		std::ofstream file(m_Fullpath, std::ios::app);
 
@@ -1206,17 +1230,32 @@ bool Renderer::Draw(bool useRaster)
 
 			if (m_HasPrevState)
 			{
-				m_reward = (m_PrevFrameStats.LogLuminanceVariance - m_FrameStats.LogLuminanceVariance) * 100.0f;
-				//m_reward = std::clamp(m_reward, -1.0f, 1.0f);
-				m_AccumulatedReward += m_reward;
+				float meanFirstHalf = 0.0f;
+				float meanSecondHalf = 0.0f;
+				float meanLogVar = 0.0f;
+
+				for (int i = 0; i < 4; ++i)
+					meanFirstHalf += windowLogVars[i];
+
+				for (int i = 4; i < 8; ++i)
+					meanSecondHalf += windowLogVars[i];
+
+				for (int i = 0; i < 8; ++i)
+					meanLogVar += windowLogVars[i];
+
+				meanFirstHalf /= 4.0f;
+				meanSecondHalf /= 4.0f;
+				meanLogVar /= 8.0f;
+
+				m_reward = (meanFirstHalf - meanSecondHalf) * 100.0f;
+				m_reward = std::clamp(m_reward, -1.0f, 1.0f);
 			}
 
 
 
-			if (m_FrameIndex % 16 == 0)
+			if (m_FrameIndex % 8 == 0)
 			{
-				float windowReward = std::clamp(m_AccumulatedReward, -1.0f, 1.0f);
-				m_RLController.Update(m_PrevState.ToIndex(), m_PrevAction, windowReward, m_CurrentState.ToIndex());
+				m_RLController.Update(m_PrevState.ToIndex(), m_PrevAction, m_reward, m_CurrentState.ToIndex());
 				float epsilon = m_RLController.GetEpsilon();
 				epsilon = std::max(0.05f, 0.2f * exp(-0.00005f * m_FrameIndex));
 				m_RLController.SetEpsilon(epsilon);
@@ -1233,9 +1272,6 @@ bool Renderer::Draw(bool useRaster)
 		}
 		std::string actionName = samplingModeNames[static_cast<int>(m_RenderSettings.SamplingStrategy)];
 
-
-
-
 		file << m_FrameStats.Iteration << ","
 			<< (m_UseRL ? "RL" : "Baseline") << ","
 			<< m_CurrentState.ToIndex() << ","
@@ -1245,6 +1281,10 @@ bool Renderer::Draw(bool useRaster)
 			<< m_PrevState.VarianceBucket << ","
 			<< GetVarianceBucketName(m_CurrentState.VarianceBucket) << ","
 			<< m_CurrentState.VarianceBucket << ","
+			<< GetLuminanceBucketName(m_PrevState.LuminanceBucket) << ","
+			<< m_PrevState.LuminanceBucket << ","
+			<< GetBrightPixelRatioBucketName(m_PrevState.BrightPixelRatioBucket) << ","
+			<< m_PrevState.BrightPixelRatioBucket << ","
 			<< m_FrameStats.MeanLuminance << ","
 			<< m_FrameStats.LuminanceVariance << ","
 			<< m_FrameStats.LogLuminanceVariance << ","
@@ -1254,7 +1294,7 @@ bool Renderer::Draw(bool useRaster)
 		m_PrevFrameStats = m_FrameStats;
 		m_HasPrevState = true;
 		m_MaxIterations = 4096;
-		if (m_FrameStats.Iteration == m_MaxIterations)
+		if (m_FrameIndex == m_MaxIterations)
 		{
 			m_TargetCaptureSPP = m_FrameIndex;
 			m_SaveImage = true;
@@ -3782,14 +3822,14 @@ void Renderer::CreateAccelerationStructures()
 		// AreaLight
 		{ planeBottomLevelBuffers.pResult,
 		  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
-		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(220.0f)) *
+		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
 		  XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z)},
 
 		// Back wall (z = +20), normal pointing into the box (-Z)
 		{ planeBottomLevelBuffers.pResult,
 		  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
 		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
-		  XMMatrixTranslation(0.0f, -8.0f, 60.0f) },
+		  XMMatrixTranslation(0.0f, 60.0f, 60.0f) },
 
 		// Left wall (x = -20), normal pointing into the box (+X)
 		{ planeBottomLevelBuffers.pResult,
@@ -3809,7 +3849,7 @@ void Renderer::CreateAccelerationStructures()
 
 		{ planeBottomLevelBuffers.pResult,
 		  XMMatrixScaling(28.0f, 1.0f, 28.0f) *
-		  XMMatrixTranslation(0.0f, 2.0f, 0.0f) },
+		  XMMatrixTranslation(0.0f, -20.0f, 0.0f) },
 
 		//// Sphere on the left: radius ~3 at y = 3
 		//{ sphereBottomLevelBuffers.pResult,
@@ -4125,7 +4165,7 @@ void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 55.0f, 70.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 55.0f, 0.0f);
 	m_AreaLightData.Radiance = XMFLOAT3(6.25f, 6.25f, 6.25f);
 	m_AreaLightData.U = XMFLOAT3(16.0f, 0.0f, 0.0f);
 	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 16.0f);

@@ -208,12 +208,24 @@ void RayGen()
     
     float3 nEncoded = primarySet ? (primaryNormal * 0.5f + 0.5f) : float3(0.5f, 0.5f, 1.0f);
     gNormal[launchIndex] = float4(nEncoded, float(isemissive));
-    
-    
-  //  float depth = primaryDepth;
+
     gDepth[launchIndex] = primaryDepth;
-    gAccumBuf[launchIndex] = float4(finalColor, 1.0f);
-    gPresent[launchIndex] = float4(finalColor, 1.0f);
+
+// Progressive accumulation
+    float3 accumColor;
+    if (FrameIndex <= 1)
+    {
+        accumColor = finalColor;
+    }
+    else
+    {
+        float3 prevAccum = gAccumHistory[launchIndex].rgb;
+        float n = (float) FrameIndex;
+        accumColor = (((n - 1.0f) * prevAccum) + finalColor) / n;
+    }
     
+    
+    gAccumBuf[launchIndex] = float4(accumColor, 1.0f);
+    gPresent[launchIndex] = float4(accumColor, 1.0f);
 }
 
