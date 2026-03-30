@@ -1,6 +1,19 @@
 #pragma once
 #include "../Renderer/RenderSettings.h"
 
+struct RLTransitionGPU
+{
+    uint32_t StateIndex = 0;
+    uint32_t ActionIndex = 0;
+    float Reward = 0.0f;
+    uint32_t Valid = 0;
+};
+
+struct RLQValue
+{
+    float Value;
+};
+
 enum class RLAction
 {
     BSDFHeavy = 0,

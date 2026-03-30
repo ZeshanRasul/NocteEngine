@@ -4,23 +4,26 @@
 
 struct DiscreteState
 {
-    int VarianceBucket = 0;
-    int ProgressBucket = 0;
-    int LuminanceBucket = 0;
-    int BrightPixelRatioBucket = 0;
+    int BounceBucket = 0;
+    int SurfaceClassBucket = 0;
+    int CosThetaBucket = 0;
+    int ThroughputBucket = 0;
+    int RoughnessBucket = 0;
 
     int ToIndex() const
     {
-        return VarianceBucket
-            + 5 * ProgressBucket
-            + 5 * 3 * LuminanceBucket
-            + 5 * 3 * 3 * BrightPixelRatioBucket;
-    };
+        return BounceBucket +
+            3 * SurfaceClassBucket +
+            9 * CosThetaBucket +
+            27 * ThroughputBucket +
+            81 * RoughnessBucket;
+    }
 };
 
 DiscreteState BucketizeState(const FrameStats& stats, int maxIterations);
 
-const char* GetVarianceBucketName(int bucket);
-const char* GetProgressBucketName(int bucket);
-const char* GetLuminanceBucketName(int bucket);
-const char* GetBrightPixelRatioBucketName(int bucket);
+const char* GetBounceStateName(const DiscreteState& state);
+const char* GetSurfaceClassStateName(const DiscreteState& state);
+const char* GetCosThetaStateName(const DiscreteState& state);
+const char* GetThroughputStateName(const DiscreteState& state);
+const char* GetRoughnessStateName(const DiscreteState& state);

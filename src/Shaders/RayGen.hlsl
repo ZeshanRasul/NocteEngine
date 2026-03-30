@@ -3,16 +3,27 @@
 
 #define MaxLights 16
 
+struct RLTransitionGPU
+{
+    uint StateIndex;
+    uint ActionIndex;
+    float Reward;
+    uint Valid;
+};
+
 // Raytracing output texture, accessed as a UAV
 RWTexture2D<float4> gOutput : register(u0);
 RWTexture2D<float4> gAccumBuf : register(u1);
 RWTexture2D<float4> gNormal : register(u2);
 RWTexture2D<float> gDepth : register(u3);
 RWTexture2D<float> gPresent : register(u4);
+RWStructuredBuffer<RLTransitionGPU> gRLTransitions : register(u5);
 
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0);
 Texture2D<float4> gAccumHistory : register(t1);
+StructuredBuffer<float> gQTable : register(t2);
+
 
 cbuffer cbPass : register(b0)
 {
@@ -67,7 +78,16 @@ void RayGen()
 {
     uint2 launchIndex = DispatchRaysIndex().xy;
     uint2 dims = DispatchRaysDimensions().xy;
+    
+    uint linearIndex = DispatchRaysIndex().y * 1920 + DispatchRaysIndex().x;
 
+    RLTransitionGPU record;
+    record.StateIndex = stateIndex;
+    record.ActionIndex = actionIndex;
+    record.Reward = reward;
+    record.Valid = 1;
+
+    gRLTransitions[linearIndex] = record;
     float2 pixel = (float2) DispatchRaysIndex() + 0.5f;
     float2 ndc = pixel / float2(DispatchRaysDimensions().xy);
     ndc = ndc * 2.0f - 1.0f;
@@ -224,7 +244,7 @@ void RayGen()
         accumColor = (((n - 1.0f) * prevAccum) + finalColor) / n;
     }
     
-    
+    gRLTransitions[linearIndex] = record;
     gAccumBuf[launchIndex] = float4(accumColor, 1.0f);
     gPresent[launchIndex] = float4(accumColor, 1.0f);
 }

@@ -4,16 +4,12 @@
 
 struct FrameStats
 {
-    float MeanLuminance = 0.0f;
-    float LuminanceVariance = 0.0f;
-    float LogLuminanceVariance = 0.0f;
-    float BrightPixelRatio = 0.0f;
-    int Iteration = 0;
+    int Bounce = 0;
+    bool IsReflective = false;
+    bool IsRefractive = false;
+    float Roughness = 1.0f;
+    float CosTheta = 1.0f;
+    float ThroughputLuminance = 0.0f;
 };
-
-inline float ComputeLuminance(float r, float g, float b)
-{
-    return 0.2126f * r + 0.7152f * g + 0.0722f * b;
-}
 
 FrameStats ComputeFrameStats(const std::vector<DirectX::XMFLOAT4>& image, int iteration);

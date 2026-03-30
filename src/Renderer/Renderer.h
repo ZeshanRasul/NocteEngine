@@ -477,6 +477,30 @@ private:
 		int windowCount;
 
 		bool m_UseRL = false;
+		bool m_RLQTableInSRVState = false;
+
+		std::vector<RLQValue> m_RLQTable;
+
+		Microsoft::WRL::ComPtr<ID3D12Resource> m_RLQTableBuffer;
+		Microsoft::WRL::ComPtr<ID3D12Resource> m_RLQTableUploadBuffer;
+
+		Microsoft::WRL::ComPtr<ID3D12Resource> m_RLTransitionBuffer;
+		Microsoft::WRL::ComPtr<ID3D12Resource> m_RLTransitionReadbackBuffer;
+
+		uint32_t m_RLTransitionCount = 0;
+		uint64_t m_RLTransitionBufferSize = 0;
+		uint64_t m_RLQTableBufferSize = 0;
+
+		static constexpr uint32_t NumActions = 3;
+		static constexpr uint32_t NumStates = 243;
+
+		void CreateRLQTableBuffer();
+		void CreateRLQTableUploadBuffer();
+		void UploadRLQTable(const std::vector<RLQValue>& qTable);
+		void CreateRLTransitionBuffer(uint32_t width, uint32_t height);
+		void CreateRLTransitionReadbackBuffer();
+		void CopyRLTransitionsToReadback();
+		std::vector<RLTransitionGPU> ReadBackRLTransitions();
 };
 
 struct PerInstanceData

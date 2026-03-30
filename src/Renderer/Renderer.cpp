@@ -207,6 +207,12 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRaytracingOutputBuffer();
 	CreatePresentUAV();
 	CreateAccumulationBuffer();
+	m_RLQTable.resize(NumStates * NumActions);
+	CreateReadbackBuffer();
+	CreateRLQTableBuffer();
+	CreateRLQTableUploadBuffer();
+	CreateRLTransitionBuffer(m_ClientWidth, m_ClientHeight);
+	CreateRLTransitionReadbackBuffer();
 	CreateShaderResourceHeap();
 	CreateShaderResourceCPUHeap();
 	CreateSamplerHeap();
@@ -214,7 +220,6 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateMediumConstantBuffer();
 	CreateShaderBindingTable();
 	CreateImGuiDescriptorHeap();
-	CreateReadbackBuffer();
 	//m_CurrentOldMoment = m_OldFirstMomentBuffer.Get();
 	//m_CurrentNewMoment = m_FirstMomentBuffer.Get();
 	m_FinalDenoiseBuffer = m_AccumulationBuffer.Get();
@@ -509,6 +514,22 @@ bool Renderer::Draw(bool useRaster)
 		useHistory = 1;
 	}
 
+	UploadRLQTable(m_RLQTable);
+
+
+	CopyRLTransitionsToReadback();
+
+	ThrowIfFailed(m_CommandList->Close());
+	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
+	m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+
+	m_CurrentFrameResource->Fence = ++m_CurrentFence;
+	FlushCommandQueue();
+	m_CommandList->Reset(m_CommandAllocator.Get(), nullptr);
+
+
+	auto transitions = ReadBackRLTransitions();
+
 	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
 	m_CommandList->DispatchRays(&desc);
 	// AccumulationBuffer: UAV (RayGen output) -> SRV (TA input)
@@ -516,7 +537,7 @@ bool Renderer::Draw(bool useRaster)
 		m_AccumulationBuffer.Get(),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));*/
-//	if (m_FrameIndex == 0)
+		//	if (m_FrameIndex == 0)
 	{
 		D3D12_RESOURCE_BARRIER barriers[2];
 		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -1112,231 +1133,214 @@ bool Renderer::Draw(bool useRaster)
 		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 	}
 
-	// RL Setup
-	if (m_FrameIndex >= 1)
-	{
-		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_AccumulationBuffer.Get(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_COPY_SOURCE));
+	//// RL Setup
+	//if (m_FrameIndex >= 1)
+	//{
+	//	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+	//		m_AccumulationBuffer.Get(),
+	//		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+	//		D3D12_RESOURCE_STATE_COPY_SOURCE));
 
 
-		auto desc = m_AccumulationBuffer->GetDesc();
+	//	auto desc = m_AccumulationBuffer->GetDesc();
 
-		D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
-		UINT numRows = 0;
-		UINT64 rowSizeInBytes = 0;
-		UINT64 totalBytes = 0;
+	//	D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
+	//	UINT numRows = 0;
+	//	UINT64 rowSizeInBytes = 0;
+	//	UINT64 totalBytes = 0;
 
-		m_Device->GetCopyableFootprints(
-			&desc,
-			0,
-			1,
-			0,
-			&footprint,
-			&numRows,
-			&rowSizeInBytes,
-			&totalBytes
-		);
+	//	m_Device->GetCopyableFootprints(
+	//		&desc,
+	//		0,
+	//		1,
+	//		0,
+	//		&footprint,
+	//		&numRows,
+	//		&rowSizeInBytes,
+	//		&totalBytes
+	//	);
 
-		D3D12_TEXTURE_COPY_LOCATION src = {};
-		src.pResource = m_AccumulationBuffer.Get();
-		src.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-		src.SubresourceIndex = 0;
+	//	D3D12_TEXTURE_COPY_LOCATION src = {};
+	//	src.pResource = m_AccumulationBuffer.Get();
+	//	src.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+	//	src.SubresourceIndex = 0;
 
-		CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_READBACK);
+	//	CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_READBACK);
 
-		CD3DX12_RESOURCE_DESC descRB = CD3DX12_RESOURCE_DESC::Buffer(totalBytes);
+	//	CD3DX12_RESOURCE_DESC descRB = CD3DX12_RESOURCE_DESC::Buffer(totalBytes);
 
-		m_Device->CreateCommittedResource(
-			&heapProps,
-			D3D12_HEAP_FLAG_NONE,
-			&descRB,
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			nullptr,
-			IID_PPV_ARGS(&m_ReadbackBuffer)
-		);
-
-
-		// Describe copy destination
-		D3D12_TEXTURE_COPY_LOCATION dst = {};
-		dst.pResource = m_ReadbackBuffer.Get();
-		dst.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-		dst.PlacedFootprint = footprint;
-
-		const UINT width = static_cast<UINT>(desc.Width);
-		const UINT height = desc.Height;
-
-		m_CommandList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
-
-		ThrowIfFailed(m_CommandList->Close());
-		ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
-		m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
-
-		m_CurrentFrameResource->Fence = ++m_CurrentFence;
-		FlushCommandQueue();
-		m_CommandList->Reset(m_CommandAllocator.Get(), nullptr);
-
-		void* mapped = nullptr;
-		m_ReadbackBuffer->Map(0, nullptr, &mapped);
-
-		unsigned char* base = reinterpret_cast<unsigned char*>(mapped);
-
-		const UINT bytesPerPixel = sizeof(float) * 4; // 16
-		const UINT rowBytes = width * bytesPerPixel;
-
-		std::vector<XMFLOAT4> image(width * height);
-
-		for (UINT y = 0; y < height; ++y)
-		{
-			const unsigned char* srcRow = base + footprint.Offset + y * footprint.Footprint.RowPitch;
-			unsigned char* dstRow = reinterpret_cast<unsigned char*>(image.data()) + y * rowBytes;
-
-			memcpy(dstRow, srcRow, rowBytes);
-		}
-
-		m_FrameImageData = image;
-
-		std::ofstream file(m_Fullpath, std::ios::app);
-
-		if (m_FrameIndex == 1)
-		{
-			m_FrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
-			m_CurrentState = BucketizeState(m_FrameStats, m_MaxIterations);
-			m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
-
-		}
-		else if (m_FrameIndex > 1)
-		{
-			m_FrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
-			m_CurrentState = BucketizeState(m_FrameStats, m_MaxIterations);
-			m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
-
-		}
-		else
-		{
-		}
-		//	m_CurrentAction = RLAction::Balanced;
-		float m_reward = 0.0f;
-		if (m_UseRL)
-		{
-			if (!m_HasPrevState)
-			{
-				m_PrevState = m_CurrentState;
-				m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
-				m_PrevAction = m_CurrentAction;
-				m_RenderSettings.SamplingStrategy = ToSamplingMode(m_CurrentAction);
-			}
-
-			if (m_HasPrevState)
-			{
-				float meanFirstHalf = 0.0f;
-				float meanSecondHalf = 0.0f;
-				float meanLogVar = 0.0f;
-
-				for (int i = 0; i < 4; ++i)
-					meanFirstHalf += windowLogVars[i];
-
-				for (int i = 4; i < 8; ++i)
-					meanSecondHalf += windowLogVars[i];
-
-				for (int i = 0; i < 8; ++i)
-					meanLogVar += windowLogVars[i];
-
-				meanFirstHalf /= 4.0f;
-				meanSecondHalf /= 4.0f;
-				meanLogVar /= 8.0f;
-
-				m_reward = (meanFirstHalf - meanSecondHalf) * 100.0f;
-				m_reward = std::clamp(m_reward, -1.0f, 1.0f);
-			}
+	//	m_Device->CreateCommittedResource(
+	//		&heapProps,
+	//		D3D12_HEAP_FLAG_NONE,
+	//		&descRB,
+	//		D3D12_RESOURCE_STATE_COPY_DEST,
+	//		nullptr,
+	//		IID_PPV_ARGS(&m_ReadbackBuffer)
+	//	);
 
 
+	//	// Describe copy destination
+	//	D3D12_TEXTURE_COPY_LOCATION dst = {};
+	//	dst.pResource = m_ReadbackBuffer.Get();
+	//	dst.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+	//	dst.PlacedFootprint = footprint;
 
-			if (m_FrameIndex % 8 == 0)
-			{
-				m_RLController.Update(m_PrevState.ToIndex(), m_PrevAction, m_reward, m_CurrentState.ToIndex());
-				float epsilon = m_RLController.GetEpsilon();
-				epsilon = std::max(0.05f, 0.2f * exp(-0.00005f * m_FrameIndex));
-				m_RLController.SetEpsilon(epsilon);
+	//	const UINT width = static_cast<UINT>(desc.Width);
+	//	const UINT height = desc.Height;
 
-				m_PrevState = m_CurrentState;
+	//	m_CommandList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
 
-				m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
-				m_PrevAction = m_CurrentAction;
-				m_RenderSettings.SamplingStrategy = ToSamplingMode(m_CurrentAction);
-				m_AccumulatedReward = 0.0f;
-			}
+	//	ThrowIfFailed(m_CommandList->Close());
+	//	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
+	//	m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+
+	//	m_CurrentFrameResource->Fence = ++m_CurrentFence;
+	//	FlushCommandQueue();
+	//	m_CommandList->Reset(m_CommandAllocator.Get(), nullptr);
+
+	//	void* mapped = nullptr;
+	//	m_ReadbackBuffer->Map(0, nullptr, &mapped);
+
+	//	unsigned char* base = reinterpret_cast<unsigned char*>(mapped);
+
+	//	const UINT bytesPerPixel = sizeof(float) * 4; // 16
+	//	const UINT rowBytes = width * bytesPerPixel;
+
+	//	std::vector<XMFLOAT4> image(width * height);
+
+	//	for (UINT y = 0; y < height; ++y)
+	//	{
+	//		const unsigned char* srcRow = base + footprint.Offset + y * footprint.Footprint.RowPitch;
+	//		unsigned char* dstRow = reinterpret_cast<unsigned char*>(image.data()) + y * rowBytes;
+
+	//		memcpy(dstRow, srcRow, rowBytes);
+	//	}
+
+	//	m_FrameImageData = image;
+
+	//	std::ofstream file(m_Fullpath, std::ios::app);
+
+	//	if (m_FrameIndex == 1)
+	//	{
+	//		m_FrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
+	//		m_CurrentState = BucketizeState(m_FrameStats, m_MaxIterations);
+	//		m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
+
+	//	}
+	//	else if (m_FrameIndex > 1)
+	//	{
+	//		m_FrameStats = ComputeFrameStats(m_FrameImageData, m_FrameIndex);
+	//		m_CurrentState = BucketizeState(m_FrameStats, m_MaxIterations);
+	//		m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
+
+	//	}
+	//	else
+	//	{
+	//	}
+	//	//	m_CurrentAction = RLAction::Balanced;
+	//	float m_reward = 0.0f;
+	//	if (m_UseRL)
+	//	{
+	//		if (!m_HasPrevState)
+	//		{
+	//			m_PrevState = m_CurrentState;
+	//			m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
+	//			m_PrevAction = m_CurrentAction;
+	//			m_RenderSettings.SamplingStrategy = ToSamplingMode(m_CurrentAction);
+	//		}
+
+	//		if (m_HasPrevState)
+	//		{
+	//			float meanFirstHalf = 0.0f;
+	//			float meanSecondHalf = 0.0f;
+	//			float meanLogVar = 0.0f;
+
+	//			for (int i = 0; i < 4; ++i)
+	//				meanFirstHalf += windowLogVars[i];
+
+	//			for (int i = 4; i < 8; ++i)
+	//				meanSecondHalf += windowLogVars[i];
+
+	//			for (int i = 0; i < 8; ++i)
+	//				meanLogVar += windowLogVars[i];
+
+	//			meanFirstHalf /= 4.0f;
+	//			meanSecondHalf /= 4.0f;
+	//			meanLogVar /= 8.0f;
+
+	//			m_reward = (meanFirstHalf - meanSecondHalf) * 100.0f;
+	//			m_reward = std::clamp(m_reward, -1.0f, 1.0f);
+	//		}
 
 
-		}
-		std::string actionName = samplingModeNames[static_cast<int>(m_RenderSettings.SamplingStrategy)];
 
-		file << m_FrameStats.Iteration << ","
-			<< (m_UseRL ? "RL" : "Baseline") << ","
-			<< m_CurrentState.ToIndex() << ","
-			<< actionName << ","
-			<< m_reward << ","
-			<< GetVarianceBucketName(m_PrevState.VarianceBucket) << ","
-			<< m_PrevState.VarianceBucket << ","
-			<< GetVarianceBucketName(m_CurrentState.VarianceBucket) << ","
-			<< m_CurrentState.VarianceBucket << ","
-			<< GetLuminanceBucketName(m_PrevState.LuminanceBucket) << ","
-			<< m_PrevState.LuminanceBucket << ","
-			<< GetBrightPixelRatioBucketName(m_PrevState.BrightPixelRatioBucket) << ","
-			<< m_PrevState.BrightPixelRatioBucket << ","
-			<< m_FrameStats.MeanLuminance << ","
-			<< m_FrameStats.LuminanceVariance << ","
-			<< m_FrameStats.LogLuminanceVariance << ","
-			<< m_FrameStats.BrightPixelRatio << ","
-			<< m_RLController.GetEpsilon() << "\n";
+	//		if (m_FrameIndex % 8 == 0)
+	//		{
+	//			m_RLController.Update(m_PrevState.ToIndex(), m_PrevAction, m_reward, m_CurrentState.ToIndex());
+	//			float epsilon = m_RLController.GetEpsilon();
+	//			epsilon = std::max(0.05f, 0.2f * exp(-0.00005f * m_FrameIndex));
+	//			m_RLController.SetEpsilon(epsilon);
 
-		m_PrevFrameStats = m_FrameStats;
-		m_HasPrevState = true;
-		m_MaxIterations = 4096;
-		if (m_FrameIndex == m_MaxIterations)
-		{
-			m_TargetCaptureSPP = m_FrameIndex;
-			m_SaveImage = true;
-			m_CurrentAccumSPP = 0;
-		}
+	//			m_PrevState = m_CurrentState;
 
-		{
-			D3D12_RESOURCE_BARRIER barriers[2];
+	//			m_CurrentAction = m_RLController.SelectAction(m_CurrentState.ToIndex());
+	//			m_PrevAction = m_CurrentAction;
+	//			m_RenderSettings.SamplingStrategy = ToSamplingMode(m_CurrentAction);
+	//			m_AccumulatedReward = 0.0f;
+	//		}
 
-			barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-				m_PresentUAV.Get(),
-				D3D12_RESOURCE_STATE_UNORDERED_ACCESS,    // last state we used it as UAV
-				D3D12_RESOURCE_STATE_COPY_SOURCE);
 
-			barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
-				CurrentBackBuffer(),
-				D3D12_RESOURCE_STATE_RENDER_TARGET,
-				D3D12_RESOURCE_STATE_COPY_DEST);
+	//	}
+	//	std::string actionName = samplingModeNames[static_cast<int>(m_RenderSettings.SamplingStrategy)];
 
-			m_CommandList->ResourceBarrier(_countof(barriers), barriers);
-			m_CommandList->CopyResource(CurrentBackBuffer(), m_PresentUAV.Get());
 
-			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-				m_PresentUAV.Get(),
-				D3D12_RESOURCE_STATE_COPY_SOURCE,
-				D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-				CurrentBackBuffer(),
-				D3D12_RESOURCE_STATE_COPY_DEST,
-				D3D12_RESOURCE_STATE_RENDER_TARGET));
-		}
 
-		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		//	m_PresentUAV.Get(),
-		//	D3D12_RESOURCE_STATE_COPY_SOURCE,
-		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	//	m_PrevFrameStats = m_FrameStats;
+	//	m_HasPrevState = true;
+	//	m_MaxIterations = 4096;
+	//	if (m_FrameIndex == m_MaxIterations)
+	//	{
+	//		m_TargetCaptureSPP = m_FrameIndex;
+	//		m_SaveImage = true;
+	//		m_CurrentAccumSPP = 0;
+	//	}
 
-		//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		//	CurrentBackBuffer(),
-		//	D3D12_RESOURCE_STATE_COPY_DEST,
-		//	D3D12_RESOURCE_STATE_RENDER_TARGET));
-	}
+	//	{
+	//		D3D12_RESOURCE_BARRIER barriers[2];
+
+	//		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+	//			m_PresentUAV.Get(),
+	//			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,    // last state we used it as UAV
+	//			D3D12_RESOURCE_STATE_COPY_SOURCE);
+
+	//		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+	//			CurrentBackBuffer(),
+	//			D3D12_RESOURCE_STATE_RENDER_TARGET,
+	//			D3D12_RESOURCE_STATE_COPY_DEST);
+
+	//		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+	//		m_CommandList->CopyResource(CurrentBackBuffer(), m_PresentUAV.Get());
+
+	//		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+	//			m_PresentUAV.Get(),
+	//			D3D12_RESOURCE_STATE_COPY_SOURCE,
+	//			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	//		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+	//			CurrentBackBuffer(),
+	//			D3D12_RESOURCE_STATE_COPY_DEST,
+	//			D3D12_RESOURCE_STATE_RENDER_TARGET));
+	//	}
+
+	//	//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+	//	//	m_PresentUAV.Get(),
+	//	//	D3D12_RESOURCE_STATE_COPY_SOURCE,
+	//	//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+
+	//	//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+	//	//	CurrentBackBuffer(),
+	//	//	D3D12_RESOURCE_STATE_COPY_DEST,
+	//	//	D3D12_RESOURCE_STATE_RENDER_TARGET));
+	//}
 
 
 	if (m_TargetCaptureSPP > 1)
@@ -1577,18 +1581,20 @@ bool Renderer::Draw(bool useRaster)
 		D3D12_RESOURCE_STATE_RENDER_TARGET,
 		D3D12_RESOURCE_STATE_PRESENT);
 	m_CommandList->ResourceBarrier(1, &transition);
+	{
 
-	ThrowIfFailed(m_CommandList->Close());
-	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
-	m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+		ThrowIfFailed(m_CommandList->Close());
+		ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
+		m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
-	ThrowIfFailed(m_SwapChain->Present(0, 0));
-	m_CurrentBackBuffer = (m_CurrentBackBuffer + 1) % SwapChainBufferCount;
+		ThrowIfFailed(m_SwapChain->Present(0, 0));
+		m_CurrentBackBuffer = (m_CurrentBackBuffer + 1) % SwapChainBufferCount;
 
-	//	m_CurrentFrameResource->Fence = ++m_CurrentFence;
-	FlushCommandQueue();
+		//	m_CurrentFrameResource->Fence = ++m_CurrentFence;
+		FlushCommandQueue();
 
-	//	m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence);
+		//	m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence);
+	}
 
 	return true;
 
@@ -1968,10 +1974,11 @@ void Renderer::BuildMaterials()
 	skullMat->DiffuseSrvHeapIndex = -1;
 	skullMat->DiffuseAlbedo = XMFLOAT4(0.750f, 0.750f, 0.680f, 1.0f);
 	skullMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05);
-	skullMat->Roughness = 0.85f;
+	skullMat->Roughness = 0.005f;
 	skullMat->metallic = 0.0f;
-	skullMat->Ior = 1.0f;
-	skullMat->IsReflective = false;
+	skullMat->Ior = 1.5f;
+	skullMat->IsReflective = true;
+	skullMat->IsRefractive = true;
 	skullMat->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	skullMat->isEmissive = 0;
 
@@ -1993,10 +2000,11 @@ void Renderer::BuildMaterials()
 	sphereMat->DiffuseSrvHeapIndex = 4;
 	sphereMat->DiffuseAlbedo = XMFLOAT4(0.700f, 0.700f, 0.700f, 1.0f);
 	sphereMat->FresnelR0 = XMFLOAT3(0.04f, 0.04f, 0.04f);
-	sphereMat->Roughness = 0.2f;
+	sphereMat->Roughness = 0.002f;
 	sphereMat->metallic = 0.0f;
-	sphereMat->Ior = 1.0f;
-	sphereMat->IsReflective = false;
+	sphereMat->Ior = 1.5f;
+	sphereMat->IsReflective = true;
+	sphereMat->IsRefractive = true;
 	sphereMat->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	sphereMat->isEmissive = 0;
 
@@ -2067,11 +2075,11 @@ void Renderer::BuildMaterials()
 	dragon->DiffuseSrvHeapIndex = 2;
 	dragon->DiffuseAlbedo = XMFLOAT4(Colors::White);
 	dragon->FresnelR0 = XMFLOAT3(0.04f, 0.04f, 0.04f);
-	dragon->Roughness = 0.85f;
+	dragon->Roughness = 0.005f;
 	dragon->metallic = 0.0f;
-	dragon->IsReflective = false;
-	dragon->IsRefractive = false;
-	dragon->Ior = 1.0f;
+	dragon->IsReflective = true;
+	dragon->IsRefractive = true;
+	dragon->Ior = 1.5f;
 	dragon->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	dragon->isEmissive = 0;
 
@@ -2871,7 +2879,7 @@ void Renderer::CreateSamplerHeap()
 
 void Renderer::CreateShaderResourceHeap()
 {
-	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 83, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 85, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -3111,6 +3119,7 @@ void Renderer::CreateShaderResourceHeap()
 
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
+
 	srvDesc = {};
 
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -3123,27 +3132,42 @@ void Renderer::CreateShaderResourceHeap()
 	m_Device->CreateShaderResourceView(m_AlbedoTex.Get(), &srvDesc, srvHandle);
 
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> tex2DList;
 
-	for (auto& tex : m_Textures)
-	{
-		tex2DList.push_back(tex->Resource);
-	}
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	uavDesc = {};
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+	uavDesc.Buffer.FirstElement = 0;
+	uavDesc.Buffer.NumElements = m_RLTransitionCount;
+	uavDesc.Buffer.StructureByteStride = sizeof(RLTransitionGPU);
+	uavDesc.Buffer.CounterOffsetInBytes = 0;
+	uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+	m_RLTransitionBuffer->SetName(L"RL Transition Buffer UAV");
+
+	m_Device->CreateUnorderedAccessView(
+		m_RLTransitionBuffer.Get(),
+		nullptr,
+		&uavDesc,
+		srvHandle);
+
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+
+	srvDesc = {};
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = 1;
-	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+	srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+	srvDesc.Buffer.FirstElement = 0;
+	srvDesc.Buffer.NumElements = NumStates * NumActions;
+	srvDesc.Buffer.StructureByteStride = sizeof(RLQValue);
+	srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+	m_RLQTableBuffer->SetName(L"RL Q Table Buffer SRV");
 
-	for (UINT i = 0; i < (UINT)tex2DList.size(); ++i)
-	{
-		srvDesc.Format = tex2DList[i]->GetDesc().Format;
-		srvDesc.Texture2D.MipLevels = tex2DList[i]->GetDesc().MipLevels;
-		m_Device->CreateShaderResourceView(tex2DList[i].Get(), &srvDesc, srvHandle);
+	m_Device->CreateShaderResourceView(
+		m_RLQTableBuffer.Get(),
+		&srvDesc,
+		srvHandle);
 
-		srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-	}
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 }
 
 void Renderer::CreateAccumulationBuffer()
@@ -4588,4 +4612,163 @@ void Renderer::CreateModelBuffers(Model& model, Microsoft::WRL::ComPtr<ID3D12Res
 		ibv.Format = DXGI_FORMAT_R32_UINT;
 		ibv.SizeInBytes = ibSize;
 	}
+}
+
+void Renderer::CreateRLQTableBuffer()
+{
+	m_RLQTableBufferSize = sizeof(float) * NumStates * NumActions;
+
+	CD3DX12_HEAP_PROPERTIES defaultHeapProps(D3D12_HEAP_TYPE_DEFAULT);
+	CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(m_RLQTableBufferSize);
+
+	ThrowIfFailed(m_Device->CreateCommittedResource(
+		&defaultHeapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&bufferDesc,
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
+		IID_PPV_ARGS(&m_RLQTableBuffer)));
+
+	m_RLQTableInSRVState = false;
+}
+
+void Renderer::CreateRLQTableUploadBuffer()
+{
+	const uint64_t qTableBufferSize = sizeof(float) * NumStates * NumActions;
+
+	CD3DX12_HEAP_PROPERTIES uploadHeapProps(D3D12_HEAP_TYPE_UPLOAD);
+	CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(qTableBufferSize);
+
+	ThrowIfFailed(m_Device->CreateCommittedResource(
+		&uploadHeapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&bufferDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&m_RLQTableUploadBuffer)));
+
+}
+
+
+void Renderer::CreateRLTransitionBuffer(uint32_t width, uint32_t height)
+{
+	m_RLTransitionCount = width * height;
+	m_RLTransitionBufferSize = static_cast<uint64_t>(m_RLTransitionCount) * sizeof(RLTransitionGPU);
+
+	if (m_RLTransitionCount == 0)
+	{
+		throw std::runtime_error("CreateRLTransitionBuffer: width * height is zero.");
+	}
+
+	CD3DX12_HEAP_PROPERTIES defaultHeapProps(D3D12_HEAP_TYPE_DEFAULT);
+	CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(
+		m_RLTransitionBufferSize,
+		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+
+	ThrowIfFailed(m_Device->CreateCommittedResource(
+		&defaultHeapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&bufferDesc,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		nullptr,
+		IID_PPV_ARGS(&m_RLTransitionBuffer)));
+}
+
+void Renderer::CreateRLTransitionReadbackBuffer()
+{
+	if (m_RLTransitionBufferSize == 0)
+	{
+		throw std::runtime_error("CreateRLTransitionReadbackBuffer: transition buffer size is zero.");
+	}
+
+	CD3DX12_HEAP_PROPERTIES readbackHeapProps(D3D12_HEAP_TYPE_READBACK);
+	CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(m_RLTransitionBufferSize);
+
+	ThrowIfFailed(m_Device->CreateCommittedResource(
+		&readbackHeapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&bufferDesc,
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
+		IID_PPV_ARGS(&m_RLTransitionReadbackBuffer)));
+}
+
+void Renderer::CopyRLTransitionsToReadback()
+{
+	auto barrierToCopy = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_RLTransitionBuffer.Get(),
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		D3D12_RESOURCE_STATE_COPY_SOURCE);
+
+	m_CommandList->ResourceBarrier(1, &barrierToCopy);
+
+	m_CommandList->CopyResource(
+		m_RLTransitionReadbackBuffer.Get(),
+		m_RLTransitionBuffer.Get());
+
+	auto barrierBack = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_RLTransitionBuffer.Get(),
+		D3D12_RESOURCE_STATE_COPY_SOURCE,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+	m_CommandList->ResourceBarrier(1, &barrierBack);
+}
+
+std::vector<RLTransitionGPU> Renderer::ReadBackRLTransitions()
+{
+	std::vector<RLTransitionGPU> transitions(m_RLTransitionCount);
+
+	void* mappedData = nullptr;
+	CD3DX12_RANGE readRange(0, m_RLTransitionBufferSize);
+
+	ThrowIfFailed(m_RLTransitionReadbackBuffer->Map(0, &readRange, &mappedData));
+	std::memcpy(transitions.data(), mappedData, static_cast<size_t>(m_RLTransitionBufferSize));
+	m_RLTransitionReadbackBuffer->Unmap(0, nullptr);
+
+	return transitions;
+}
+
+void Renderer::UploadRLQTable(const std::vector<RLQValue>& qTable)
+{
+	const size_t expectedCount = static_cast<size_t>(NumStates) * NumActions;
+	if (qTable.size() != expectedCount)
+	{
+		throw std::runtime_error("UploadRLQTable: qTable size mismatch.");
+	}
+
+	if (!m_RLQTableBuffer || !m_RLQTableUploadBuffer)
+	{
+		throw std::runtime_error("UploadRLQTable: RL Q-table buffers not created.");
+	}
+
+	void* mappedData = nullptr;
+	CD3DX12_RANGE readRange(0, 0);
+
+	ThrowIfFailed(m_RLQTableUploadBuffer->Map(0, &readRange, &mappedData));
+	std::memcpy(mappedData, qTable.data(), static_cast<size_t>(m_RLQTableBufferSize));
+	m_RLQTableUploadBuffer->Unmap(0, nullptr);
+
+	if (m_RLQTableInSRVState)
+	{
+		auto barrierToCopyDest = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_RLQTableBuffer.Get(),
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_COPY_DEST);
+
+		m_CommandList->ResourceBarrier(1, &barrierToCopyDest);
+		m_RLQTableInSRVState = false;
+	}
+
+	m_CommandList->CopyBufferRegion(
+		m_RLQTableBuffer.Get(), 0,
+		m_RLQTableUploadBuffer.Get(), 0,
+		m_RLQTableBufferSize);
+
+	auto barrierToSRV = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_RLQTableBuffer.Get(),
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+
+	m_CommandList->ResourceBarrier(1, &barrierToSRV);
+	m_RLQTableInSRVState = true;
 }

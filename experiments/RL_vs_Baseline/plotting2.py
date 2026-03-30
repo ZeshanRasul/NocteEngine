@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-rl = pd.read_csv("run_18/RL_Metrics.csv")
-base = pd.read_csv("run_18/Baseline_Metrics.csv")
+rl = pd.read_csv("run_23/RL_Metrics.csv")
+base = pd.read_csv("run_23/Baseline_Metrics.csv")
 
 x = rl["Iteration"].to_numpy()
 

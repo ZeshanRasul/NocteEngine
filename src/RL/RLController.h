@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include "RLTypes.h"
+#include <cstdint>
 
 class RLController
 {

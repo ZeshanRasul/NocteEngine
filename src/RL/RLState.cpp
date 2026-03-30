@@ -1,98 +1,127 @@
 #include "RLState.h"
 
+#include <cmath>
+
+enum class SurfaceClass
+{
+    Diffuse = 0,
+    Reflective = 1,
+    Refractive = 2
+};
+
 namespace
 {
-	int BucketizeVariance(float variance)
-	{
-		if (variance < 6.5792f) return 0;
-		if (variance < 6.5798f) return 1;
-		if (variance < 6.5804f) return 2;
-		if (variance < 6.5810f) return 3;
-		return 4;
-	}
+    int BucketizeBounce(int bounce)
+    {
+        if (bounce <= 1) return 0;
+        if (bounce <= 3) return 1;
+        return 2;
+    }
 
-	int BucketizeProgress(int iteration, int maxIterations)
-	{
-		if (maxIterations <= 0)
-			return 0;
+    int BucketizeSurfaceClass(bool isRefractive, bool isReflective, float roughness)
+    {
+        if (isRefractive)
+            return static_cast<int>(SurfaceClass::Refractive);
 
-		float progress = static_cast<float>(iteration) / static_cast<float>(maxIterations);
+        if (isReflective || roughness < 0.08f)
+            return static_cast<int>(SurfaceClass::Reflective);
 
-		if (progress < 0.33f)
-			return 0;
-		else if (progress < 0.66f)
-			return 1;
+        return static_cast<int>(SurfaceClass::Diffuse);
+    }
 
-		return 2;
-	}
+    int BucketizeCosTheta(float cosTheta)
+    {
+        cosTheta = std::abs(cosTheta);
 
-	int BucketizeLuminance(float meanLum)
-	{
-		if (meanLum < 3.20f) return 0;
-		if (meanLum < 3.24f) return 1;
-		return 2;
-	}
+        if (cosTheta < 0.25f) return 0;
+        if (cosTheta < 0.75f) return 1;
+        return 2;
+    }
 
-	int BucketizeBrightPixelRatio(float ratio)
-	{
-		if (ratio < 0.060f) return 0;
-		if (ratio < 0.064f) return 1;
-		return 2;
-	}
+    int BucketizeThroughput(float throughputLum)
+    {
+        if (throughputLum < 0.1f) return 0;
+        if (throughputLum < 0.5f) return 1;
+        return 2;
+    }
+
+    int BucketizeRoughness(float roughness)
+    {
+        if (roughness < 0.05f) return 0;
+        if (roughness < 0.3f) return 1;
+        return 2;
+    }
 }
 
 DiscreteState BucketizeState(const FrameStats& stats, int maxIterations)
 {
-	DiscreteState state;
-	state.VarianceBucket = BucketizeVariance(stats.LogLuminanceVariance);
-	state.ProgressBucket = BucketizeProgress(stats.Iteration, maxIterations);
-	state.LuminanceBucket = BucketizeLuminance(stats.MeanLuminance);
-	state.BrightPixelRatioBucket = BucketizeBrightPixelRatio(stats.BrightPixelRatio);
-	return state;
+    (void)maxIterations;
+
+    DiscreteState state;
+    state.BounceBucket = BucketizeBounce(stats.Bounce);
+    state.SurfaceClassBucket = BucketizeSurfaceClass(
+        stats.IsRefractive,
+        stats.IsReflective,
+        stats.Roughness
+    );
+    state.CosThetaBucket = BucketizeCosTheta(stats.CosTheta);
+    state.ThroughputBucket = BucketizeThroughput(stats.ThroughputLuminance);
+    state.RoughnessBucket = BucketizeRoughness(stats.Roughness);
+
+    return state;
 }
 
-const char* GetVarianceBucketName(int bucket)
+const char* GetBounceStateName(const DiscreteState& state)
 {
-	switch (bucket)
-	{
-	case 0: return "Low";
-	case 1: return "Low-Medium";
-	case 2: return "Medium";
-	case 3: return "Medium-High";
-	case 4: return "High";
-	default: return "Unknown";
-	}
+    switch (state.BounceBucket)
+    {
+    case 0: return "Early Bounce";
+    case 1: return "Mid Bounce";
+    case 2: return "Late Bounce";
+    default: return "Unknown Bounce";
+    }
 }
 
-const char* GetProgressBucketName(int bucket)
+const char* GetSurfaceClassStateName(const DiscreteState& state)
 {
-	switch (bucket)
-	{
-	case 0: return "Early";
-	case 1: return "Mid";
-	case 2: return "Late";
-	default: return "Unknown";
-	}
+    switch (state.SurfaceClassBucket)
+    {
+    case 0: return "Diffuse";
+    case 1: return "Reflective";
+    case 2: return "Refractive";
+    default: return "Unknown Surface";
+    }
 }
 
-const char* GetLuminanceBucketName(int bucket)
+const char* GetCosThetaStateName(const DiscreteState& state)
 {
-	switch (bucket)
-	{
-	case 0: return "Low";
-	case 1: return "Medium";
-	case 2: return "High";
-	default: return "Unknown";
-	}
+    switch (state.CosThetaBucket)
+    {
+    case 0: return "Grazing Angle";
+    case 1: return "Moderate Angle";
+    case 2: return "Near Normal";
+    default: return "Unknown Angle";
+    }
 }
 
-const char* GetBrightPixelRatioBucketName(int bucket)
+const char* GetThroughputStateName(const DiscreteState& state)
 {
-	switch (bucket)
-	{
-	case 0: return "Low";
-	case 1: return "Medium";
-	case 2: return "High";
-	default: return "Unknown";
-	}
+    switch (state.ThroughputBucket)
+    {
+    case 0: return "Low Throughput";
+    case 1: return "Medium Throughput";
+    case 2: return "High Throughput";
+    default: return "Unknown Throughput";
+    }
+}
+
+const char* GetRoughnessStateName(const DiscreteState& state)
+{
+    switch (state.RoughnessBucket)
+    {
+    case 0: return "Smooth";
+    case 1: return "Glossy";
+    case 2: return "Rough";
+    default: return "Unknown Roughness";
+    }
 }
