@@ -6,7 +6,9 @@ struct RLTransitionGPU
     uint32_t StateIndex = 0;
     uint32_t ActionIndex = 0;
     float Reward = 0.0f;
+	uint32_t NextStateIndex = 0;
     uint32_t Valid = 0;
+	uint32_t Terminated = 0;
 };
 
 struct RLQValue

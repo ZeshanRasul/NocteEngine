@@ -9,7 +9,9 @@ struct RLTransitionGPU
     uint StateIndex;
     uint ActionIndex;
     float Reward;
+    uint NextStateIndex;
     uint Valid;
+    uint Terminated;
 };
 
 struct RLQValue
@@ -255,8 +257,8 @@ void RayGen()
 {
     uint2 launchIndex = DispatchRaysIndex().xy;
     uint2 dims = DispatchRaysDimensions().xy;
-    
-    uint linearIndex = DispatchRaysIndex().y * 1920 + DispatchRaysIndex().x;
+
+    uint linearIndex = DispatchRaysIndex().y * dims.x + DispatchRaysIndex().x;
 
     SamplingModeParams params;
 
@@ -286,11 +288,11 @@ void RayGen()
     float3 sppSum = 0.0f;
     int isemissive = 0;
     
-    RLTransitionGPU record;
-    float index;
+
     
     for (int s = 0; s < SPP; ++s)
     {
+        
         seed += s * 374761393u; // change seed per sample
     // Initialize payload
         PathPayload payload;
@@ -319,35 +321,59 @@ void RayGen()
 
         const int MaxBounces = 12;
 
+        uint currentState = ComputeStateIndex(
+            0, // bounce / depth
+            false, // isRefractive
+            false, // isReflective
+            0.5f, // neutral roughness placeholder
+            1.0f, // neutral cosTheta
+            float3(1.0f, 1.0f, 1.0f) // full throughput
+        );
+        
         for (int bounce = 0; bounce < MaxBounces; ++bounce)
         {
+            RLTransitionGPU record;
+            
+            //uint state = ComputeStateIndex(
+            // payload.depth,
+            // payload.isRefractive,
+            // payload.isReflective,
+            // payload.matRoughness,
+            // payload.cosTheta,
+            // payload.throughput);
+            
+            record.StateIndex = currentState;
+            
+            uint actionSeed = linearIndex ^ (bounce * 16777619u) ^ (s * 374761393u) ^ (frameIndex * 2246822519u);
+
+            uint action = ChooseActionEpsilonGreedy(currentState, actionSeed, 0.1f);
+            payload.prms = GetSamplingParams(action);
+            
             payload.isReflective = 0;
             payload.isRefractive = 0;
             payload.matRoughness = 0.5f;
             payload.cosTheta = 1.0f;
-            payload.prms.bsdfProb = 0.5f;
-            payload.prms.lightProb = 0.5f;
+            //payload.prms.bsdfProb = 0.5f;
+            //payload.prms.lightProb = 0.5f;
             payload.done = 0;
             payload.emission = 0.0f;
             payload.bsdfOverPdf = 0.0f;
             payload.pdf = 1.0f;
-             index = (linearIndex * MaxBounces + bounce);
-
-            record.StateIndex = ComputeStateIndex(
-                payload.depth,
-                payload.isRefractive,
-                payload.isReflective,
-                payload.matRoughness,
-                payload.cosTheta,
-                payload.throughput);
-
-            uint actionSeed = linearIndex ^ (bounce * 16777619u) ^ (s * 374761393u) ^ (frameIndex * 2246822519u);
-
-            record.ActionIndex = ChooseActionEpsilonGreedy(record.StateIndex, actionSeed, 0.1f);
-
-            params = GetSamplingParams(record.ActionIndex);
             
-            payload.prms = params;
+            //record.StateIndex = ComputeStateIndex(
+            //    payload.depth,
+            //    payload.isRefractive,
+            //    payload.isReflective,
+            //    payload.matRoughness,
+            //    payload.cosTheta,
+            //    payload.throughput);
+
+
+            //record.ActionIndex = ChooseActionEpsilonGreedy(record.StateIndex, actionSeed, 0.1f);
+
+            //params = GetSamplingParams(record.ActionIndex);
+            
+            //payload.prms = params;
             
             TraceRay(
             SceneBVH,
@@ -378,12 +404,47 @@ void RayGen()
                 primaryDepth = length(payload.hitPos - gEyePosW); // world units
                 primarySet = true;
             }
+            
+            uint index = (linearIndex * SPP + s) * MaxBounces + bounce;
+            float3 bounceContrib = payload.throughput * payload.emission;
+            
+            float3 nextThroughput = payload.throughput;
+            
+            if (payload.done == 0)
+            {
+                nextThroughput *= payload.bsdfOverPdf;
+            }
+
+
         
-            if (payload.done != 0)
+            uint nextState = ComputeStateIndex(
+              payload.depth,
+              payload.isRefractive,
+              payload.isReflective,
+              payload.matRoughness,
+              payload.cosTheta,
+              payload.throughput * payload.bsdfOverPdf);
+            
+            record.Reward = Luminance(bounceContrib) * pow(0.9f, bounce);
+            record.Valid = 1;
+            record.ActionIndex = action;
+
+            record.NextStateIndex = nextState;
+            
+            record.Terminated = payload.done ? 1 : 0;
+            gRLTransitions[index] = record;
+            if (record.Terminated == 1)
                 break;
+        
+            payload.throughput = nextThroughput;
+            
+            currentState = nextState;
+            
+            //if (payload.done != 0)
+            //    break;
 
         // Update throughput: multiply by f * cos / pdf
-            payload.throughput *= payload.bsdfOverPdf;
+   //         payload.throughput *= payload.bsdfOverPdf;
         
         // Russian roulette after a few bounces
             if (bounce >= 4)
@@ -407,13 +468,6 @@ void RayGen()
             ray.Direction = normalize(payload.wi);
             ray.TMin = 0.001f;
             ray.TMax = 1e38f;
-            
-            uint index = linearIndex * MaxBounces + bounce;
-            record.Reward = Luminance(finalRadiance);
-            record.Valid = 1;
-        
-            gRLTransitions[index] = record;
-
 
         }
         sppSum += finalRadiance;
@@ -429,6 +483,7 @@ void RayGen()
         {
             isemissive = 0;
         }
+
 
     }
    

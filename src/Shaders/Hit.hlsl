@@ -564,14 +564,20 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
                 }
                 LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
                 LdContrib = LdContrib / max(p_light, 1e-6f);
+                
+                float3 selfEmit = 0.0f;
+
+                payload.emission = selfEmit + LdContrib;
+
             }
          
         }
     }
+    
 
     if (chooseBSDF)
     {
-    
+ 
         BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);
    
         if (!bsdf.valid || all(bsdf.fOverPdf == 0.0f))
@@ -597,7 +603,11 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         payload.prevBsdfPdf = bsdf.pdf;
         payload.prevHitPos = payload.hitPos;
         payload.lastBounceWasDelta = bsdf.delta ? 1 : 0;
+      
+        float3 selfEmit = 0.0f;
 
+        payload.emission = selfEmit + LdContrib;
+        
         if (all(fOverPdf == 0.0f) || bsdf.pdf <= 0.0f)
         {
             payload.done = 1;
@@ -609,10 +619,8 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
       
         float3 ambient = float3(0.04, 0.04, 0.04);
     
-        float3 selfEmit = 0.0f;
         if (mat.isEmissive)
         {
         }
-        payload.emission = selfEmit + LdContrib;
     }
 }

@@ -89,6 +89,17 @@ uint BucketizeThroughput(float throughputLum)
     return 2;
 }
 
+uint BucketizeCosTheta(float cosTheta)
+{
+    cosTheta = abs(cosTheta);
+
+    if (cosTheta < 0.25f)
+        return 0;
+    if (cosTheta < 0.75f)
+        return 1;
+    return 2;
+}
+
 uint ComputeStateIndex(
     uint bounce,
     bool isRefractive,
@@ -110,16 +121,7 @@ uint ComputeStateIndex(
          + 81 * roughnessBucket;
 }
 
-uint BucketizeCosTheta(float cosTheta)
-{
-    cosTheta = abs(cosTheta);
 
-    if (cosTheta < 0.25f)
-        return 0;
-    if (cosTheta < 0.75f)
-        return 1;
-    return 2;
-}
 
 struct SamplingModeParams
 {

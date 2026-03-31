@@ -126,11 +126,11 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRootSignature();
 	CreateComputeRootSignature();
 	BuildShadersAndInputLayout();
-//	d3dUtil::LoadObjModel("Models/sponza.obj", m_SponzaModel);
+	//	d3dUtil::LoadObjModel("Models/sponza.obj", m_SponzaModel);
 	d3dUtil::LoadObjModel("Models/dragon.obj", m_DragonModel);
-//	LoadTextures(m_SponzaModel);
-	//LoadTextures(m_DragonModel);
-//	CreateModelBuffers(m_SponzaModel, m_SponzaVertexBuffer, m_SponzaIndexBuffer, m_SponzaVBView, m_SponzaIBView);
+	//	LoadTextures(m_SponzaModel);
+		//LoadTextures(m_DragonModel);
+	//	CreateModelBuffers(m_SponzaModel, m_SponzaVertexBuffer, m_SponzaIndexBuffer, m_SponzaVBView, m_SponzaIBView);
 	CreateModelBuffers(m_DragonModel, m_DragonVertexBuffer, m_DragonIndexBuffer, m_DragonVBView, m_DragonIBView);
 	BuildShapeGeometry();
 	BuildSkullGeometry();
@@ -167,6 +167,8 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 		<< "State" << ","
 		<< "Action" << ","
 		<< "Reward" << ","
+		<< "Next State" << ","
+		<< "Terminated?" << ","
 		<< "Valid" << "\n";
 
 	vp.TopLeftX = 0.0f;
@@ -185,7 +187,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateComputePipelineStateObjects();
 	CreateCameraBuffer();
 	CreateFrameIndexRNGCBuffer();
-	m_RLQTable.resize(NumStates* NumActions);
+	m_RLQTable.resize(NumStates * NumActions);
 	CreateReadbackBuffer();
 	CreateRLQTableBuffer();
 	CreateRLQTableUploadBuffer();
@@ -508,38 +510,78 @@ bool Renderer::Draw(bool useRaster)
 	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
 	m_CommandList->DispatchRays(&desc);
 
-	CopyRLTransitionsToReadback();
-
-	ThrowIfFailed(m_CommandList->Close());
-	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
-	m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
-
-	FlushCommandQueue();
-
-	auto transitions = ReadBackRLTransitions();
-
-	std::ofstream file;
-	file.open(m_Fullpath, std::ios::app);
-	if (file.is_open())
+	if (m_FrameIndex % 30 == 0)
 	{
-		for (int i = 0; i < 10; ++i)
+
+		CopyRLTransitionsToReadback();
+
+		ThrowIfFailed(m_CommandList->Close());
+		ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
+		m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+
+		FlushCommandQueue();
+
+
+		size_t transitionCount =
+			static_cast<size_t>(m_ClientWidth) *
+			static_cast<size_t>(m_ClientHeight) *
+			static_cast<size_t>(m_SPP) *
+			static_cast<size_t>(12);
+
+		auto transitions = ReadBackRLTransitions();
+
+		size_t logged = 0;
+		size_t maxLogged = 1000;
+
+		std::ofstream file;
+		file.open(m_Fullpath, std::ios::app);
+		if (file.is_open())
 		{
-			const auto& t = transitions[i];
-			file
-				<< "i=" << i << ","
-				<< t.StateIndex << ","
-				<< t.ActionIndex << ","
-				<< t.Reward << ","
-				<< t.Valid << ","
-				<< "\n";
+			{
 
-			size_t idx = t.StateIndex * NumActions + t.ActionIndex;
-			m_RLQTable[idx].Value += m_Alpha * (t.Reward- m_RLQTable[idx].Value);
+				for (size_t i = 0; i < transitionCount; ++i)
+				{
+					const auto& t = transitions[i];
+					if (!t.Valid)
+						continue;
+					if (logged > maxLogged)
+					{
+						file.close();
+						break;
 
+					}
+					file
+						<< i << ","
+						<< 1 << ","
+						<< t.StateIndex << ","
+						<< t.ActionIndex << ","
+						<< t.Reward << ","
+						<< t.NextStateIndex << ","
+						<< t.Terminated << ","
+						<< t.Valid << "\n";
+
+					size_t idx = t.StateIndex * NumActions + t.ActionIndex;
+					float target = t.Reward;
+
+					if (!t.Terminated)
+					{
+						float bestNext = -FLT_MAX;
+						for (uint32_t a = 0; a < NumActions; ++a)
+						{
+							size_t nextIdx = t.NextStateIndex * NumActions + a;
+							bestNext = std::max(bestNext, m_RLQTable[nextIdx].Value);
+						}
+						target += m_RLController.GetGamma() * bestNext;
+					}
+
+					logged++;
+					m_RLQTable[idx].Value += m_Alpha * (target - m_RLQTable[idx].Value);
+				}
+				file.close();
+			}
 		}
-		file.close();
-	}
 
+	}
 
 	m_CommandAllocator->Reset();
 	m_CommandList->Reset(m_CommandAllocator.Get(), nullptr);
@@ -1316,31 +1358,31 @@ bool Renderer::Draw(bool useRaster)
 	//		m_CurrentAccumSPP = 0;
 	//	}
 
-		{
-			D3D12_RESOURCE_BARRIER barriers[2];
+	{
+		D3D12_RESOURCE_BARRIER barriers[2];
 
-			barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-				m_PresentUAV.Get(),
-				D3D12_RESOURCE_STATE_UNORDERED_ACCESS,    // last state we used it as UAV
-				D3D12_RESOURCE_STATE_COPY_SOURCE);
+		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_PresentUAV.Get(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,    // last state we used it as UAV
+			D3D12_RESOURCE_STATE_COPY_SOURCE);
 
-			barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
-				CurrentBackBuffer(),
-				D3D12_RESOURCE_STATE_RENDER_TARGET,
-				D3D12_RESOURCE_STATE_COPY_DEST);
+		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+			CurrentBackBuffer(),
+			D3D12_RESOURCE_STATE_RENDER_TARGET,
+			D3D12_RESOURCE_STATE_COPY_DEST);
 
-			m_CommandList->ResourceBarrier(_countof(barriers), barriers);
-			m_CommandList->CopyResource(CurrentBackBuffer(), m_PresentUAV.Get());
+		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+		m_CommandList->CopyResource(CurrentBackBuffer(), m_PresentUAV.Get());
 
-			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-				m_PresentUAV.Get(),
-				D3D12_RESOURCE_STATE_COPY_SOURCE,
-				D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-				CurrentBackBuffer(),
-				D3D12_RESOURCE_STATE_COPY_DEST,
-				D3D12_RESOURCE_STATE_RENDER_TARGET));
-		}
+		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_PresentUAV.Get(),
+			D3D12_RESOURCE_STATE_COPY_SOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			CurrentBackBuffer(),
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			D3D12_RESOURCE_STATE_RENDER_TARGET));
+	}
 
 	//	//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 	//	//	m_PresentUAV.Get(),
@@ -3150,7 +3192,11 @@ void Renderer::CreateShaderResourceHeap()
 	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
 	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
 	uavDesc.Buffer.FirstElement = 0;
-	uavDesc.Buffer.NumElements = m_RLTransitionCount;
+	uavDesc.Buffer.NumElements =
+		static_cast<size_t>(m_ClientWidth) *
+		static_cast<size_t>(m_ClientHeight) *
+		static_cast<size_t>(m_SPP) *
+		static_cast<size_t>(12);;
 	uavDesc.Buffer.StructureByteStride = sizeof(RLTransitionGPU);
 	uavDesc.Buffer.CounterOffsetInBytes = 0;
 	uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
@@ -4262,7 +4308,7 @@ void Renderer::CreatePerInstanceBuffers()
 		m_PerInstanceCBs[i]->Unmap(0, nullptr);
 	}
 
-//	m_MaterialsGPU.reserve(m_PerInstanceCBCount + m_SponzaModel.materials.size());
+	//	m_MaterialsGPU.reserve(m_PerInstanceCBCount + m_SponzaModel.materials.size());
 	m_MaterialsGPU.reserve(m_PerInstanceCBCount);
 
 	for (int i = 0; i < m_Materials.size(); i++)
@@ -4667,7 +4713,7 @@ void Renderer::CreateRLQTableUploadBuffer()
 
 void Renderer::CreateRLTransitionBuffer(uint32_t width, uint32_t height)
 {
-	m_RLTransitionCount = width * height;
+	m_RLTransitionCount = width * height * m_SPP * 12;
 	m_RLTransitionBufferSize = static_cast<uint64_t>(m_RLTransitionCount) * sizeof(RLTransitionGPU);
 
 	if (m_RLTransitionCount == 0)
