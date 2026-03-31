@@ -425,13 +425,14 @@ void RayGen()
               payload.cosTheta,
               nextThroughput);
             
-            float reward = length(bounceContrib) * 50.0f;
+            float reward = length(bounceContrib) * 10.0f;
             
             if (payload.hitSomething == 1)
             {
-                reward += 0.01f;
+                reward += 0.1f;
             }
 
+            reward = log(1.0f + reward);
             record.Reward = reward;
             record.Valid = 1;
             record.ActionIndex = action;

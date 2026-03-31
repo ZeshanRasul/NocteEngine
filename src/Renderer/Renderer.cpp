@@ -1662,6 +1662,11 @@ bool Renderer::Draw(bool useRaster)
 		//	m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence);
 	}
 
+	if (m_FrameIndex == 4096)
+	{
+		return false;
+	}
+
 	return true;
 
 }

@@ -44,6 +44,7 @@ int Application::Run()
 		m_Renderer->Update(m_GameTimer.DeltaTime(), m_Window->GetCamera());
 		if (!(m_Renderer->Draw(m_Window->m_Raster)))
 		{
+			m_Running = false;
 			return 0;
 		}
 	}
