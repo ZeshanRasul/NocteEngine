@@ -2025,7 +2025,7 @@ void Renderer::BuildMaterials()
 	skullMat->Name = "skullMat";
 	skullMat->MatCBIndex = 3;
 	skullMat->DiffuseSrvHeapIndex = -1;
-	skullMat->DiffuseAlbedo = XMFLOAT4(0.750f, 0.750f, 0.680f, 1.0f);
+	skullMat->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	skullMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05);
 	skullMat->Roughness = 0.005f;
 	skullMat->metallic = 0.0f;
@@ -2051,7 +2051,7 @@ void Renderer::BuildMaterials()
 	sphereMat->Name = "sphere";
 	sphereMat->MatCBIndex = 5;
 	sphereMat->DiffuseSrvHeapIndex = 4;
-	sphereMat->DiffuseAlbedo = XMFLOAT4(0.700f, 0.700f, 0.700f, 1.0f);
+	sphereMat->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	sphereMat->FresnelR0 = XMFLOAT3(0.04f, 0.04f, 0.04f);
 	sphereMat->Roughness = 0.002f;
 	sphereMat->metallic = 0.0f;

@@ -423,9 +423,16 @@ void RayGen()
               payload.isReflective,
               payload.matRoughness,
               payload.cosTheta,
-              payload.throughput * payload.bsdfOverPdf);
+              nextThroughput);
             
-            record.Reward = Luminance(bounceContrib) * pow(0.9f, bounce);
+            float reward = length(bounceContrib);
+            
+            if (payload.hitSomething == 1)
+            {
+                reward += 0.001f;
+            }
+
+            record.Reward = reward;
             record.Valid = 1;
             record.ActionIndex = action;
 
@@ -458,7 +465,12 @@ void RayGen()
 
                 float r = Rand(payload.seed);
                 if (r > pCont)
+                {
+                    record.Terminated = 1;
+                    gRLTransitions[index] = record;
+
                     break;
+                }
                 payload.throughput /= pCont;
             }
             float3 offsetDir = (dot(payload.wi, payload.normal) > 0.0f)

@@ -550,7 +550,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
             if (NdotL > 0.0f)
             {
                 float3 f = EvaluateDisneyBRDF(mat, N, V, L);
-                f * mat.DiffuseAlbedo.rgb;
+                f *= mat.DiffuseAlbedo.rgb;
                 
                 if (pdfBSDF > 0.0f)
                 {
@@ -603,7 +603,8 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         payload.prevBsdfPdf = bsdf.pdf;
         payload.prevHitPos = payload.hitPos;
         payload.lastBounceWasDelta = bsdf.delta ? 1 : 0;
-      
+        payload.cosTheta = dot(N, payload.wi);
+        
         float3 selfEmit = 0.0f;
 
         payload.emission = selfEmit + LdContrib;
