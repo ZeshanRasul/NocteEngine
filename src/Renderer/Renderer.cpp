@@ -169,7 +169,10 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 		<< "Reward" << ","
 		<< "Next State" << ","
 		<< "Terminated?" << ","
-		<< "Valid" << "\n";
+		<< "Valid" << ","
+		<< "Q0" << ","
+		<< "Q1" << ","
+		<< "Q2" << "\n";
 
 	vp.TopLeftX = 0.0f;
 	vp.TopLeftY = 0.0f;
@@ -510,7 +513,7 @@ bool Renderer::Draw(bool useRaster)
 	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
 	m_CommandList->DispatchRays(&desc);
 
-	if (m_FrameIndex % 30 == 0)
+	if (m_FrameIndex % 10 == 0)
 	{
 
 		CopyRLTransitionsToReadback();
@@ -531,7 +534,7 @@ bool Renderer::Draw(bool useRaster)
 		auto transitions = ReadBackRLTransitions();
 
 		size_t logged = 0;
-		size_t maxLogged = 1000;
+		size_t maxLogged = 10000;
 
 		std::ofstream file;
 		file.open(m_Fullpath, std::ios::app);
@@ -542,7 +545,7 @@ bool Renderer::Draw(bool useRaster)
 				for (size_t i = 0; i < transitionCount; ++i)
 				{
 					const auto& t = transitions[i];
-					if (!t.Valid)
+					if (!t.Valid || t.Reward <= 0.0f)
 						continue;
 					if (logged > maxLogged)
 					{
@@ -550,6 +553,25 @@ bool Renderer::Draw(bool useRaster)
 						break;
 
 					}
+
+					size_t idx = static_cast<size_t>(t.StateIndex) * NumActions + t.ActionIndex;
+
+					float bestNext = 0.0f;
+
+					if (!t.Terminated)
+					{
+						bestNext = -FLT_MAX;
+						for (uint32_t a = 0; a < NumActions; ++a)
+						{
+							size_t nextIdx = t.NextStateIndex * NumActions + a;
+							bestNext = std::max(bestNext, m_RLQTable[nextIdx].Value);
+						}
+					}
+					float target = t.Reward + m_RLController.GetGamma() * bestNext;
+
+					m_RLQTable[idx].Value += m_Alpha * (target - m_RLQTable[idx].Value);
+					m_RLQTable[idx].Value = std::clamp(m_RLQTable[idx].Value, -10.0f, 10.0f);
+
 					file
 						<< i << ","
 						<< 1 << ","
@@ -558,24 +580,11 @@ bool Renderer::Draw(bool useRaster)
 						<< t.Reward << ","
 						<< t.NextStateIndex << ","
 						<< t.Terminated << ","
-						<< t.Valid << "\n";
-
-					size_t idx = t.StateIndex * NumActions + t.ActionIndex;
-					float target = t.Reward;
-
-					if (!t.Terminated)
-					{
-						float bestNext = -FLT_MAX;
-						for (uint32_t a = 0; a < NumActions; ++a)
-						{
-							size_t nextIdx = t.NextStateIndex * NumActions + a;
-							bestNext = std::max(bestNext, m_RLQTable[nextIdx].Value);
-						}
-						target += m_RLController.GetGamma() * bestNext;
-					}
-
-					logged++;
-					m_RLQTable[idx].Value += m_Alpha * (target - m_RLQTable[idx].Value);
+						<< t.Valid << ","
+						<< m_RLQTable[static_cast<size_t>(t.StateIndex) * NumActions + 0].Value << ","
+						<< m_RLQTable[static_cast<size_t>(t.StateIndex) * NumActions + 1].Value << ","
+						<< m_RLQTable[static_cast<size_t>(t.StateIndex) * NumActions + 2].Value << "\n";
+						logged++;
 				}
 				file.close();
 			}
