@@ -115,6 +115,32 @@ float HashToUnitFloat(uint x)
     return (x & 0x00FFFFFF) / 16777216.0f;
 }
 
+uint ChooseBestActionWithTieBreak(uint stateIndex, uint pixel, uint frameIndex)
+{
+    uint baseIdx = stateIndex * NUM_ACTIONS;
+
+    float q0 = gQTable[baseIdx + 0].Value;
+    float q1 = gQTable[baseIdx + 1].Value;
+    float q2 = gQTable[baseIdx + 2].Value;
+
+    float maxQ = max(q0, max(q1, q2));
+
+    uint candidates[3];
+    uint count = 0;
+
+    if (q0 == maxQ)
+        candidates[count++] = 0;
+    if (q1 == maxQ)
+        candidates[count++] = 1;
+    if (q2 == maxQ)
+        candidates[count++] = 2;
+
+    float r = HashToUnitFloat(pixel + 7919u * frameIndex);
+    uint pick = min((uint) (r * count), count - 1);
+
+    return candidates[pick];
+}
+
 uint ChooseActionEpsilonGreedy(uint stateIndex, uint pixel, float epsilon)
 {
     float r = HashToUnitFloat(pixel + frameIndex * 9781);
@@ -124,7 +150,7 @@ uint ChooseActionEpsilonGreedy(uint stateIndex, uint pixel, float epsilon)
         return pixel % NUM_ACTIONS;
     }
 
-    return ChooseBestAction(stateIndex);
+    return ChooseBestActionWithTieBreak(stateIndex, pixel, frameIndex);
 }
 
 uint BucketizeBounce(uint bounce)
@@ -200,12 +226,6 @@ uint ComputeStateIndex(
          + 81 * roughnessBucket;
 }
 
-struct SamplingModeParams
-{
-    float bsdfProb;
-    float lightProb;
-};
-
 SamplingModeParams GetSamplingParams(uint actionIndex)
 {
     SamplingModeParams p;
@@ -238,6 +258,7 @@ void RayGen()
     
     uint linearIndex = DispatchRaysIndex().y * 1920 + DispatchRaysIndex().x;
 
+    SamplingModeParams params;
 
     float2 pixel = (float2) DispatchRaysIndex() + 0.5f;
     float2 ndc = pixel / float2(DispatchRaysDimensions().xy);
@@ -304,7 +325,11 @@ void RayGen()
             payload.emission = 0.0f;
             payload.bsdfOverPdf = 0.0f;
             payload.pdf = 1.0f;
+            record.StateIndex = ComputeStateIndex(payload.depth, payload.isRefractive, payload.isReflective, payload.matRoughness, payload.cosTheta, payload.throughput);
+            record.ActionIndex = ChooseActionEpsilonGreedy(record.StateIndex, linearIndex, 0.1f);
 
+            params = GetSamplingParams(record.ActionIndex);
+            
             TraceRay(
             SceneBVH,
             RAY_FLAG_NONE,
@@ -363,6 +388,14 @@ void RayGen()
             ray.Direction = normalize(payload.wi);
             ray.TMin = 0.001f;
             ray.TMax = 1e38f;
+            
+            uint index = linearIndex * MaxBounces + bounce;
+            record.Reward = Luminance(finalRadiance);
+            record.Valid = 1;
+        
+            gRLTransitions[linearIndex] = record;
+
+
         }
         sppSum += finalRadiance;
         float3 viewPos = mul(float4(payload.hitPos, 1.0f), gView).xyz;
@@ -377,10 +410,7 @@ void RayGen()
         {
             isemissive = 0;
         }
-        record.StateIndex = ComputeStateIndex(payload.depth - 1, payload.isRefractive, payload.isReflective, payload.matRoughness, payload.cosTheta, payload.throughput);
-        record.ActionIndex = ChooseBestAction(record.StateIndex);
-        record.Reward = Luminance(payload.throughput);
-        record.Valid = 1;
+
     }
    
     finalColor = sppSum / (float) SPP;
@@ -404,7 +434,7 @@ void RayGen()
     }
     
 
-    
+
     gRLTransitions[linearIndex] = record;
     gAccumBuf[launchIndex] = float4(accumColor, 1.0f);
     gPresent[launchIndex] = float4(accumColor, 1.0f);

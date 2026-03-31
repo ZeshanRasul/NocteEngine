@@ -3,7 +3,11 @@
 
 #include "Common.hlsl"
 #include "MicrofacetBRDFUtils.hlsl"
-
+struct SamplingModeParams
+{
+    float bsdfProb;
+    float lightProb;
+};
 //---------------------------------------------------------------------
 // Payload
 //---------------------------------------------------------------------
@@ -33,6 +37,7 @@ struct PathPayload
     uint isReflective;
     float matRoughness;
     float cosTheta;
+    SamplingModeParams prms;
 };
 
 struct Attributes

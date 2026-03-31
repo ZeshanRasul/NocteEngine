@@ -519,8 +519,8 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     float3 LdContrib = 0.0f;
     
     float xi2 = Rand(payload.seed);
-    
-    bool useDirectLighting = xi2 < LightSampleProbability;
+
+    bool useDirectLighting = xi2 < payload.prms.lightProb;
 
     if (useDirectLighting)
     {
@@ -564,6 +564,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
          
         }
     }
+    
     
     BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);
    
