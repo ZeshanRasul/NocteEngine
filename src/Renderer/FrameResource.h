@@ -53,7 +53,7 @@ struct PassConstants
 	int MaxBounces = 8;
 	int FrameIndex = 0;
 	int UseNEE = 1;
-	int cbPerObjectPad4;
+	int UseRL = 0;
 
 	Light Lights[MaxLights];
 };

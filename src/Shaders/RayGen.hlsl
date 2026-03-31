@@ -58,7 +58,7 @@ cbuffer cbPass : register(b0)
     int MaxBounces;
     int FrameIndex;
     int UseNEE;
-    int cbPerObjectPad4;
+    int gUseRL;
 
     Light gLights[MaxLights];
 };
@@ -346,7 +346,16 @@ void RayGen()
             
             uint actionSeed = linearIndex ^ (bounce * 16777619u) ^ (s * 374761393u) ^ (frameIndex * 2246822519u);
 
-            uint action = ChooseActionEpsilonGreedy(currentState, actionSeed, 0.1f);
+            uint action = 1;
+            if (gUseRL)
+            {
+                ChooseActionEpsilonGreedy(currentState, actionSeed, 0.1f);
+            }
+            else
+            {
+                action = 1;
+            }
+            
             payload.prms = GetSamplingParams(action);
             
             payload.isReflective = 0;

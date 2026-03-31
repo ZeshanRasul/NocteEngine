@@ -578,7 +578,7 @@ bool Renderer::Draw(bool useRaster)
 
 					file << std::scientific << std::setprecision(8);
 					file << i << ","
-						<< 1 << ","
+						<< std::to_string(m_UseRL) << ","
 						<< t.StateIndex << ","
 						<< t.ActionIndex << ","
 						<< t.Reward << ","
@@ -2706,7 +2706,7 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.MaxBounces = m_RenderSettings.MaxBounces;
 	m_MainPassCB.FrameIndex = m_FrameIndex;
 	m_MainPassCB.UseNEE = m_RenderSettings.useNEE ? 1 : 0;
-
+	m_MainPassCB.UseRL = m_UseRL;
 
 	m_MainPassCB.Lights[0].Strength = { 4.6f, 4.6f, 4.6f };
 	m_MainPassCB.Lights[0].Direction = { 0.3f, -0.46f, 0.7f };
@@ -4598,19 +4598,19 @@ void Renderer::RenderImGuiDebugWindow()
 
 	int currentMode = static_cast<int>(m_RenderSettings.SamplingStrategy);
 
-	if (ImGui::Combo("Sampling Strategy", &currentMode, samplingModes, IM_ARRAYSIZE(samplingModes)))
-	{
-		m_RenderSettings.SamplingStrategy = static_cast<SamplingMode>(currentMode);
+	//if (ImGui::Combo("Sampling Strategy", &currentMode, samplingModes, IM_ARRAYSIZE(samplingModes)))
+	//{
+	//	m_RenderSettings.SamplingStrategy = static_cast<SamplingMode>(currentMode);
 
-		UpdateMainPassCB();
+	//	UpdateMainPassCB();
 
-		//	m_ClearAccumulation = true;
-		//	m_FrameIndex = 0;
-		//	m_MetricsFileName = "metrics" + GetTimestampString() + std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy)) + ".csv";
+	//	//	m_ClearAccumulation = true;
+	//	//	m_FrameIndex = 0;
+	//	//	m_MetricsFileName = "metrics" + GetTimestampString() + std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy)) + ".csv";
 
-	}
+	//}
 
-	ImGui::Text("RL Sampling Strategy: %s", samplingModes[currentMode]);
+	ImGui::Text("Using RL: %s", m_UseRL == 1 ? "True" : "False");
 
 	ImGui::End();
 }
