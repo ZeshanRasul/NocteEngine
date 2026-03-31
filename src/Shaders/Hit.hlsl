@@ -40,7 +40,6 @@ StructuredBuffer<STriVertex> BTriVertex : register(t0);
 StructuredBuffer<int> indices : register(t1);
 RaytracingAccelerationStructure SceneBVH : register(t2);
 StructuredBuffer<Material> materials : register(t3);
-StructuredBuffer<int> matIndices : register(t4);
 Texture2D<float4> gAlbedoHistory : register(t6);
 RWTexture2D<float4> gAlbedo : register(u0);
 

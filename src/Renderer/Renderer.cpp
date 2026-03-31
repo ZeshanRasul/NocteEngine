@@ -126,11 +126,11 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRootSignature();
 	CreateComputeRootSignature();
 	BuildShadersAndInputLayout();
-	d3dUtil::LoadObjModel("Models/sponza.obj", m_SponzaModel);
+//	d3dUtil::LoadObjModel("Models/sponza.obj", m_SponzaModel);
 	d3dUtil::LoadObjModel("Models/dragon.obj", m_DragonModel);
-	LoadTextures(m_SponzaModel);
+//	LoadTextures(m_SponzaModel);
 	//LoadTextures(m_DragonModel);
-	CreateModelBuffers(m_SponzaModel, m_SponzaVertexBuffer, m_SponzaIndexBuffer, m_SponzaVBView, m_SponzaIBView);
+//	CreateModelBuffers(m_SponzaModel, m_SponzaVertexBuffer, m_SponzaIndexBuffer, m_SponzaVBView, m_SponzaIBView);
 	CreateModelBuffers(m_DragonModel, m_DragonVertexBuffer, m_DragonIndexBuffer, m_DragonVBView, m_DragonIBView);
 	BuildShapeGeometry();
 	BuildSkullGeometry();
@@ -391,14 +391,14 @@ bool Renderer::Draw(bool useRaster)
 
 	UINT64 missSectionSizeInBytes = m_SbtHelper.GetMissSectionSize();
 
-	desc.MissShaderTable.StartAddress = m_SbtStorage->GetGPUVirtualAddress() + rayGenerationSectionSizeInBytes;
+	desc.MissShaderTable.StartAddress = Align(m_SbtStorage->GetGPUVirtualAddress() + rayGenerationSectionSizeInBytes, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
 	desc.MissShaderTable.SizeInBytes = missSectionSizeInBytes;
-	desc.MissShaderTable.StrideInBytes = m_SbtHelper.GetMissEntrySize();
+	desc.MissShaderTable.StrideInBytes = Align(m_SbtHelper.GetMissEntrySize(), D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT);
 
 	UINT64 hitGroupsSectionSize = m_SbtHelper.GetHitGroupSectionSize();
-	desc.HitGroupTable.StartAddress = m_SbtStorage->GetGPUVirtualAddress() + rayGenerationSectionSizeInBytes + missSectionSizeInBytes;
+	desc.HitGroupTable.StartAddress = Align(m_SbtStorage->GetGPUVirtualAddress() + rayGenerationSectionSizeInBytes + missSectionSizeInBytes, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
 	desc.HitGroupTable.SizeInBytes = hitGroupsSectionSize;
-	desc.HitGroupTable.StrideInBytes = m_SbtHelper.GetHitGroupEntrySize();
+	desc.HitGroupTable.StrideInBytes = Align(m_SbtHelper.GetHitGroupEntrySize(), D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT);
 
 	desc.Width = m_ClientWidth;
 	desc.Height = m_ClientHeight;
@@ -517,22 +517,21 @@ bool Renderer::Draw(bool useRaster)
 
 	UploadRLQTable(m_RLQTable);
 
+	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
+	m_CommandList->DispatchRays(&desc);
 
-	CopyRLTransitionsToReadback();
+//	CopyRLTransitionsToReadback();
 
 	ThrowIfFailed(m_CommandList->Close());
 	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
 	m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
-	m_CurrentFrameResource->Fence = ++m_CurrentFence;
 	FlushCommandQueue();
+
+//	auto transitions = ReadBackRLTransitions();
+
+	m_CommandAllocator->Reset();
 	m_CommandList->Reset(m_CommandAllocator.Get(), nullptr);
-
-
-	auto transitions = ReadBackRLTransitions();
-
-	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
-	m_CommandList->DispatchRays(&desc);
 	// AccumulationBuffer: UAV (RayGen output) -> SRV (TA input)
 	/*m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 		m_AccumulationBuffer.Get(),
@@ -1306,31 +1305,31 @@ bool Renderer::Draw(bool useRaster)
 	//		m_CurrentAccumSPP = 0;
 	//	}
 
-	//	{
-	//		D3D12_RESOURCE_BARRIER barriers[2];
+		{
+			D3D12_RESOURCE_BARRIER barriers[2];
 
-	//		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-	//			m_PresentUAV.Get(),
-	//			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,    // last state we used it as UAV
-	//			D3D12_RESOURCE_STATE_COPY_SOURCE);
+			barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+				m_PresentUAV.Get(),
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS,    // last state we used it as UAV
+				D3D12_RESOURCE_STATE_COPY_SOURCE);
 
-	//		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
-	//			CurrentBackBuffer(),
-	//			D3D12_RESOURCE_STATE_RENDER_TARGET,
-	//			D3D12_RESOURCE_STATE_COPY_DEST);
+			barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+				CurrentBackBuffer(),
+				D3D12_RESOURCE_STATE_RENDER_TARGET,
+				D3D12_RESOURCE_STATE_COPY_DEST);
 
-	//		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
-	//		m_CommandList->CopyResource(CurrentBackBuffer(), m_PresentUAV.Get());
+			m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+			m_CommandList->CopyResource(CurrentBackBuffer(), m_PresentUAV.Get());
 
-	//		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-	//			m_PresentUAV.Get(),
-	//			D3D12_RESOURCE_STATE_COPY_SOURCE,
-	//			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-	//		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-	//			CurrentBackBuffer(),
-	//			D3D12_RESOURCE_STATE_COPY_DEST,
-	//			D3D12_RESOURCE_STATE_RENDER_TARGET));
-	//	}
+			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+				m_PresentUAV.Get(),
+				D3D12_RESOURCE_STATE_COPY_SOURCE,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+			m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+				CurrentBackBuffer(),
+				D3D12_RESOURCE_STATE_COPY_DEST,
+				D3D12_RESOURCE_STATE_RENDER_TARGET));
+		}
 
 	//	//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 	//	//	m_PresentUAV.Get(),
@@ -1490,54 +1489,54 @@ bool Renderer::Draw(bool useRaster)
 
 
 	{
-		D3D12_RESOURCE_BARRIER barriers[3];
+		//D3D12_RESOURCE_BARRIER barriers[3];
 
-		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_NormalTex.Get(),
-			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+		//	m_NormalTex.Get(),
+		//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
-		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_DepthTex.Get(),
-			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-		barriers[2] = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_AlbedoTex.Get(),
-			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		//barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+		//	m_DepthTex.Get(),
+		//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		//barriers[2] = CD3DX12_RESOURCE_BARRIER::Transition(
+		//	m_AlbedoTex.Get(),
+		//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+		//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
-		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+		//m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 	}
 	//std::swap(m_FirstMomentBuffer, m_OldFirstMomentBuffer);
 	//std::swap(m_SecondMomentBuffer, m_OldSecondMomentBuffer);
 
-	{
+	//{
 
-		D3D12_RESOURCE_BARRIER barriers[2];
-		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_FirstMomentBuffer.Get(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_COPY_SOURCE);
-		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_OldFirstMomentBuffer.Get(),
-			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-			D3D12_RESOURCE_STATE_COPY_DEST);
-		m_CommandList->ResourceBarrier(2, barriers);
+	//	D3D12_RESOURCE_BARRIER barriers[2];
+	//	barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+	//		m_FirstMomentBuffer.Get(),
+	//		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+	//		D3D12_RESOURCE_STATE_COPY_SOURCE);
+	//	barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+	//		m_OldFirstMomentBuffer.Get(),
+	//		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+	//		D3D12_RESOURCE_STATE_COPY_DEST);
+	//	m_CommandList->ResourceBarrier(2, barriers);
 
-		m_CommandList->CopyResource(
-			m_OldFirstMomentBuffer.Get(),
-			m_FirstMomentBuffer.Get());
+	//	m_CommandList->CopyResource(
+	//		m_OldFirstMomentBuffer.Get(),
+	//		m_FirstMomentBuffer.Get());
 
-		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_FirstMomentBuffer.Get(),
-			D3D12_RESOURCE_STATE_COPY_SOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_OldFirstMomentBuffer.Get(),
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-		m_CommandList->ResourceBarrier(2, barriers);
-	}
+	//	barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+	//		m_FirstMomentBuffer.Get(),
+	//		D3D12_RESOURCE_STATE_COPY_SOURCE,
+	//		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	//	barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+	//		m_OldFirstMomentBuffer.Get(),
+	//		D3D12_RESOURCE_STATE_COPY_DEST,
+	//		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	//	m_CommandList->ResourceBarrier(2, barriers);
+	//}
 
 	{
 		D3D12_RESOURCE_BARRIER barriers[2];
@@ -3609,8 +3608,8 @@ void Renderer::CreateShaderBindingTable()
 				(void*)m_RNGUploadCBuffer->GetGPUVirtualAddress(),
 				(void*)m_PostProcessConstantBuffer[0]->GetGPUVirtualAddress(),
 				(void*)m_MediumCB->GetGPUVirtualAddress(),
+				//(void*)m_RLQTableUploadBuffer->GetGPUVirtualAddress(),
 				heapPointer,
-				(void*)m_RLQTableUploadBuffer->GetGPUVirtualAddress(),
 		});
 
 	m_SbtHelper.AddMissProgram(L"Miss", {});
@@ -4252,7 +4251,8 @@ void Renderer::CreatePerInstanceBuffers()
 		m_PerInstanceCBs[i]->Unmap(0, nullptr);
 	}
 
-	m_MaterialsGPU.reserve(m_PerInstanceCBCount + m_SponzaModel.materials.size());
+//	m_MaterialsGPU.reserve(m_PerInstanceCBCount + m_SponzaModel.materials.size());
+	m_MaterialsGPU.reserve(m_PerInstanceCBCount);
 
 	for (int i = 0; i < m_Materials.size(); i++)
 	{
@@ -4276,25 +4276,25 @@ void Renderer::CreatePerInstanceBuffers()
 		m_MaterialsGPU.push_back(std::move(matGpu));
 	}
 
-	for (auto& m : m_SponzaModel.materials)
-	{
-		MaterialDataGPU matGpu{};
-		Material* mat = m;
-		matGpu.DiffuseAlbedo = m->DiffuseAlbedo;
-		matGpu.FresnelR0 = m->FresnelR0;
-		matGpu.Ior = m->Ior;
-		matGpu.Reflectivity = m->Reflectivity;
-		matGpu.Absorption = m->Absorption;
-		matGpu.Roughness = m->Roughness;
-		matGpu.pad = 1.0f;
-		matGpu.pad2 = 1.0f;
-		matGpu.metallic = m->metallic;
-		matGpu.isReflective = m->IsReflective;
-		matGpu.isRefractive = m->IsRefractive;
-		matGpu.pad3 = 0.0f;
-		matGpu.TexIndex = m->DiffuseSrvHeapIndex;
-		m_MaterialsGPU.push_back(std::move(matGpu));
-	}
+	//for (auto& m : m_SponzaModel.materials)
+	//{
+	//	MaterialDataGPU matGpu{};
+	//	Material* mat = m;
+	//	matGpu.DiffuseAlbedo = m->DiffuseAlbedo;
+	//	matGpu.FresnelR0 = m->FresnelR0;
+	//	matGpu.Ior = m->Ior;
+	//	matGpu.Reflectivity = m->Reflectivity;
+	//	matGpu.Absorption = m->Absorption;
+	//	matGpu.Roughness = m->Roughness;
+	//	matGpu.pad = 1.0f;
+	//	matGpu.pad2 = 1.0f;
+	//	matGpu.metallic = m->metallic;
+	//	matGpu.isReflective = m->IsReflective;
+	//	matGpu.isRefractive = m->IsRefractive;
+	//	matGpu.pad3 = 0.0f;
+	//	matGpu.TexIndex = m->DiffuseSrvHeapIndex;
+	//	m_MaterialsGPU.push_back(std::move(matGpu));
+	//}
 
 	const uint32_t bufferSize = m_MaterialsGPU.size() * sizeof(MaterialDataGPU);
 
@@ -4305,17 +4305,17 @@ void Renderer::CreatePerInstanceBuffers()
 	memcpy(pData, m_MaterialsGPU.data(), bufferSize);
 	m_UploadCBuffer->Unmap(0, nullptr);
 
-	for (int idx : m_SponzaModel.meshMaterialIndices)
-	{
-		matIndices.push_back(5 + idx);
-	}
+	//for (int idx : m_SponzaModel.meshMaterialIndices)
+	//{
+	//	matIndices.push_back(5 + idx);
+	//}
 
-	const uint32_t matIdxBufferSize = sizeof(int) * matIndices.size();
-	m_TriMatIndexCB = nv_helpers_dx12::CreateBuffer(m_Device.Get(), matIdxBufferSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
-	uint8_t* pData2;
-	ThrowIfFailed(m_TriMatIndexCB->Map(0, nullptr, (void**)&pData2));
-	memcpy(pData2, matIndices.data(), matIdxBufferSize);
-	m_TriMatIndexCB->Unmap(0, nullptr);
+	//const uint32_t matIdxBufferSize = sizeof(int) * matIndices.size();
+	//m_TriMatIndexCB = nv_helpers_dx12::CreateBuffer(m_Device.Get(), matIdxBufferSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+	//uint8_t* pData2;
+	//ThrowIfFailed(m_TriMatIndexCB->Map(0, nullptr, (void**)&pData2));
+	//memcpy(pData2, matIndices.data(), matIdxBufferSize);
+	//m_TriMatIndexCB->Unmap(0, nullptr);
 }
 
 void Renderer::LoadTextures(Model& model)
@@ -4721,7 +4721,10 @@ void Renderer::CopyRLTransitionsToReadback()
 std::vector<RLTransitionGPU> Renderer::ReadBackRLTransitions()
 {
 	std::vector<RLTransitionGPU> transitions(m_RLTransitionCount);
-
+	if (m_RLTransitionCount == 0)
+	{
+		throw std::runtime_error("CreateRLTransitionReadbackBuffer: transition buffer size is zero.");
+	}
 	void* mappedData = nullptr;
 	CD3DX12_RANGE readRange(0, m_RLTransitionBufferSize);
 

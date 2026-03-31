@@ -3,6 +3,11 @@
 
 #define MaxLights 16
 
+struct RLQValue
+{
+    float Value;
+};
+
 struct RLTransitionGPU
 {
     uint StateIndex;
@@ -22,7 +27,7 @@ RWStructuredBuffer<RLTransitionGPU> gRLTransitions : register(u5);
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0);
 Texture2D<float4> gAccumHistory : register(t1);
-StructuredBuffer<float> gQTable : register(t2);
+StructuredBuffer<RLQValue> gQTable : register(t2);
 
 
 cbuffer cbPass : register(b0)
