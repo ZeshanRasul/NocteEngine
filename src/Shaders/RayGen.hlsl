@@ -287,7 +287,7 @@ void RayGen()
     int isemissive = 0;
     
     RLTransitionGPU record;
-
+    float index;
     
     for (int s = 0; s < SPP; ++s)
     {
@@ -321,14 +321,33 @@ void RayGen()
 
         for (int bounce = 0; bounce < MaxBounces; ++bounce)
         {
+            payload.isReflective = 0;
+            payload.isRefractive = 0;
+            payload.matRoughness = 0.5f;
+            payload.cosTheta = 1.0f;
+            payload.prms.bsdfProb = 0.5f;
+            payload.prms.lightProb = 0.5f;
             payload.done = 0;
             payload.emission = 0.0f;
             payload.bsdfOverPdf = 0.0f;
             payload.pdf = 1.0f;
-            record.StateIndex = ComputeStateIndex(payload.depth, payload.isRefractive, payload.isReflective, payload.matRoughness, payload.cosTheta, payload.throughput);
-            record.ActionIndex = ChooseActionEpsilonGreedy(record.StateIndex, linearIndex, 0.1f);
+             index = (linearIndex * MaxBounces + bounce);
+
+            record.StateIndex = ComputeStateIndex(
+                payload.depth,
+                payload.isRefractive,
+                payload.isReflective,
+                payload.matRoughness,
+                payload.cosTheta,
+                payload.throughput);
+
+            uint actionSeed = linearIndex ^ (bounce * 16777619u) ^ (s * 374761393u) ^ (frameIndex * 2246822519u);
+
+            record.ActionIndex = ChooseActionEpsilonGreedy(record.StateIndex, actionSeed, 0.1f);
 
             params = GetSamplingParams(record.ActionIndex);
+            
+            payload.prms = params;
             
             TraceRay(
             SceneBVH,
@@ -393,7 +412,7 @@ void RayGen()
             record.Reward = Luminance(finalRadiance);
             record.Valid = 1;
         
-            gRLTransitions[linearIndex] = record;
+            gRLTransitions[index] = record;
 
 
         }
@@ -435,7 +454,6 @@ void RayGen()
     
 
 
-    gRLTransitions[linearIndex] = record;
     gAccumBuf[launchIndex] = float4(accumColor, 1.0f);
     gPresent[launchIndex] = float4(accumColor, 1.0f);
 }

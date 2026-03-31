@@ -520,9 +520,13 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     float xi2 = Rand(payload.seed);
 
-    bool useDirectLighting = xi2 < payload.prms.lightProb;
+    float p_bsdf = payload.prms.bsdfProb;
+    p_bsdf = clamp(p_bsdf, 0.05f, 0.95f);
+    float p_light = 1.0f - p_bsdf;
 
-    if (useDirectLighting)
+    bool chooseBSDF = (xi2 < p_bsdf);
+    
+    if (!chooseBSDF)
     {
         LightSample lightSample = SampleAreaLight(pW, N, payload.seed);
         float3 L = lightSample.dir;
@@ -559,53 +563,56 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
 
                 }
                 LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
-                LdContrib = LdContrib / max(LightSampleProbability, 1e-6f);
+                LdContrib = LdContrib / max(p_light, 1e-6f);
             }
          
         }
     }
+
+    if (chooseBSDF)
+    {
     
-    
-    BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);
+        BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);
    
-    if (!bsdf.valid || all(bsdf.fOverPdf == 0.0f))
-    {
-        payload.done = 1;
-        return;
-    }
+        if (!bsdf.valid || all(bsdf.fOverPdf == 0.0f))
+        {
+            payload.done = 1;
+            return;
+        }
     
-    float3 fOverPdf = bsdf.fOverPdf;
-    float maxBsdfLum = 20.0f; // try 10–50, tweak later
+        float3 fOverPdf = bsdf.fOverPdf;
+        float maxBsdfLum = 20.0f; // try 10–50, tweak later
 
-    float lum = dot(fOverPdf, float3(0.2126, 0.7152, 0.0722));
-    if (lum > maxBsdfLum)
-    {
-        fOverPdf *= maxBsdfLum / lum;
-    }
+        float lum = dot(fOverPdf, float3(0.2126, 0.7152, 0.0722));
+        if (lum > maxBsdfLum)
+        {
+            fOverPdf *= maxBsdfLum / lum;
+        }
     
-    payload.wi = bsdf.wi;
-    payload.bsdfOverPdf = fOverPdf;
-    payload.pdf = bsdf.pdf;
+        payload.wi = bsdf.wi;
+        payload.bsdfOverPdf = fOverPdf;
+        payload.bsdfOverPdf /= max(p_bsdf, 1e-6f);
+        payload.pdf = bsdf.pdf;
         
-    payload.prevBsdfPdf = bsdf.pdf;
-    payload.prevHitPos = payload.hitPos;
-    payload.lastBounceWasDelta = bsdf.delta ? 1 : 0;
+        payload.prevBsdfPdf = bsdf.pdf;
+        payload.prevHitPos = payload.hitPos;
+        payload.lastBounceWasDelta = bsdf.delta ? 1 : 0;
 
-    if (all(fOverPdf == 0.0f) || bsdf.pdf <= 0.0f)
-    {
-        payload.done = 1;
-    }
-    else
-    {
-        payload.done = 0;
-    }
+        if (all(fOverPdf == 0.0f) || bsdf.pdf <= 0.0f)
+        {
+            payload.done = 1;
+        }
+        else
+        {
+            payload.done = 0;
+        }
       
-    float3 ambient = float3(0.04, 0.04, 0.04);
+        float3 ambient = float3(0.04, 0.04, 0.04);
     
-    float3 selfEmit = 0.0f;
-    if (mat.isEmissive)
-    {
+        float3 selfEmit = 0.0f;
+        if (mat.isEmissive)
+        {
+        }
+        payload.emission = selfEmit + LdContrib;
     }
-    payload.emission = selfEmit + LdContrib;
-    
 }
