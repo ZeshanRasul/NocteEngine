@@ -520,7 +520,7 @@ bool Renderer::Draw(bool useRaster)
 	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
 	m_CommandList->DispatchRays(&desc);
 
-//	CopyRLTransitionsToReadback();
+	CopyRLTransitionsToReadback();
 
 	ThrowIfFailed(m_CommandList->Close());
 	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
@@ -528,7 +528,7 @@ bool Renderer::Draw(bool useRaster)
 
 	FlushCommandQueue();
 
-//	auto transitions = ReadBackRLTransitions();
+	auto transitions = ReadBackRLTransitions();
 
 	m_CommandAllocator->Reset();
 	m_CommandList->Reset(m_CommandAllocator.Get(), nullptr);
