@@ -346,10 +346,10 @@ void RayGen()
             
             uint actionSeed = linearIndex ^ (bounce * 16777619u) ^ (s * 374761393u) ^ (frameIndex * 2246822519u);
 
-            uint action = 1;
-            if (gUseRL)
+            uint action;
+            if (gUseRL == 1)
             {
-                ChooseActionEpsilonGreedy(currentState, actionSeed, 0.1f);
+                action = ChooseActionEpsilonGreedy(currentState, actionSeed, 0.1f);
             }
             else
             {
