@@ -2,11 +2,7 @@
 #include "PathTracerCommon.hlsl"
 
 #define MaxLights 16
-
-struct RLQValue
-{
-    float Value;
-};
+#define NUM_ACTIONS 3
 
 struct RLTransitionGPU
 {
@@ -14,6 +10,11 @@ struct RLTransitionGPU
     uint ActionIndex;
     float Reward;
     uint Valid;
+};
+
+struct RLQValue
+{
+    float Value;
 };
 
 // Raytracing output texture, accessed as a UAV
@@ -28,7 +29,6 @@ RWStructuredBuffer<RLTransitionGPU> gRLTransitions : register(u5);
 RaytracingAccelerationStructure SceneBVH : register(t0);
 Texture2D<float4> gAccumHistory : register(t1);
 StructuredBuffer<RLQValue> gQTable : register(t2);
-
 
 cbuffer cbPass : register(b0)
 {
@@ -77,6 +77,158 @@ cbuffer MediumParams : register(b6)
     float3 gFogPadding;
 }
 
+uint ChooseBestAction(uint stateIndex)
+{
+    uint baseIdx = stateIndex * NUM_ACTIONS;
+
+    float q0 = gQTable[baseIdx + 0].Value;
+    float q1 = gQTable[baseIdx + 1].Value;
+    float q2 = gQTable[baseIdx + 2].Value;
+
+    uint bestAction = 0;
+    float bestQ = q0;
+
+    if (q1 > bestQ)
+    {
+        bestQ = q1;
+        bestAction = 1;
+    }
+
+    if (q2 > bestQ)
+    {
+        bestQ = q2;
+        bestAction = 2;
+    }
+
+    return bestAction;
+}
+
+float HashToUnitFloat(uint x)
+{
+    x ^= x >> 17;
+    x *= 0xed5ad4bb;
+    x ^= x >> 11;
+    x *= 0xac4c1b51;
+    x ^= x >> 15;
+    x *= 0x31848bab;
+    x ^= x >> 14;
+    return (x & 0x00FFFFFF) / 16777216.0f;
+}
+
+uint ChooseActionEpsilonGreedy(uint stateIndex, uint pixel, float epsilon)
+{
+    float r = HashToUnitFloat(pixel + frameIndex * 9781);
+
+    if (r < epsilon)
+    {
+        return pixel % NUM_ACTIONS;
+    }
+
+    return ChooseBestAction(stateIndex);
+}
+
+uint BucketizeBounce(uint bounce)
+{
+    if (bounce <= 1)
+        return 0;
+    if (bounce <= 3)
+        return 1;
+    return 2;
+}
+
+uint BucketizeSurfaceClass(bool isRefractive, bool isReflective, float roughness)
+{
+    if (isRefractive)
+        return 2;
+    if (isReflective || roughness < 0.08f)
+        return 1;
+    return 0;
+}
+
+uint BucketizeRoughness(float roughness)
+{
+    if (roughness < 0.05f)
+        return 0;
+    if (roughness < 0.3f)
+        return 1;
+    return 2;
+}
+
+float Luminance(float3 c)
+{
+    return dot(c, float3(0.2126f, 0.7152f, 0.0722f));
+}
+
+uint BucketizeThroughput(float throughputLum)
+{
+    if (throughputLum < 0.1f)
+        return 0;
+    if (throughputLum < 0.5f)
+        return 1;
+    return 2;
+}
+
+uint BucketizeCosTheta(float cosTheta)
+{
+    cosTheta = abs(cosTheta);
+
+    if (cosTheta < 0.25f)
+        return 0;
+    if (cosTheta < 0.75f)
+        return 1;
+    return 2;
+}
+
+uint ComputeStateIndex(
+    uint bounce,
+    bool isRefractive,
+    bool isReflective,
+    float roughness,
+    float cosTheta,
+    float3 throughput)
+{
+    uint bounceBucket = BucketizeBounce(bounce);
+    uint surfaceBucket = BucketizeSurfaceClass(isRefractive, isReflective, roughness);
+    uint cosThetaBucket = BucketizeCosTheta(cosTheta);
+    uint throughputBucket = BucketizeThroughput(Luminance(throughput));
+    uint roughnessBucket = BucketizeRoughness(roughness);
+
+    return bounceBucket
+         + 3 * surfaceBucket
+         + 9 * cosThetaBucket
+         + 27 * throughputBucket
+         + 81 * roughnessBucket;
+}
+
+struct SamplingModeParams
+{
+    float bsdfProb;
+    float lightProb;
+};
+
+SamplingModeParams GetSamplingParams(uint actionIndex)
+{
+    SamplingModeParams p;
+
+    if (actionIndex == 0)
+    {
+        p.bsdfProb = 0.8f;
+        p.lightProb = 0.2f;
+    }
+    else if (actionIndex == 1)
+    {
+        p.bsdfProb = 0.5f;
+        p.lightProb = 0.5f;
+    }
+    else
+    {
+        p.bsdfProb = 0.2f;
+        p.lightProb = 0.8f;
+    }
+
+    return p;
+}
+
 [numthreads(8, 8, 1)]
 [shader("raygeneration")]
 void RayGen()
@@ -95,12 +247,6 @@ void RayGen()
     float4 pClip = float4(ndc, 1, 1);
     float4 pView = mul(pClip, gInvProj);
     pView /= pView.w;
-
-    RLTransitionGPU record;
-    record.StateIndex = pixel % 3;
-    record.ActionIndex = pixel % 5;
-    record.Reward = pixel;
-    record.Valid = 1;
     
     float3 originWS = gEyePosW;
     float3 dirWS = normalize(mul(float4(pView.xyz, 0), gInvView).xyz);
@@ -118,6 +264,10 @@ void RayGen()
     float3 finalColor = 0.0f;
     float3 sppSum = 0.0f;
     int isemissive = 0;
+    
+    RLTransitionGPU record;
+
+    
     for (int s = 0; s < SPP; ++s)
     {
         seed += s * 374761393u; // change seed per sample
@@ -227,6 +377,10 @@ void RayGen()
         {
             isemissive = 0;
         }
+        record.StateIndex = ComputeStateIndex(payload.depth - 1, payload.isRefractive, payload.isReflective, payload.matRoughness, payload.cosTheta, payload.throughput);
+        record.ActionIndex = ChooseBestAction(record.StateIndex);
+        record.Reward = Luminance(payload.throughput);
+        record.Valid = 1;
     }
    
     finalColor = sppSum / (float) SPP;
@@ -248,6 +402,8 @@ void RayGen()
         float n = (float) FrameIndex;
         accumColor = (((n - 1.0f) * prevAccum) + finalColor) / n;
     }
+    
+
     
     gRLTransitions[linearIndex] = record;
     gAccumBuf[launchIndex] = float4(accumColor, 1.0f);

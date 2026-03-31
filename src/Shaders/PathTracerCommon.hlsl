@@ -29,6 +29,10 @@ struct PathPayload
     uint firstHitValid;
     uint hitSomething; // keep payload size aligned
     float tHit;
+    uint isRefractive;
+    uint isReflective;
+    float matRoughness;
+    float cosTheta;
 };
 
 struct Attributes

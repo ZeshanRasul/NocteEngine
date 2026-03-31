@@ -145,6 +145,7 @@ void HandleRefractiveHit(
             // Reflection branch
             dir = reflect(-V, Nn);
             weight = F / max(reflProb, 1e-4f);
+            payload.isReflective = 1;
         }
         else
         {
@@ -161,6 +162,7 @@ void HandleRefractiveHit(
             float3 sigmaA = float3(0.02, 0.01, 0.01);
             weight *= exp(-sigmaA * thickness);
             
+            payload.isRefractive = 1;
             // float eta2 = eta * eta;
             // weight *= eta2;
         }
@@ -241,7 +243,8 @@ bool BuildLightSample(
     NdotL = saturate(dot(N, L));
     if (NdotL <= 0)
         return false;
-
+    
+    
     // Inverse-square attenuation
     float invSq = 1.0 / distSq;
 
@@ -453,7 +456,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     //}
     
     mat = materials[materialIndex];
-
+    payload.matRoughness = mat.Roughness;
     
     payload.emission = 0.0f;
     payload.isEmissive = 0.0f;
@@ -524,6 +527,8 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         LightSample lightSample = SampleAreaLight(pW, N, payload.seed);
         float3 L = lightSample.dir;
 
+        payload.cosTheta = dot(N, L);
+        
         const float shadowEpsilon = 1e-3f;
     
         float pdfLight = max(lightSample.pdf, 1e-6f);

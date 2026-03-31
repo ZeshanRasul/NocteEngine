@@ -167,19 +167,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 		<< "State" << ","
 		<< "Action" << ","
 		<< "Reward" << ","
-		<< "Variance Bucket" << ","
-		<< "Variance Bucket Index" << ","
-		<< "Next Variance Bucket Index" << ","
-		<< "Next Variance Bucket Index" << ","
-		<< "Luminance Bucket" << ","
-		<< "Luminance Bucket Index" << ","
-		<< "Bright Pixel Ratio Bucket" << ","
-		<< "Bright Pixel Ratio Bucket Index" << ","
-		<< "Mean Luminance" << ","
-		<< "Luminance Variance" << ","
-		<< "Log Luminance Variance" << ","
-		<< "Bright Pixel Ratio" << ","
-		<< "Epsilon" << "\n";
+		<< "Valid" << "\n";
 
 	vp.TopLeftX = 0.0f;
 	vp.TopLeftY = 0.0f;
@@ -529,6 +517,29 @@ bool Renderer::Draw(bool useRaster)
 	FlushCommandQueue();
 
 	auto transitions = ReadBackRLTransitions();
+
+	std::ofstream file;
+	file.open(m_Fullpath, std::ios::app);
+	if (file.is_open())
+	{
+		for (int i = 0; i < 10; ++i)
+		{
+			const auto& t = transitions[i];
+			file
+				<< "i=" << i << ","
+				<< t.StateIndex << ","
+				<< t.ActionIndex << ","
+				<< t.Reward << ","
+				<< t.Valid << ","
+				<< "\n";
+
+			size_t idx = t.StateIndex * NumActions + t.ActionIndex;
+			m_RLQTable[idx].Value += m_Alpha * (t.Reward- m_RLQTable[idx].Value);
+
+		}
+		file.close();
+	}
+
 
 	m_CommandAllocator->Reset();
 	m_CommandList->Reset(m_CommandAllocator.Get(), nullptr);
