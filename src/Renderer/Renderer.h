@@ -493,7 +493,7 @@ private:
 
 		static constexpr uint32_t NumActions = 3;
 		static constexpr uint32_t NumStates = 243;
-		int m_Alpha = 0.1f;
+		float m_Alpha = 0.1f;
 
 		void CreateRLQTableBuffer();
 		void CreateRLQTableUploadBuffer();

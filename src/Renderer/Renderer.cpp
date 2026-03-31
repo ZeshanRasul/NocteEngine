@@ -507,8 +507,12 @@ bool Renderer::Draw(bool useRaster)
 	{
 		useHistory = 1;
 	}
+	if (m_FrameIndex % 10 == 0)
+	{
+		UploadRLQTable(m_RLQTable);
 
-	UploadRLQTable(m_RLQTable);
+	}
+
 
 	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
 	m_CommandList->DispatchRays(&desc);
@@ -572,8 +576,8 @@ bool Renderer::Draw(bool useRaster)
 					m_RLQTable[idx].Value += m_Alpha * (target - m_RLQTable[idx].Value);
 					m_RLQTable[idx].Value = std::clamp(m_RLQTable[idx].Value, -10.0f, 10.0f);
 
-					file
-						<< i << ","
+					file << std::scientific << std::setprecision(8);
+					file << i << ","
 						<< 1 << ","
 						<< t.StateIndex << ","
 						<< t.ActionIndex << ","
@@ -584,16 +588,16 @@ bool Renderer::Draw(bool useRaster)
 						<< m_RLQTable[static_cast<size_t>(t.StateIndex) * NumActions + 0].Value << ","
 						<< m_RLQTable[static_cast<size_t>(t.StateIndex) * NumActions + 1].Value << ","
 						<< m_RLQTable[static_cast<size_t>(t.StateIndex) * NumActions + 2].Value << "\n";
-						logged++;
+					logged++;
 				}
 				file.close();
 			}
 		}
 
+		m_CommandAllocator->Reset();
+		m_CommandList->Reset(m_CommandAllocator.Get(), nullptr);
 	}
-
-	m_CommandAllocator->Reset();
-	m_CommandList->Reset(m_CommandAllocator.Get(), nullptr);
+	//m_CommandList->Close();
 	// AccumulationBuffer: UAV (RayGen output) -> SRV (TA input)
 	/*m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 		m_AccumulationBuffer.Get(),
