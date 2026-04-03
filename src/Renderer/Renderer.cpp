@@ -243,7 +243,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 		const int numActions = 3;
 
 		std::vector<float> m_QTableData = BuildQTableVector(
-			Q_TABLE_CAUSTICS_3,
+			Q_TABLE_CAUSTICS_DRAGON,
 			numStates,
 			numActions
 		);
@@ -2215,6 +2215,7 @@ void Renderer::BuildMaterials()
 	m_Materials.push_back(std::move(tile4));     // 9
 	m_Materials.push_back(std::move(tile5));     // 10
 	m_Materials.push_back(std::move(dragon));    // 11
+	//}
 }
 
 void Renderer::BuildShapeGeometry()
@@ -2656,7 +2657,7 @@ void Renderer::BuildFrameResources()
 {
 	for (int i = 0; i < NumFrameResources; ++i)
 	{
-		m_FrameResources.push_back(std::make_unique<FrameResource>(m_Device.Get(), 1, (UINT)12));
+		m_FrameResources.push_back(std::make_unique<FrameResource>(m_Device.Get(), 1, (UINT)6));
 	}
 }
 void Renderer::UpdateObjectCBs()
@@ -3807,24 +3808,24 @@ void Renderer::CreateShaderBindingTable()
 			//	ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
 			//}
 
-		if (i >= 8 && i < 9)
-		{
-			vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
-			ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
+		//if (i >= 8 && i < 9)
+		//{
+		//	//vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
+		//	//ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
 
-		}
-		else if (i >= 7 && i < 8)
+		//}
+	/*	else if (i >= 7 && i < 8)
 		{
 			vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
 			ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 
-		}
-		else if (i < 7)
+		}*/
+		if (i < 6)
 		{
 			vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
 			ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
 		}
-		else
+		else if (i == 6)
 		{
 			vb = m_DragonVertexBuffer->GetGPUVirtualAddress();
 			ib = m_DragonIndexBuffer->GetGPUVirtualAddress();
@@ -3901,7 +3902,7 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<Microsoft::WRL::ComPtr<ID3
 {
 	if (!updateOnly)
 	{
-		for (size_t i = 0; i < instances.size(); i++)
+		for (size_t i = 0; i < instances.size(); ++i)
 		{
 			UINT hitGroupIndex = i;
 			//if (i < m_SkullCount)
@@ -3949,9 +3950,9 @@ void Renderer::CreateAccelerationStructures()
 
 	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_DragonVertexBuffer, m_DragonModel.vertices.size()} }, { {m_DragonIndexBuffer, m_DragonModel.indices.size()}
 		});
-	AccelerationStructureBuffers skull0BottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} }, { {m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount} });
+	//AccelerationStructureBuffers skull0BottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} }, { {m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount} });
 
-	AccelerationStructureBuffers sphereBottomLevelBuffers = CreateBottomLevelAS({ { sphereSubmesh.VertexBufferGPU, sphereSubmesh.VertexCount} }, { {sphereSubmesh.IndexBufferGPU, sphereSubmesh.IndexCount} });
+	//AccelerationStructureBuffers sphereBottomLevelBuffers = CreateBottomLevelAS({ { sphereSubmesh.VertexBufferGPU, sphereSubmesh.VertexCount} }, { {sphereSubmesh.IndexBufferGPU, sphereSubmesh.IndexCount} });
 	//AccelerationStructureBuffers boxBottomLevelBuffers = CreateBottomLevelAS({ { boxSubmesh.VertexBufferGPU, boxSubmesh.VertexCount} }, { {boxSubmesh.IndexBufferGPU, boxSubmesh.IndexCount} });
 	AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { m_PlaneVertexBuffer, 4} }, { { m_PlaneIndexBuffer, 6 }
 		});
@@ -3972,7 +3973,7 @@ void Renderer::CreateAccelerationStructures()
 		// AreaLight
 		{ planeBottomLevelBuffers.pResult,
 		  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
-		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(170.0f)) *
 		  XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z)},
 
 		// Back wall (z = +20), normal pointing into the box (-Z)
@@ -3997,9 +3998,9 @@ void Renderer::CreateAccelerationStructures()
 		// Objects on the floor: sphere (left) + skull (right)
 		// ----------------------------------------------------
 
-		{ planeBottomLevelBuffers.pResult,
+		/*{ planeBottomLevelBuffers.pResult,
 		  XMMatrixScaling(28.0f, 1.0f, 28.0f) *
-		  XMMatrixTranslation(0.0f, -20.0f, 0.0f) },
+		  XMMatrixTranslation(0.0f, -20.0f, 0.0f) },*/
 
 		//// Sphere on the left: radius ~3 at y = 3
 		//{ sphereBottomLevelBuffers.pResult,
@@ -4007,9 +4008,9 @@ void Renderer::CreateAccelerationStructures()
 		//  XMMatrixTranslation(-17.0f, 3.0f, -5.0f) },
 
 		// Sphere on the right: radius ~3 at y = 3
-		{ sphereBottomLevelBuffers.pResult,
+		/*{ sphereBottomLevelBuffers.pResult,
 		  XMMatrixScaling(25.0f, 25.0f, 25.0f) *
-		  XMMatrixTranslation(10.0f, 12.5f, 0.0f) },
+		  XMMatrixTranslation(10.0f, 12.5f, 0.0f) },*/
 
 		//// Skull on the right
 		//{ skull0BottomLevelBuffers.pResult,
@@ -4017,14 +4018,14 @@ void Renderer::CreateAccelerationStructures()
 		//  XMMatrixTranslation(12.0f, 2.0f, 8.0f) },
 
 		// Skull on the left
-		{ skull0BottomLevelBuffers.pResult,
+		/*{ skull0BottomLevelBuffers.pResult,
 		  XMMatrixScaling(5.0f, 5.0f, 5.0f) *
-		  XMMatrixTranslation(-33.0f, 2.5f, 15.0f) },
+		  XMMatrixTranslation(-33.0f, 2.5f, 15.0f) },*/
 
 		{ bottomLevelBuffers.pResult,
 		  XMMatrixRotationY(8.0 * XM_PIDIV2) *
-		  XMMatrixScaling(30.0f, 30.0f, 30.0f) *
-		  XMMatrixTranslation(25.0f, 12.5f, 25.0f)
+		  XMMatrixScaling(60.0f, 60.0f, 60.0f) *
+		  XMMatrixTranslation(10.0f, 14.5f, 5.0f)
 		  }
 
 		//{ bottomLevelBuffers.pResult,
@@ -4041,11 +4042,11 @@ void Renderer::CreateAccelerationStructures()
 		false,
 		false,
 		false,
-		false,
-		false,
-		false,
-		false,
-		false,
+		//false,
+		//false,
+		//false,
+		//false,
+		//false,
 	};
 
 
@@ -4073,8 +4074,9 @@ void Renderer::CreateAccelerationStructures()
 
 	//ThrowIfFailed(m_CommandList->Reset(m_CommandAllocator.Get(), m_PipelineStateObjects["opaque"].Get()));
 
-	m_BottomLevelAS = bottomLevelBuffers.pResult;
-	m_PlaneBottomLevelAS = skull0BottomLevelBuffers.pResult;
+	//m_BottomLevelAS = bottomLevelBuffers.pResult;
+	////m_PlaneBottomLevelAS = skull0BottomLevelBuffers.pResult;
+	//m_PlaneBottomLevelAS = planeBottomLevelBuffers.pResult;
 }
 
 void Renderer::CreatePlaneGeometry()

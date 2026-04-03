@@ -340,9 +340,9 @@ private:
 	void CreatePerInstanceBuffers();
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_PerInstanceCBs;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_TriMatIndexCB;
-	UINT m_PerInstanceCBCount = 10;
-	UINT m_SkullCount = 1;
-	UINT m_SphereCount = 1;
+	UINT m_PerInstanceCBCount = 7;
+	UINT m_SkullCount = 0;
+	UINT m_SphereCount = 0;
 	void LoadTextures(Model& model);
 	std::vector<std::unique_ptr<Texture>> m_Textures;
 	std::vector<int> matIndices;
@@ -353,7 +353,7 @@ private:
 	int m_FrameIndex = 0;
 	int m_MaxFrames = 8192;
 	int m_SPP = 1;
-	bool m_UseTemporal = false;
+	bool m_UseTemporal = true;
 	bool m_UseDenoiser = false;
 	bool m_ClearAccumulation = false;
 	void ClearAccumulation() {};
@@ -399,11 +399,11 @@ private:
 		0,  // back/front wall -> white
 		7,  // left wall -> red
 		4,  // right wall -> green
-		0,  // little plane -> white
+	//	0,  // little plane -> white
 		//5,  // left sphere -> sphere material
-		5,  // right sphere -> sphere material
+		//5,  // right sphere -> sphere material
 		//3,  // skull right -> skull material
-		3,  // skull left -> skull material
+		//3,  // skull left -> skull material
 		11  // dragon -> dragon material
 	};
 
@@ -501,7 +501,7 @@ private:
 		void CreateRLTransitionReadbackBuffer();
 		void CopyRLTransitionsToReadback();
 		std::vector<RLTransitionGPU> ReadBackRLTransitions();
-		bool m_UseQTable = true;
+		bool m_UseQTable = false;
 		std::vector<float> m_QTableData; // [state][action]
 
 
