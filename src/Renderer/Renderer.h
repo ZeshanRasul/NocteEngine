@@ -363,7 +363,7 @@ private:
 	void UpdateMediumConstantBuffer();
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_MediumCB;
 	MediumParams m_MediumParams;
-	bool m_UseFog = false;
+	bool m_UseFog = true;
 	float m_FogMaxDistance = 120.0f;
 	float m_SigmaT = 0.01f;
 
