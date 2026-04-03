@@ -239,92 +239,19 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 	if (m_UseQTable)
 	{
-		std::vector<float> m_QTableData((236 + 2) * 3, 0.0f);
+		//const int numStates = 238;   // (236 + 2) if that's your max indexing
+		//const int numActions = 3;
 
-		m_QTableData[23 * 3 + 0] = 0.060421500f;
-		m_QTableData[23 * 3 + 1] = 0.163054000f;
-		m_QTableData[23 * 3 + 2] = 0.134215000f;
-								   
-		m_QTableData[26 * 3 + 0] = 0.312323000f;
-		m_QTableData[26 * 3 + 1] = 0.176395000f;
-		m_QTableData[26 * 3 + 2] = 0.143351000f;
-								   
-		m_QTableData[50 * 3 + 0] = 0.391539000f;
-		m_QTableData[50 * 3 + 1] = 0.157104000f;
-		m_QTableData[50 * 3 + 2] = 0.124083000f;
-								   
-		m_QTableData[53 * 3 + 0] = 0.576343000f;
-		m_QTableData[53 * 3 + 1] = 0.514997000f;
-		m_QTableData[53 * 3 + 2] = 0.466754000f;
-								   
-		m_QTableData[77 * 3 + 0] = 0.481967000f;
-		m_QTableData[77 * 3 + 1] = 0.521204000f;
-		m_QTableData[77 * 3 + 2] = 0.431545000f;
-								   
-		m_QTableData[80 * 3 + 0] = 0.342881000f;
-		m_QTableData[80 * 3 + 1] = 0.715840000f;
-		m_QTableData[80 * 3 + 2] = 0.168940000f;
-								   
-		m_QTableData[164 * 3 + 0] =00.391382000f;
-		m_QTableData[164 * 3 + 1] = 00.477032000f;
-		m_QTableData[164 * 3 + 2] =00.517088000f;
-								   
-		m_QTableData[173 * 3 + 0] =00.245994000f;
-		m_QTableData[173 * 3 + 1] =00.134441000f;
-		m_QTableData[173 * 3 + 2] =00.128660000f;
-								   
-		m_QTableData[180 * 3 + 0] =00.000000000f;
-		m_QTableData[180 * 3 + 1] =00.212427000f;
-		m_QTableData[180 * 3 + 2] =00.000000000f;
-								   
-		m_QTableData[181 * 3 + 0] =00.127212000f;
-		m_QTableData[181 * 3 + 1] =00.165035000f;
-		m_QTableData[181 * 3 + 2] =00.165990000f;
-								   
-		m_QTableData[182 * 3 + 0] =00.458228000f;
-		m_QTableData[182 * 3 + 1] =01.550550000f;
-		m_QTableData[182 * 3 + 2] =00.113759000f;
-								   
-		m_QTableData[191 * 3 + 0] =00.088503700f;
-		m_QTableData[191 * 3 + 1] =00.025639100f;
-		m_QTableData[191 * 3 + 2] =01.048820000f;
-								   
-		m_QTableData[200 * 3 + 0] =01.146870000f;
-		m_QTableData[200 * 3 + 1] =01.978830000f;
-		m_QTableData[200 * 3 + 2] =00.405480000f;
-								   
-		m_QTableData[207 * 3 + 0] =00.000000000f;
-		m_QTableData[207 * 3 + 1] =00.014203200f;
-		m_QTableData[207 * 3 + 2] =00.000000000f;
-								   
-		m_QTableData[208 * 3 + 0] =00.276316000f;
-		m_QTableData[208 * 3 + 1] =00.455589000f;
-		m_QTableData[208 * 3 + 2] =00.185094000f;
-								   
-		m_QTableData[209 * 3 + 0] =01.464800000f;
-		m_QTableData[209 * 3 + 1] =02.319770000f;
-		m_QTableData[209 * 3 + 2] =00.332528000f;
-								   
-		m_QTableData[218 * 3 + 0] =00.255980000f;
-		m_QTableData[218 * 3 + 1] =00.084938000f;
-		m_QTableData[218 * 3 + 2] =00.851598000f;
-								   
-		m_QTableData[227 * 3 + 0] =01.338480000f;
-		m_QTableData[227 * 3 + 1] =00.490156000f;
-		m_QTableData[227 * 3 + 2] =00.338917000f;
-								  
-		m_QTableData[234 * 3 + 0] =00.156854000f;
-		m_QTableData[234 * 3 + 1] =00.212559000f;
-		m_QTableData[234 * 3 + 2] =00.396391000f;
-								   
-		m_QTableData[235 * 3 + 0] =00.505294000f;
-		m_QTableData[235 * 3 + 1] =00.293071000f;
-		m_QTableData[235 * 3 + 2] =00.388973000f;
-								   
-		m_QTableData[236 * 3 + 0] =01.159350000f;
-		m_QTableData[236 * 3 + 1] =01.260810000f;
-		m_QTableData[236 * 3 + 2] =01.586030000f;
+		//std::vector<float> m_QTableData = BuildQTableVector(
+		//	Q_TABLE_CAUSTICS_2,
+		//	numStates,
+		//	numActions
+		//);
+		
+		auto m_QTableData = CombineQTables(Q_TABLE_CAUSTICS, Q_TABLE_CAUSTICS_2, 0.5f);
+
 	}
+
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -602,7 +529,7 @@ bool Renderer::Draw(bool useRaster)
 	{
 		useHistory = 1;
 	}
-	if (m_FrameIndex % 5 == 0 && ! m_UseQTable)
+	if (!m_UseQTable && m_UseRL)
 	{
 		UploadRLQTable(m_RLQTable);
 
@@ -624,7 +551,7 @@ bool Renderer::Draw(bool useRaster)
 	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
 	m_CommandList->DispatchRays(&desc);
 
-	if (!m_UseQTable && m_FrameIndex % 5 == 0)
+	if (!m_UseQTable && m_UseRL)
 	{
 
 		CopyRLTransitionsToReadback();

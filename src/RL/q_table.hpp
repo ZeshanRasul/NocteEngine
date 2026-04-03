@@ -25,3 +25,117 @@ static const std::unordered_map<int, std::array<float, 3>> Q_TABLE = {
     {235, {0.505294000f, 0.293071000f, 0.388973000f}},
     {236, {1.159350000f, 1.260810000f, 1.586030000f}}
 };
+
+#pragma once
+#include <array>
+#include <unordered_map>
+
+static const std::unordered_map<int, std::array<float, 3>> Q_TABLE_CAUSTICS = {
+    {23, {0.000000000f, 0.093820600f, 0.138382000f}},
+    {26, {0.123811000f, 0.138263000f, 0.137229000f}},
+    {50, {0.480855000f, 0.000000000f, 0.216036000f}},
+    {53, {0.254366000f, 0.099236300f, 0.489866000f}},
+    {77, {0.444039000f, 0.207239000f, 0.147621000f}},
+    {80, {0.231906000f, 0.064043200f, 0.305493000f}},
+    {164, {0.142582000f, 0.107915000f, 0.440464000f}},
+    {173, {0.122612000f, 0.098912300f, 0.061853100f}},
+    {180, {0.000000000f, 0.430841000f, 0.000000000f}},
+    {181, {0.122986000f, 0.054525800f, 0.070666000f}},
+    {182, {0.060242600f, 0.180242000f, 0.149400000f}},
+    {191, {0.137182000f, 0.186484000f, 0.086599600f}},
+    {200, {0.622011000f, 0.195996000f, 0.118304000f}},
+    {208, {0.569931000f, 0.125246000f, 0.286026000f}},
+    {209, {0.710803000f, 0.181854000f, 1.547020000f}},
+    {218, {0.348943000f, 0.996967000f, 0.139579000f}},
+    {227, {0.552873000f, 0.062003100f, 0.181760000f}},
+    {234, {0.066516900f, 0.069028200f, 0.145980000f}},
+    {235, {0.179200000f, 0.065396500f, 0.063916500f}},
+    {236, {0.476896000f, 0.066280000f, 0.265419000f}}
+};
+
+#pragma once
+#include <array>
+#include <unordered_map>
+
+static const std::unordered_map<int, std::array<float, 3>> Q_TABLE_CAUSTICS_2 = {
+    {23, {1.343240000f, 0.000000000f, 0.000000000f}},
+    {26, {0.554815000f, 0.000000000f, 0.568031000f}},
+    {50, {3.576370000f, 0.000000000f, 0.000000000f}},
+    {53, {1.520650000f, 0.933567000f, 0.610742000f}},
+    {77, {0.459364000f, 1.447280000f, 0.764542000f}},
+    {80, {2.350970000f, 2.017610000f, 1.110720000f}},
+    {164, {0.139719000f, 0.715111000f, 1.514700000f}},
+    {173, {0.646552000f, 0.461127000f, 0.933011000f}},
+    {180, {0.000000000f, 0.896297000f, 0.000000000f}},
+    {181, {1.340280000f, 0.761663000f, 0.971242000f}},
+    {182, {0.712703000f, 0.639469000f, 0.780002000f}},
+    {191, {0.999632000f, 0.051315400f, 0.217833000f}},
+    {200, {0.836224000f, 0.771061000f, 0.730935000f}},
+    {208, {0.932181000f, 1.051390000f, 1.084940000f}},
+    {209, {1.581640000f, 0.269895000f, 1.642640000f}},
+    {218, {0.777307000f, 0.979007000f, 0.562729000f}},
+    {227, {1.626240000f, 1.056950000f, 0.882505000f}},
+    {234, {2.600500000f, 1.062280000f, 0.919018000f}},
+    {235, {1.196640000f, 0.598258000f, 0.601929000f}},
+    {236, {2.759000000f, 1.720070000f, 1.345660000f}},
+};
+
+std::vector<float> BuildQTableVector(
+    const std::unordered_map<int, std::array<float, 3>>& qMap,
+    int numStates,
+    int numActions)
+{
+    std::vector<float> qTable(numStates * numActions, 0.0f);
+
+    for (const auto& [state, values] : qMap)
+    {
+        for (int a = 0; a < numActions; ++a)
+        {
+            qTable[state * numActions + a] = values[a];
+        }
+    }
+
+    return qTable;
+}
+
+std::array<float, 3> Normalize(const std::array<float, 3>& v)
+{
+    float sum = v[0] + v[1] + v[2];
+    if (sum <= 1e-6f) return { 0.0f, 0.0f, 0.0f };
+
+    return { v[0] / sum, v[1] / sum, v[2] / sum };
+}
+
+std::unordered_map<int, std::array<float, 3>> CombineQTables(
+    const std::unordered_map<int, std::array<float, 3>>& A,
+    const std::unordered_map<int, std::array<float, 3>>& B,
+    float alpha // 0.0 = only A, 1.0 = only B
+)
+{
+    std::unordered_map<int, std::array<float, 3>> result;
+
+    // Collect all keys
+    std::unordered_map<int, bool> keys;
+    for (const auto& [k, _] : A) keys[k] = true;
+    for (const auto& [k, _] : B) keys[k] = true;
+
+    for (const auto& [state, _] : keys)
+    {
+        std::array<float, 3> a = { 0.0f, 0.0f, 0.0f };
+        std::array<float, 3> b = { 0.0f, 0.0f, 0.0f };
+
+        if (A.count(state)) a = Normalize(A.at(state));
+        if (B.count(state)) b = Normalize(B.at(state));
+
+        std::array<float, 3> blended;
+
+        for (int i = 0; i < 3; ++i)
+        {
+            blended[i] = (1.0f - alpha) * a[i] + alpha * b[i];
+        }
+
+        result[state] = blended;
+    }
+
+    return result;
+}
