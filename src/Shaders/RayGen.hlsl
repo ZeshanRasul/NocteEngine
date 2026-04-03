@@ -31,7 +31,7 @@ RWStructuredBuffer<RLTransitionGPU> gRLTransitions : register(u5);
 RaytracingAccelerationStructure SceneBVH : register(t0);
 Texture2D<float4> gAccumHistory : register(t1);
 StructuredBuffer<RLQValue> gQTable : register(t2);
-
+Texture2D<float4> gGrountTruth : register(t3);
 cbuffer cbPass : register(b0)
 {
     float4x4 gView;

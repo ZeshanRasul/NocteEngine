@@ -1,5 +1,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb/stb_image_write.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb/stb_image_load.h"
 
 #include "DXRHelper.h"
 #include "nv_helpers_dx12/BottomLevelASGenerator.h"
@@ -206,6 +208,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRaytracingOutputBuffer();
 	CreatePresentUAV();
 	CreateAccumulationBuffer();
+	LoadTextureFromFileToSRV(m_Device.Get(), m_CommandList.Get(), "experiments/Cornell_Box_Glass_GT/Baseline_Cornell_Box_Glass_4096SPP.png");
 	CreateShaderResourceHeap();
 	CreateShaderResourceCPUHeap();
 	CreateSamplerHeap();
@@ -1361,15 +1364,15 @@ bool Renderer::Draw(bool useRaster)
 
 
 
-	//	m_PrevFrameStats = m_FrameStats;
-	//	m_HasPrevState = true;
-	//	m_MaxIterations = 4096;
-	//	if (m_FrameIndex == m_MaxIterations)
-	//	{
-	//		m_TargetCaptureSPP = m_FrameIndex;
-	//		m_SaveImage = true;
-	//		m_CurrentAccumSPP = 0;
-	//	}
+		m_PrevFrameStats = m_FrameStats;
+		m_HasPrevState = true;
+		m_MaxIterations = 4096;
+		if (m_FrameIndex == m_MaxIterations)
+		{
+			m_TargetCaptureSPP = m_FrameIndex;
+			m_SaveImage = true;
+			m_CurrentAccumSPP = 0;
+		}
 
 	{
 		D3D12_RESOURCE_BARRIER barriers[2];
@@ -1532,7 +1535,7 @@ bool Renderer::Draw(bool useRaster)
 		if (m_CaptureRequested)
 		{
 			m_ClearAccumulation = true;
-			m_StartCaptureSequenceNextFrame = false;
+			m_StartCaptureSequenceNextFrame = true;
 		}
 	}
 
@@ -1662,10 +1665,10 @@ bool Renderer::Draw(bool useRaster)
 		//	m_CommandQueue->Signal(m_Fence.Get(), m_CurrentFence);
 	}
 
-	if (m_FrameIndex == 4096)
-	{
-		return false;
-	}
+	//if (m_FrameIndex == 4096)
+	//{
+	//	return false;
+	//}
 
 	return true;
 
@@ -2769,7 +2772,8 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
 		{ 4, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 9},
 		{ 1, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 26},
 		{ 5, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 29},
-		{ 2, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 30}
+		{ 2, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 30},
+		{ 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 31}
 		}
 	);
 	rsc.AddHeapRangesParameter(
@@ -2952,7 +2956,7 @@ void Renderer::CreateSamplerHeap()
 
 void Renderer::CreateShaderResourceHeap()
 {
-	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 31, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 32, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -3245,6 +3249,17 @@ void Renderer::CreateShaderResourceHeap()
 		srvHandle);
 
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+
+	m_Device->CreateShaderResourceView(m_GroundTruthTex.Get(), &srvDesc, srvHandle);
+
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
 }
 
 void Renderer::CreateAccumulationBuffer()
@@ -4808,6 +4823,76 @@ std::vector<RLTransitionGPU> Renderer::ReadBackRLTransitions()
 	m_RLTransitionReadbackBuffer->Unmap(0, nullptr);
 
 	return transitions;
+}
+
+bool Renderer::LoadTextureFromFileToSRV(ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const std::string& filename)
+{
+	int width = 0, height = 0, channels = 0;
+	stbi_uc* pixels = stbi_load(filename.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+	if (!pixels) return false;
+
+	DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+	D3D12_RESOURCE_DESC texDesc = {};
+	texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	texDesc.Width = static_cast<UINT64>(width);
+	texDesc.Height = static_cast<UINT>(height);
+	texDesc.DepthOrArraySize = 1;
+	texDesc.MipLevels = 1;
+	texDesc.Format = format;
+	texDesc.SampleDesc.Count = 1;
+	texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+
+	CD3DX12_HEAP_PROPERTIES defaultHeap(D3D12_HEAP_TYPE_DEFAULT);
+
+	HRESULT hr = device->CreateCommittedResource(
+		&defaultHeap,
+		D3D12_HEAP_FLAG_NONE,
+		&texDesc,
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
+		IID_PPV_ARGS(&m_GroundTruthTex));
+	if (FAILED(hr))
+	{
+		stbi_image_free(pixels);
+		return false;
+	}
+
+	UINT64 uploadSize = GetRequiredIntermediateSize(m_GroundTruthTex.Get(), 0, 1);
+
+	CD3DX12_HEAP_PROPERTIES uploadHeap(D3D12_HEAP_TYPE_UPLOAD);
+	CD3DX12_RESOURCE_DESC uploadDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadSize);
+
+	
+	hr = device->CreateCommittedResource(
+		&uploadHeap,
+		D3D12_HEAP_FLAG_NONE,
+		&uploadDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&upload));
+	if (FAILED(hr))
+	{
+		stbi_image_free(pixels);
+		return false;
+	}
+
+	D3D12_SUBRESOURCE_DATA subresource = {};
+	subresource.pData = pixels;
+	subresource.RowPitch = static_cast<LONG_PTR>(width * 4);
+	subresource.SlicePitch = subresource.RowPitch * height;
+
+	UpdateSubresources(cmdList, m_GroundTruthTex.Get(), upload.Get(), 0, 0, 1, &subresource);
+
+	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_GroundTruthTex.Get(),
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	cmdList->ResourceBarrier(1, &barrier);
+
+	stbi_image_free(pixels);
+
+	return true;
 }
 
 void Renderer::UploadRLQTable(const std::vector<RLQValue>& qTable)

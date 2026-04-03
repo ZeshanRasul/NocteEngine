@@ -502,6 +502,13 @@ private:
 		void CreateRLTransitionReadbackBuffer();
 		void CopyRLTransitionsToReadback();
 		std::vector<RLTransitionGPU> ReadBackRLTransitions();
+
+		Microsoft::WRL::ComPtr<ID3D12Resource> m_GroundTruthTex;
+		Microsoft::WRL::ComPtr<ID3D12Resource> upload;
+		bool LoadTextureFromFileToSRV(
+			ID3D12Device* device,
+			ID3D12GraphicsCommandList* cmdList,
+			const std::string& filename);
 };
 
 struct PerInstanceData
@@ -510,6 +517,16 @@ struct PerInstanceData
 	float pad[3];
 };
 
+struct LoadedTexture
+{
+	Microsoft::WRL::ComPtr<ID3D12Resource> resource;
+	Microsoft::WRL::ComPtr<ID3D12Resource> uploadResource;
+	D3D12_CPU_DESCRIPTOR_HANDLE srvCpuHandle{};
+	D3D12_GPU_DESCRIPTOR_HANDLE srvGpuHandle{};
+	UINT width = 0;
+	UINT height = 0;
+	DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
+};
 
 enum
 {
