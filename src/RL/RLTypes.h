@@ -5,10 +5,14 @@ struct RLTransitionGPU
 {
     uint32_t StateIndex = 0;
     uint32_t ActionIndex = 0;
+	float RawReward = 0.0f;
     float Reward = 0.0f;
+	float OldError = 0.0f;
+	float NewError = 0.0f;
 	uint32_t NextStateIndex = 0;
     uint32_t Valid = 0;
 	uint32_t Terminated = 0;
+	uint32_t Padding = 0;
 };
 
 struct RLQValue

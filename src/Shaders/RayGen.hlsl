@@ -8,10 +8,14 @@ struct RLTransitionGPU
 {
     uint StateIndex;
     uint ActionIndex;
+    float RawReward;
     float Reward;
+    float OldError;
+    float NewError;
     uint NextStateIndex;
     uint Valid;
     uint Terminated;
+    uint padding;
 };
 
 struct RLQValue
@@ -510,10 +514,10 @@ void RayGen()
     gNormal[launchIndex] = float4(nEncoded, float(isemissive));
 
     gDepth[launchIndex] = primaryDepth;
-    
-    float3 prevAccum;
+
+    float3 prevAccum = 0.0;
 // Progressive accumulation
-    float3 accumColor;
+    float3 accumColor = 0.0;
     if (FrameIndex <= 1)
     {
         accumColor = finalColor;
@@ -538,9 +542,13 @@ void RayGen()
     float oldErr = abs(oldLum - refLum) / denom;
     float newErr = abs(newLum - refLum) / denom;
 
-    reward = oldErr - newErr;
-    reward = clamp(reward, -1.0f, 1.0f);
-    record.Reward = reward;
+    record.padding = 0;
+    float improvement = oldErr - newErr;
+    record.OldError = oldErr;
+    record.NewError = newErr;
+    float rawReward = improvement / max(oldErr, 1e-6f);
+    record.RawReward = rawReward;
+    record.Reward = tanh(2.0f * rawReward);
     gRLTransitions[linearIndex] = record;
     
     gAccumBuf[launchIndex] = float4(accumColor, 1.0f);

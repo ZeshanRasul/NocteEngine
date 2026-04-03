@@ -168,7 +168,10 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 		<< "Using RL?" << ","
 		<< "State" << ","
 		<< "Action" << ","
+		<< "Raw Reward" << ","
 		<< "Reward" << ","
+		<< "Old Error" << ","
+		<< "New Error" << ","
 		<< "Next State" << ","
 		<< "Terminated?" << ","
 		<< "Valid" << ","
@@ -510,7 +513,7 @@ bool Renderer::Draw(bool useRaster)
 	{
 		useHistory = 1;
 	}
-	if (m_FrameIndex % 10 == 0)
+	if (m_FrameIndex % 30 == 0)
 	{
 		UploadRLQTable(m_RLQTable);
 
@@ -520,7 +523,7 @@ bool Renderer::Draw(bool useRaster)
 	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
 	m_CommandList->DispatchRays(&desc);
 
-	if (m_FrameIndex % 10 == 0)
+	if (m_FrameIndex % 30 == 0)
 	{
 
 		CopyRLTransitionsToReadback();
@@ -579,12 +582,14 @@ bool Renderer::Draw(bool useRaster)
 					m_RLQTable[idx].Value += m_Alpha * (target - m_RLQTable[idx].Value);
 					m_RLQTable[idx].Value = std::clamp(m_RLQTable[idx].Value, -10.0f, 10.0f);
 
-					file << std::scientific << std::setprecision(8);
 					file << i << ","
 						<< std::to_string(m_UseRL) << ","
 						<< t.StateIndex << ","
 						<< t.ActionIndex << ","
+						<< t.RawReward << ","
 						<< t.Reward << ","
+						<< t.OldError << ","
+						<< t.NewError << ","
 						<< t.NextStateIndex << ","
 						<< t.Terminated << ","
 						<< t.Valid << ","
