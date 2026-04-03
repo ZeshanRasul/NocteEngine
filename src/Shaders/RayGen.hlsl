@@ -31,7 +31,7 @@ RWStructuredBuffer<RLTransitionGPU> gRLTransitions : register(u5);
 RaytracingAccelerationStructure SceneBVH : register(t0);
 Texture2D<float4> gAccumHistory : register(t1);
 StructuredBuffer<RLQValue> gQTable : register(t2);
-Texture2D<float4> gGrountTruth : register(t3);
+Texture2D<float4> gGroundTruth : register(t3);
 cbuffer cbPass : register(b0)
 {
     float4x4 gView;
@@ -260,6 +260,8 @@ void RayGen()
 
     uint linearIndex = DispatchRaysIndex().y * dims.x + DispatchRaysIndex().x;
 
+    float3 refColor = gGroundTruth.Load(int3(dims, 0)).rgb;
+    
     SamplingModeParams params;
 
     float2 pixel = (float2) DispatchRaysIndex() + 0.5f;
@@ -289,7 +291,8 @@ void RayGen()
     int isemissive = 0;
     
 
-    
+    RLTransitionGPU record;
+    float reward = 0.0f;
     for (int s = 0; s < SPP; ++s)
     {
         
@@ -332,7 +335,6 @@ void RayGen()
         
         for (int bounce = 0; bounce < MaxBounces; ++bounce)
         {
-            RLTransitionGPU record;
             
             //uint state = ComputeStateIndex(
             // payload.depth,
@@ -434,24 +436,19 @@ void RayGen()
               payload.cosTheta,
               nextThroughput);
             
-            float reward = length(bounceContrib) * 10.0f;
             
             if (payload.hitSomething == 1)
             {
                 reward += 0.1f;
             }
 
-            reward = log(1.0f + reward);
-            record.Reward = reward;
             record.Valid = 1;
             record.ActionIndex = action;
 
             record.NextStateIndex = nextState;
             
             record.Terminated = payload.done ? 1 : 0;
-            gRLTransitions[index] = record;
-            if (record.Terminated == 1)
-                break;
+           
         
             payload.throughput = nextThroughput;
             
@@ -477,8 +474,6 @@ void RayGen()
                 if (r > pCont)
                 {
                     record.Terminated = 1;
-                    gRLTransitions[index] = record;
-
                     break;
                 }
                 payload.throughput /= pCont;
@@ -515,7 +510,8 @@ void RayGen()
     gNormal[launchIndex] = float4(nEncoded, float(isemissive));
 
     gDepth[launchIndex] = primaryDepth;
-
+    
+    float3 prevAccum;
 // Progressive accumulation
     float3 accumColor;
     if (FrameIndex <= 1)
@@ -524,13 +520,29 @@ void RayGen()
     }
     else
     {
-        float3 prevAccum = gAccumHistory[launchIndex].rgb;
+        prevAccum = gAccumHistory[launchIndex].rgb;
         float n = (float) FrameIndex;
         accumColor = (((n - 1.0f) * prevAccum) + finalColor) / n;
     }
     
+    float3 oldEstimate = prevAccum;
+    float3 newEstimate = accumColor;
 
+    float refLum = Luminance(refColor);
+    float oldLum = Luminance(oldEstimate);
+    float newLum = Luminance(newEstimate);
 
+    float eps = 1e-4f;
+    float denom = max(refLum, eps);
+
+    float oldErr = abs(oldLum - refLum) / denom;
+    float newErr = abs(newLum - refLum) / denom;
+
+    reward = oldErr - newErr;
+    reward = clamp(reward, -1.0f, 1.0f);
+    record.Reward = reward;
+    gRLTransitions[linearIndex] = record;
+    
     gAccumBuf[launchIndex] = float4(accumColor, 1.0f);
     gPresent[launchIndex] = float4(accumColor, 1.0f);
 }
