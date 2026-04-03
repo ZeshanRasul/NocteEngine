@@ -245,7 +245,7 @@ float3 PostProcessColor(float3 hdrColor)
 
     if (IsLastPass == 1)
     {
-        result = PostProcessColor(result);
+   //     result = PostProcessColor(result);
         Output[coord] = float4(result, centerColor.a);
     }
     else
