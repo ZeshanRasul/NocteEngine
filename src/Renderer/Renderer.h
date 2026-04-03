@@ -353,7 +353,7 @@ private:
 	int m_FrameIndex = 0;
 	int m_MaxFrames = 8192;
 	int m_SPP = 1;
-	bool m_UseTemporal = false;
+	bool m_UseTemporal = true;
 	bool m_UseDenoiser = false;
 	bool m_ClearAccumulation = false;
 	void ClearAccumulation() {};
@@ -501,7 +501,7 @@ private:
 		void CreateRLTransitionReadbackBuffer();
 		void CopyRLTransitionsToReadback();
 		std::vector<RLTransitionGPU> ReadBackRLTransitions();
-		bool m_UseQTable = true;
+		bool m_UseQTable = false;
 		std::vector<float> m_QTableData; // [state][action]
 
 

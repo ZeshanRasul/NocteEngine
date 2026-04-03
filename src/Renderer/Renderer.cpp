@@ -239,16 +239,16 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 	if (m_UseQTable)
 	{
-		//const int numStates = 238;   // (236 + 2) if that's your max indexing
-		//const int numActions = 3;
+		const int numStates = 238;
+		const int numActions = 3;
 
-		//std::vector<float> m_QTableData = BuildQTableVector(
-		//	Q_TABLE_CAUSTICS_2,
-		//	numStates,
-		//	numActions
-		//);
+		std::vector<float> m_QTableData = BuildQTableVector(
+			Q_TABLE_CAUSTICS_3,
+			numStates,
+			numActions
+		);
 		
-		auto m_QTableData = CombineQTables(Q_TABLE_CAUSTICS, Q_TABLE_CAUSTICS_2, 0.5f);
+	//	auto m_QTableData = CombineQTables(Q_TABLE_CAUSTICS, Q_TABLE_CAUSTICS_2, 0.5f);
 
 	}
 
