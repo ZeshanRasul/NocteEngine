@@ -501,7 +501,7 @@ private:
 		void CreateRLTransitionReadbackBuffer();
 		void CopyRLTransitionsToReadback();
 		std::vector<RLTransitionGPU> ReadBackRLTransitions();
-		bool m_UseQTable = false;
+		bool m_UseQTable = true;
 		std::vector<float> m_QTableData; // [state][action]
 
 

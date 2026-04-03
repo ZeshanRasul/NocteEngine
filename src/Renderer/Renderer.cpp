@@ -2115,7 +2115,7 @@ void Renderer::BuildMaterials()
 	boxMat->Name = "box";
 	boxMat->MatCBIndex = 0;
 	boxMat->DiffuseSrvHeapIndex = 0;
-	boxMat->DiffuseAlbedo = XMFLOAT4(0.725f, 0.710f, 0.680f, 1.0f);
+	boxMat->DiffuseAlbedo = XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
 	boxMat->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	boxMat->Roughness = 0.99f;
 	boxMat->metallic = 0.01f;
@@ -2128,10 +2128,10 @@ void Renderer::BuildMaterials()
 	bricks0->Name = "bricks0";
 	bricks0->MatCBIndex = 1;
 	bricks0->DiffuseSrvHeapIndex = 1;
-	bricks0->DiffuseAlbedo = XMFLOAT4(0.55f, 0.55f, 0.55f, 1.0f);
+	bricks0->DiffuseAlbedo = XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
 	bricks0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	bricks0->Roughness = 0.90f;
-	bricks0->metallic = 0.01f;
+	bricks0->Roughness = 1.0f;
+	bricks0->metallic = 0.00f;
 	bricks0->IsReflective = false;
 	bricks0->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	bricks0->isEmissive = 0;
@@ -2180,7 +2180,7 @@ void Renderer::BuildMaterials()
 	sphereMat->DiffuseSrvHeapIndex = 4;
 	sphereMat->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	sphereMat->FresnelR0 = XMFLOAT3(0.04f, 0.04f, 0.04f);
-	sphereMat->Roughness = 0.002f;
+	sphereMat->Roughness = 0.0f;
 	sphereMat->metallic = 0.0f;
 	sphereMat->Ior = 1.5f;
 	sphereMat->IsReflective = true;
@@ -4082,7 +4082,7 @@ void Renderer::CreateAccelerationStructures()
 		// Sphere on the right: radius ~3 at y = 3
 		{ sphereBottomLevelBuffers.pResult,
 		  XMMatrixScaling(25.0f, 25.0f, 25.0f) *
-		  XMMatrixTranslation(25.0f, 12.5f, 25.0f) },
+		  XMMatrixTranslation(10.0f, 12.5f, 0.0f) },
 
 		//// Skull on the right
 		//{ skull0BottomLevelBuffers.pResult,
@@ -4097,7 +4097,7 @@ void Renderer::CreateAccelerationStructures()
 		{ bottomLevelBuffers.pResult,
 		  XMMatrixRotationY(8.0 * XM_PIDIV2) *
 		  XMMatrixScaling(30.0f, 30.0f, 30.0f) *
-		  XMMatrixTranslation(7.0f, 10.0f, -27.0f)
+		  XMMatrixTranslation(25.0f, 12.5f, 25.0f)
 		  }
 
 		//{ bottomLevelBuffers.pResult,
@@ -4389,7 +4389,7 @@ void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 void Renderer::CreateAreaLightConstantBuffer()
 {
 	m_AreaLightData.Position = XMFLOAT3(0.0f, 55.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(6.25f, 6.25f, 6.25f);
+	m_AreaLightData.Radiance = XMFLOAT3(5.0f, 5.0f, 5.0f);
 	m_AreaLightData.U = XMFLOAT3(16.0f, 0.0f, 0.0f);
 	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 16.0f);
 
