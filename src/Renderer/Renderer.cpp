@@ -14,6 +14,7 @@
 #include <iostream>
 
 #include "SamplingModes.h"
+#include "../RL/q_table.hpp"
 
 const int gNumFrameResources = 1;
 const int gNumRayTypes = 2;
@@ -236,6 +237,94 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 	//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
 
+	if (m_UseQTable)
+	{
+		std::vector<float> m_QTableData((236 + 2) * 3, 0.0f);
+
+		m_QTableData[23 * 3 + 0] = 0.060421500f;
+		m_QTableData[23 * 3 + 1] = 0.163054000f;
+		m_QTableData[23 * 3 + 2] = 0.134215000f;
+								   
+		m_QTableData[26 * 3 + 0] = 0.312323000f;
+		m_QTableData[26 * 3 + 1] = 0.176395000f;
+		m_QTableData[26 * 3 + 2] = 0.143351000f;
+								   
+		m_QTableData[50 * 3 + 0] = 0.391539000f;
+		m_QTableData[50 * 3 + 1] = 0.157104000f;
+		m_QTableData[50 * 3 + 2] = 0.124083000f;
+								   
+		m_QTableData[53 * 3 + 0] = 0.576343000f;
+		m_QTableData[53 * 3 + 1] = 0.514997000f;
+		m_QTableData[53 * 3 + 2] = 0.466754000f;
+								   
+		m_QTableData[77 * 3 + 0] = 0.481967000f;
+		m_QTableData[77 * 3 + 1] = 0.521204000f;
+		m_QTableData[77 * 3 + 2] = 0.431545000f;
+								   
+		m_QTableData[80 * 3 + 0] = 0.342881000f;
+		m_QTableData[80 * 3 + 1] = 0.715840000f;
+		m_QTableData[80 * 3 + 2] = 0.168940000f;
+								   
+		m_QTableData[164 * 3 + 0] =00.391382000f;
+		m_QTableData[164 * 3 + 1] = 00.477032000f;
+		m_QTableData[164 * 3 + 2] =00.517088000f;
+								   
+		m_QTableData[173 * 3 + 0] =00.245994000f;
+		m_QTableData[173 * 3 + 1] =00.134441000f;
+		m_QTableData[173 * 3 + 2] =00.128660000f;
+								   
+		m_QTableData[180 * 3 + 0] =00.000000000f;
+		m_QTableData[180 * 3 + 1] =00.212427000f;
+		m_QTableData[180 * 3 + 2] =00.000000000f;
+								   
+		m_QTableData[181 * 3 + 0] =00.127212000f;
+		m_QTableData[181 * 3 + 1] =00.165035000f;
+		m_QTableData[181 * 3 + 2] =00.165990000f;
+								   
+		m_QTableData[182 * 3 + 0] =00.458228000f;
+		m_QTableData[182 * 3 + 1] =01.550550000f;
+		m_QTableData[182 * 3 + 2] =00.113759000f;
+								   
+		m_QTableData[191 * 3 + 0] =00.088503700f;
+		m_QTableData[191 * 3 + 1] =00.025639100f;
+		m_QTableData[191 * 3 + 2] =01.048820000f;
+								   
+		m_QTableData[200 * 3 + 0] =01.146870000f;
+		m_QTableData[200 * 3 + 1] =01.978830000f;
+		m_QTableData[200 * 3 + 2] =00.405480000f;
+								   
+		m_QTableData[207 * 3 + 0] =00.000000000f;
+		m_QTableData[207 * 3 + 1] =00.014203200f;
+		m_QTableData[207 * 3 + 2] =00.000000000f;
+								   
+		m_QTableData[208 * 3 + 0] =00.276316000f;
+		m_QTableData[208 * 3 + 1] =00.455589000f;
+		m_QTableData[208 * 3 + 2] =00.185094000f;
+								   
+		m_QTableData[209 * 3 + 0] =01.464800000f;
+		m_QTableData[209 * 3 + 1] =02.319770000f;
+		m_QTableData[209 * 3 + 2] =00.332528000f;
+								   
+		m_QTableData[218 * 3 + 0] =00.255980000f;
+		m_QTableData[218 * 3 + 1] =00.084938000f;
+		m_QTableData[218 * 3 + 2] =00.851598000f;
+								   
+		m_QTableData[227 * 3 + 0] =01.338480000f;
+		m_QTableData[227 * 3 + 1] =00.490156000f;
+		m_QTableData[227 * 3 + 2] =00.338917000f;
+								  
+		m_QTableData[234 * 3 + 0] =00.156854000f;
+		m_QTableData[234 * 3 + 1] =00.212559000f;
+		m_QTableData[234 * 3 + 2] =00.396391000f;
+								   
+		m_QTableData[235 * 3 + 0] =00.505294000f;
+		m_QTableData[235 * 3 + 1] =00.293071000f;
+		m_QTableData[235 * 3 + 2] =00.388973000f;
+								   
+		m_QTableData[236 * 3 + 0] =01.159350000f;
+		m_QTableData[236 * 3 + 1] =01.260810000f;
+		m_QTableData[236 * 3 + 2] =01.586030000f;
+	}
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -513,17 +602,29 @@ bool Renderer::Draw(bool useRaster)
 	{
 		useHistory = 1;
 	}
-	if (m_FrameIndex % 30 == 0)
+	if (m_FrameIndex % 5 == 0 && ! m_UseQTable)
 	{
 		UploadRLQTable(m_RLQTable);
 
 	}
 
+	if (m_UseQTable)
+	{
+		for (int i = 0; i < m_QTableData.size(); i++)
+		{
+			RLQValue q;
+			q.Value = m_QTableData[i];
+			m_RLQTable.push_back(q);
+		}
+		UploadRLQTable(m_RLQTable);
+
+
+	}
 
 	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
 	m_CommandList->DispatchRays(&desc);
 
-	if (m_FrameIndex % 30 == 0)
+	if (!m_UseQTable && m_FrameIndex % 5 == 0)
 	{
 
 		CopyRLTransitionsToReadback();
@@ -4816,6 +4917,7 @@ void Renderer::CopyRLTransitionsToReadback()
 std::vector<RLTransitionGPU> Renderer::ReadBackRLTransitions()
 {
 	std::vector<RLTransitionGPU> transitions(m_RLTransitionCount);
+
 	if (m_RLTransitionCount == 0)
 	{
 		throw std::runtime_error("CreateRLTransitionReadbackBuffer: transition buffer size is zero.");
@@ -4903,10 +5005,11 @@ bool Renderer::LoadTextureFromFileToSRV(ID3D12Device* device, ID3D12GraphicsComm
 void Renderer::UploadRLQTable(const std::vector<RLQValue>& qTable)
 {
 	const size_t expectedCount = static_cast<size_t>(NumStates) * NumActions;
-	if (qTable.size() != expectedCount)
+	/*if (qTable.size() != expectedCount)
 	{
 		throw std::runtime_error("UploadRLQTable: qTable size mismatch.");
-	}
+	}*/
+	
 
 	if (!m_RLQTableBuffer || !m_RLQTableUploadBuffer)
 	{

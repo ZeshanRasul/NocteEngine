@@ -15,7 +15,7 @@ struct RLTransitionGPU
     uint NextStateIndex;
     uint Valid;
     uint Terminated;
-    uint padding;
+    uint UseQValue;
 };
 
 struct RLQValue
@@ -28,7 +28,7 @@ RWTexture2D<float4> gOutput : register(u0);
 RWTexture2D<float4> gAccumBuf : register(u1);
 RWTexture2D<float4> gNormal : register(u2);
 RWTexture2D<float> gDepth : register(u3);
-RWTexture2D<float> gPresent : register(u4);
+RWTexture2D<float4> gPresent : register(u4);
 RWStructuredBuffer<RLTransitionGPU> gRLTransitions : register(u5);
 
 // Raytracing acceleration structure, accessed as a SRV
@@ -149,11 +149,11 @@ uint ChooseBestActionWithTieBreak(uint stateIndex, uint pixel, uint frameIndex)
 
 uint ChooseActionEpsilonGreedy(uint stateIndex, uint pixel, float epsilon)
 {
-    float r = HashToUnitFloat(pixel + frameIndex * 9781);
-
+    float r = HashToUnitFloat(pixel + 7919u * frameIndex);
     if (r < epsilon)
     {
-        return pixel % NUM_ACTIONS;
+        uint a = (uint) (HashToUnitFloat(pixel * 1664525u + frameIndex * 1013904223u) * NUM_ACTIONS);
+        return min(a, NUM_ACTIONS - 1);
     }
 
     return ChooseBestActionWithTieBreak(stateIndex, pixel, frameIndex);
@@ -238,8 +238,8 @@ SamplingModeParams GetSamplingParams(uint actionIndex)
 
     if (actionIndex == 0)
     {
-        p.bsdfProb = 0.8f;
-        p.lightProb = 0.2f;
+        p.bsdfProb = 0.9f;
+        p.lightProb = 0.1f;
     }
     else if (actionIndex == 1)
     {
@@ -248,8 +248,8 @@ SamplingModeParams GetSamplingParams(uint actionIndex)
     }
     else
     {
-        p.bsdfProb = 0.2f;
-        p.lightProb = 0.8f;
+        p.bsdfProb = 0.1f;
+        p.lightProb = 0.9f;
     }
 
     return p;
@@ -264,7 +264,7 @@ void RayGen()
 
     uint linearIndex = DispatchRaysIndex().y * dims.x + DispatchRaysIndex().x;
 
-    float3 refColor = gGroundTruth.Load(int3(dims, 0)).rgb;
+    float3 refColor = gGroundTruth.Load(int3(launchIndex, 0)).rgb;
     
     SamplingModeParams params;
 
@@ -297,6 +297,7 @@ void RayGen()
 
     RLTransitionGPU record;
     float reward = 0.0f;
+    int index = 0;
     for (int s = 0; s < SPP; ++s)
     {
         
@@ -362,6 +363,8 @@ void RayGen()
                 action = 1;
             }
             
+            action = ChooseBestActionWithTieBreak(currentState, actionSeed, frameIndex);
+            
             payload.prms = GetSamplingParams(action);
             
             payload.isReflective = 0;
@@ -420,7 +423,7 @@ void RayGen()
                 primarySet = true;
             }
             
-            uint index = (linearIndex * SPP + s) * MaxBounces + bounce;
+            index = (linearIndex * SPP + s) * MaxBounces + bounce;
             float3 bounceContrib = payload.throughput * payload.emission;
             
             float3 nextThroughput = payload.throughput;
@@ -542,14 +545,14 @@ void RayGen()
     float oldErr = abs(oldLum - refLum) / denom;
     float newErr = abs(newLum - refLum) / denom;
 
-    record.padding = 0;
+    record.UseQValue = 0;
     float improvement = oldErr - newErr;
     record.OldError = oldErr;
     record.NewError = newErr;
     float rawReward = improvement / max(oldErr, 1e-6f);
     record.RawReward = rawReward;
-    record.Reward = tanh(2.0f * rawReward);
-    gRLTransitions[linearIndex] = record;
+    record.Reward = tanh(3.0f * rawReward) * 10.0f;
+    gRLTransitions[index] = record;
     
     gAccumBuf[launchIndex] = float4(accumColor, 1.0f);
     gPresent[launchIndex] = float4(accumColor, 1.0f);

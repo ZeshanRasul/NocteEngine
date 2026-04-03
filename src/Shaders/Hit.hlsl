@@ -521,12 +521,12 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     float xi2 = Rand(payload.seed);
 
     float p_bsdf = payload.prms.bsdfProb;
-    p_bsdf = clamp(p_bsdf, 0.05f, 0.95f);
+   // p_bsdf = clamp(p_bsdf, 0.05f, 0.95f);
     float p_light = 1.0f - p_bsdf;
 
-    bool chooseBSDF = (xi2 < p_bsdf);
+    bool chooseLight = (xi2 < p_light);
     
-    if (!chooseBSDF)
+    if (chooseLight)
     {
         LightSample lightSample = SampleAreaLight(pW, N, payload.seed);
         float3 L = lightSample.dir;
@@ -572,10 +572,9 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
             }
          
         }
-    }
-    
 
-    if (chooseBSDF)
+    }
+    else
     {
  
         BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);

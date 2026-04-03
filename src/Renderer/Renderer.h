@@ -351,10 +351,10 @@ private:
 	void UpdateFrameIndexRNGCBuffer();
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_FrameIndexCB;
 	int m_FrameIndex = 0;
-	int m_MaxFrames = 6000;
+	int m_MaxFrames = 8192;
 	int m_SPP = 1;
-	bool m_UseTemporal = false;
-	bool m_UseDenoiser = false;
+	bool m_UseTemporal = true;
+	bool m_UseDenoiser = true;
 	bool m_ClearAccumulation = false;
 	void ClearAccumulation() {};
 	void SaveCurrentFrame();
@@ -366,7 +366,6 @@ private:
 	bool m_UseFog = false;
 	float m_FogMaxDistance = 120.0f;
 	float m_SigmaT = 0.01f;
-
 
 	std::vector<MaterialDataGPU> m_MaterialsGPU;
 
@@ -467,7 +466,7 @@ private:
 		DiscreteState m_PrevState = {};
 		bool m_HasPrevState = false;
 		std::string m_CurrentStateName = "Unknown";
-		int m_MaxIterations = 4096;
+		int m_MaxIterations = 8192;
 		RLAction m_PrevAction = RLAction::Balanced;
 		RLAction m_CurrentAction = RLAction::Balanced;
 		float m_Reward = 0.0f;
@@ -476,7 +475,7 @@ private:
 		float windowLogVars[8];
 		int windowCount;
 
-		bool m_UseRL = true;
+		bool m_UseRL = false;
 		bool m_RLQTableInSRVState = false;
 
 		std::vector<RLQValue> m_RLQTable;
@@ -502,6 +501,9 @@ private:
 		void CreateRLTransitionReadbackBuffer();
 		void CopyRLTransitionsToReadback();
 		std::vector<RLTransitionGPU> ReadBackRLTransitions();
+		bool m_UseQTable = false;
+		std::vector<float> m_QTableData; // [state][action]
+
 
 		Microsoft::WRL::ComPtr<ID3D12Resource> m_GroundTruthTex;
 		Microsoft::WRL::ComPtr<ID3D12Resource> upload;

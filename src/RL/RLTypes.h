@@ -12,7 +12,7 @@ struct RLTransitionGPU
 	uint32_t NextStateIndex = 0;
     uint32_t Valid = 0;
 	uint32_t Terminated = 0;
-	uint32_t Padding = 0;
+	uint32_t UseQValue = 0;
 };
 
 struct RLQValue
