@@ -126,9 +126,24 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 	CreateDepthStencilView();
 
+
 	CreateRootSignature();
 	CreateComputeRootSignature();
 	BuildShadersAndInputLayout();
+
+	switch (m_SceneID)
+	{
+	case SceneSetUp::DIFFUSE_SPHERE:
+		m_PerInstanceCBCount = 7;
+		break;
+	case SceneSetUp::DIFFUSE_CORNELL_BOX:
+		m_PerInstanceCBCount = 8;
+		break;
+	case SceneSetUp::DIFFUSE_ALCOVE:
+		m_PerInstanceCBCount = 12;
+		break;
+	}
+
 	//	d3dUtil::LoadObjModel("Models/sponza.obj", m_SponzaModel);
 	d3dUtil::LoadObjModel("Models/dragon.obj", m_DragonModel);
 	//	LoadTextures(m_SponzaModel);
@@ -144,7 +159,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 
 	m_FrameIndex = 0;
-	m_MaxIterations = 4096;
+	m_MaxIterations = 8192;
 	m_MaxFrames = 8192;
 
 	m_RenderSettings = {};
@@ -156,12 +171,14 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	m_RLController.SetGamma(0.9f);
 	m_RLController.SetEpsilon(0.1f);
 
+	m_RunTimestamp = GetTimestampString();
 	std::filesystem::path metricsPath = std::filesystem::path("metrics");
 	std::filesystem::create_directories(metricsPath);
-	std::string filename = "metrics" + GetTimestampString() + ".csv";
+	std::string filename = "metrics" + m_RunTimestamp + ".csv";
 	m_Fullpath = metricsPath / filename;
 
 	m_MetricsFileName = filename;
+
 
 	std::ofstream file(m_Fullpath, std::ios::app);
 
@@ -205,6 +222,8 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRLTransitionBuffer(m_ClientWidth, m_ClientHeight);
 	CreateRLTransitionReadbackBuffer();
 	CreateDenoisingResources();
+
+
 
 	CreateAccelerationStructures();
 	CreateRaytracingPipeline();
@@ -1404,13 +1423,13 @@ bool Renderer::Draw(bool useRaster)
 	m_PrevFrameStats = m_FrameStats;
 	m_HasPrevState = true;
 	if (m_UseRL || m_UseQTable || !m_UseTemporal)
-		m_MaxIterations = 4096;
+		m_MaxIterations = 256;
 	else if (m_UseTemporal)
 	{
 		m_MaxIterations = 8192;
 	}
 
-	if (m_FrameIndex == m_MaxIterations)
+	if (m_FrameIndex == m_MaxIterations || m_FrameIndex == 1 || m_FrameIndex == 4 || m_FrameIndex == 16 || m_FrameIndex == 256)
 	{
 		m_TargetCaptureSPP = m_FrameIndex;
 		m_SaveImage = true;
@@ -1547,10 +1566,10 @@ bool Renderer::Draw(bool useRaster)
 				memcpy(dstRow, srcRow, width * 4);
 			}
 
-			std::string folderName = GetTimestampString() + "_cornell_skull_dragon" + std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy)) + (m_UseQTable ? "_qtable" : (m_UseTemporal ? "GT" : "Baseline"));
+			std::string folderName = m_RunTimestamp + GetSceneSetUpName(m_SceneID);
 			std::filesystem::path runPath = std::filesystem::path("experiments/runs") / folderName;
 			std::filesystem::create_directories(runPath);
-			std::string filename = std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy)) + ("frame_") + std::to_string(m_FrameIndex) + "SPP" + ".png";
+			std::string filename = (m_UseQTable ? "QTable" : (m_UseTemporal ? "GT" : "Baseline")) + std::to_string(m_FrameIndex) + "SPP" + ".png";
 			std::filesystem::path fullPath = runPath / filename;
 
 			int result = stbi_write_jpg(fullPath.string().c_str(), width, height, 4, image.data(), width * 4);
@@ -2681,7 +2700,7 @@ void Renderer::BuildFrameResources()
 {
 	for (int i = 0; i < NumFrameResources; ++i)
 	{
-		m_FrameResources.push_back(std::make_unique<FrameResource>(m_Device.Get(), 1, (UINT)6));
+		m_FrameResources.push_back(std::make_unique<FrameResource>(m_Device.Get(), 1, (UINT)m_PerInstanceCBCount));
 	}
 }
 void Renderer::UpdateObjectCBs()
@@ -3768,74 +3787,12 @@ void Renderer::CreateShaderBindingTable()
 	m_SbtHelper.AddMissProgram(L"Miss", {});
 	m_SbtHelper.AddMissProgram(L"ShadowMiss", {});
 
-	//for (UINT i = 0; i < m_Instances.size(); i++)
-	//{
-	//	D3D12_GPU_VIRTUAL_ADDRESS vb = 0;
-	//	D3D12_GPU_VIRTUAL_ADDRESS ib = 0;
-	//	D3D12_GPU_VIRTUAL_ADDRESS perInstanceCB = m_PerInstanceCBs[i]->GetGPUVirtualAddress();
-	//	
-	//	if (i == 0)
-	//	{
-	//		vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
-	//		ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
-	//	}
-	//	else if (i >= 1 && i < 3)
-	//	{
-	//		vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
-	//		ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
-
-	//	}
-	//	else if (i >= 3 && i < 5)
-	//	{
-	//		vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
-	//		ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
-
-	//	}
-	//	else if (i == 5)
-	//	{
-	//		vb = m_DragonVertexBuffer->GetGPUVirtualAddress();
-	//		ib = m_DragonIndexBuffer->GetGPUVirtualAddress();
-	//	}
-	//	else
-	//	{
-	//		vb = m_SponzaVertexBuffer->GetGPUVirtualAddress();
-	//		ib = m_SponzaIndexBuffer->GetGPUVirtualAddress();
-	//	}
-
 	for (UINT i = 0; i < m_Instances.size(); i++)
 	{
 		D3D12_GPU_VIRTUAL_ADDRESS vb = 0;
 		D3D12_GPU_VIRTUAL_ADDRESS ib = 0;
 		D3D12_GPU_VIRTUAL_ADDRESS perInstanceCB = m_PerInstanceCBs[i]->GetGPUVirtualAddress();
 
-		/*	if (i == 0)
-			{
-				vb = boxSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
-				ib = boxSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
-			}
-			else */
-			//if (i >= 3 && i < 5)
-			//{
-			//	vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
-			//	ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
-
-			//}
-			//else if (i >=1  && i < 3)
-			//{
-			//	vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
-			//	ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
-
-			//}
-			//else if (i == 5)
-			//{
-			//	vb = m_DragonVertexBuffer->GetGPUVirtualAddress();
-			//	ib = m_DragonIndexBuffer->GetGPUVirtualAddress();
-			//}
-			//else if (i == 0)
-			//{
-			//	vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
-			//	ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
-			//}
 		if (m_SceneID == SceneSetUp::DIFFUSE_SPHERE)
 		{
 			m_PerInstanceCBCount = 7;
@@ -3851,29 +3808,48 @@ void Renderer::CreateShaderBindingTable()
 
 			}
 		}
-		//if (i >= 7 && i < 8)
-		//{
-		//	vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
-		//	ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
 
-		//}
-		//if (i < 6)
-		//{
-		//	vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
-		//	ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
-		//}
-		//else if (i >= 6 && i < 7)
-		//{
-		//	vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
-		//	ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
+		if (m_SceneID == SceneSetUp::DIFFUSE_CORNELL_BOX)
+		{
+			m_PerInstanceCBCount = 8;
+			if (i < 6)
+			{
+				vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
+				ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
+			}
+			else if (i == 6)
+			{
+				vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
+				ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 
-		//}
-		//else if (i == 8)
-		//{
-		//	vb = m_DragonVertexBuffer->GetGPUVirtualAddress();
-		//	ib = m_DragonIndexBuffer->GetGPUVirtualAddress();
-		//}
+			}
+			else if (i == 7)
+			{
+				vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
+				ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
 
+			}
+		}
+
+		if (m_SceneID == SceneSetUp::DIFFUSE_ALCOVE)
+		{
+			m_PerInstanceCBCount = 12;
+			if (i < 10)
+			{
+				vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
+				ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
+			}
+			else if (i == 10)
+			{
+				vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
+				ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
+			}
+			else if (i == 11)
+			{
+				vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
+				ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
+			}
+		}
 
 		m_SbtHelper.AddHitGroup(L"HitGroup", { (void*)vb,(void*)ib,
 			(void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress(),
@@ -3901,6 +3877,7 @@ void Renderer::CreateShaderBindingTable()
 
 
 	}
+
 	uint32_t sbtSize = m_SbtHelper.ComputeSBTSize();
 
 	m_SbtStorage = nv_helpers_dx12::CreateBuffer(m_Device.Get(), sbtSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
@@ -4007,14 +3984,14 @@ void Renderer::CreateAccelerationStructures()
 		{
 			// Floor (y = 0)
 			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
+			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
 			  XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
 
 			// Ceiling (y = 40)
 			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
+			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
 			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
-			  XMMatrixTranslation(0.0f, 60.0f, 0.0f) },
+			  XMMatrixTranslation(0.0f, 40.0f, 0.0f) },
 
 			// AreaLight
 			{ planeBottomLevelBuffers.pResult,
@@ -4024,63 +4001,173 @@ void Renderer::CreateAccelerationStructures()
 
 			// Back wall (z = +20), normal pointing into the box (-Z)
 			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
+			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
 			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
-			  XMMatrixTranslation(0.0f, 60.0f, 60.0f) },
+			  XMMatrixTranslation(0.0f, 20.0f, 40.0f) },
 
 			// Left wall (x = -20), normal pointing into the box (+X)
 			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
+			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
 			  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
-			  XMMatrixTranslation(-60.0f, 60.0f, 0.0f) },
+			  XMMatrixTranslation(-40.0f, 20.0f, 0.0f) },
 
 			// Right wall (x = +20), normal pointing into the box (-X)
 			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(60.0f, 1.0f, 60.0f) *
+			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
 			  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
-			  XMMatrixTranslation(60.0f, 60.0f, 0.0f) },
+			  XMMatrixTranslation(40.0f, 20.0f, 0.0f) },
+
+			// ----------------------------------------------------
+			// Objects on the floor: sphere
+			// ----------------------------------------------------
+
+			// Sphere in center: radius ~12.5 at y = 12.5
+			{ sphereBottomLevelBuffers.pResult,
+			XMMatrixScaling(25.0f, 25.0f, 25.0f) *
+			XMMatrixTranslation(0.0f, 12.5f, 0.0f) } };
+
+	};
+
+	if (m_SceneID == SceneSetUp::DIFFUSE_CORNELL_BOX)
+
+	{
+		m_Instances =
+		{
+			// Floor (y = 0)
+			{ planeBottomLevelBuffers.pResult,
+			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			  XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
+
+			// Ceiling (y = 40)
+			{ planeBottomLevelBuffers.pResult,
+			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+			  XMMatrixTranslation(0.0f, 40.0f, 0.0f) },
+
+			// AreaLight
+			{ planeBottomLevelBuffers.pResult,
+			  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
+			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+			  XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z)},
+
+			// Back wall (z = +20), normal pointing into the box (-Z)
+			{ planeBottomLevelBuffers.pResult,
+			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
+			  XMMatrixTranslation(0.0f, 40.0f, 40.0f) },
+
+			// Left wall (x = -20), normal pointing into the box (+X)
+			{ planeBottomLevelBuffers.pResult,
+			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
+			  XMMatrixTranslation(-40.0f, 40.0f, 0.0f) },
+
+			// Right wall (x = +20), normal pointing into the box (-X)
+			{ planeBottomLevelBuffers.pResult,
+			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
+			  XMMatrixTranslation(40.0f, 40.0f, 0.0f) },
 
 			// ----------------------------------------------------
 			// Objects on the floor: sphere (left) + skull (right)
 			// ----------------------------------------------------
 
-			/*{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(28.0f, 1.0f, 28.0f) *
-			  XMMatrixTranslation(0.0f, -20.0f, 0.0f) },*/
-
-			  //// Sphere on the left: radius ~3 at y = 3
-			  //{ sphereBottomLevelBuffers.pResult,
-			  //  XMMatrixScaling(6.0f, 6.0f, 6.0f) *
-			  //  XMMatrixTranslation(-17.0f, 3.0f, -5.0f) },
-
-
-				  // Sphere in center: radius ~12.5 at y = 12.5
+	        // Sphere in center: radius ~12.5 at y = 12.5
 			{ sphereBottomLevelBuffers.pResult,
 			XMMatrixScaling(25.0f, 25.0f, 25.0f) *
-			XMMatrixTranslation(0.0f, 12.5f, 0.0f) }};
-
-			//// Skull on the right
-			//{ skull0BottomLevelBuffers.pResult,
-			//  XMMatrixScaling(4.0f, 4.0f, 4.0f) *
-			//  XMMatrixTranslation(12.0f, 2.0f, 8.0f) },
+			XMMatrixTranslation(0.0f, 12.5f, 0.0f) },
 
 			// Skull on the left
-			/*{ skull0BottomLevelBuffers.pResult,
+			{ skull0BottomLevelBuffers.pResult,
 			  XMMatrixScaling(5.0f, 5.0f, 5.0f) *
-			  XMMatrixTranslation(-33.0f, 2.5f, 15.0f) },
+			  XMMatrixTranslation(-33.0f, 2.5f, 15.0f) }
+		};
+	}
 
-			{ bottomLevelBuffers.pResult,
-			  XMMatrixRotationY(8.0 * XM_PIDIV2) *
-			  XMMatrixScaling(60.0f, 60.0f, 60.0f) *
-			  XMMatrixTranslation(10.0f, 14.5f, 5.0f)
-			  }*/
+	if (m_SceneID == SceneSetUp::DIFFUSE_ALCOVE)
+	{
+		m_Instances =
+		{
+			// Floor
+			{ planeBottomLevelBuffers.pResult,
+			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			  XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
 
-			  //{ bottomLevelBuffers.pResult,
-			  //  XMMatrixScaling(1.0f, 1.0f, 1.0f) *
-			  //  XMMatrixTranslation(0.0f, 0.0f, -25.0f)}
-	};
+			// Ceiling
+			{ planeBottomLevelBuffers.pResult,
+			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+			  XMMatrixTranslation(0.0f, 40.0f, 0.0f) },
 
+			// Area light near ceiling
+			{ planeBottomLevelBuffers.pResult,
+			  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
+			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+			  XMMatrixTranslation(m_AreaLightData.Position.x,
+								  m_AreaLightData.Position.y,
+								  m_AreaLightData.Position.z) },
 
+			// Main back wall
+			{ planeBottomLevelBuffers.pResult,
+			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
+			  XMMatrixTranslation(0.0f, 20.0f, 20.0f) },
+
+			// Left wall
+			{ planeBottomLevelBuffers.pResult,
+			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
+			  XMMatrixTranslation(-20.0f, 20.0f, 0.0f) },
+
+			// Right wall
+			{ planeBottomLevelBuffers.pResult,
+			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
+			  XMMatrixTranslation(20.0f, 20.0f, 0.0f) },
+
+			// ------------------------------------------------
+			// Alcove pieces
+			// ------------------------------------------------
+
+			// Alcove inner back wall (deeper than main back wall)
+			{ planeBottomLevelBuffers.pResult,
+			  XMMatrixScaling(16.0f, 1.0f, 20.0f) *
+			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
+			  XMMatrixTranslation(0.0f, 20.0f, 30.0f) },
+
+			// Alcove left divider wall
+			{ planeBottomLevelBuffers.pResult,
+			  XMMatrixScaling(10.0f, 1.0f, 20.0f) *
+			  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
+			  XMMatrixTranslation(-8.0f, 20.0f, 25.0f) },
+
+			// Alcove right divider wall
+			{ planeBottomLevelBuffers.pResult,
+			  XMMatrixScaling(10.0f, 1.0f, 20.0f) *
+			  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
+			  XMMatrixTranslation(8.0f, 20.0f, 25.0f) },
+
+			// Alcove ceiling/header
+			{ planeBottomLevelBuffers.pResult,
+			  XMMatrixScaling(16.0f, 1.0f, 10.0f) *
+			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+			  XMMatrixTranslation(0.0f, 28.0f, 25.0f) },
+
+			// ------------------------------------------------
+			// Objects
+			// ------------------------------------------------
+
+			// Sphere near center/front of alcove entrance
+			{ sphereBottomLevelBuffers.pResult,
+			  XMMatrixScaling(8.0f, 8.0f, 8.0f) *
+			  XMMatrixTranslation(3.0f, 8.0f, 6.0f) },
+
+			// Skull off to the left, closer to recessed region
+			{ skull0BottomLevelBuffers.pResult,
+			  XMMatrixScaling(3.5f, 3.5f, 3.5f) *
+			  XMMatrixTranslation(-10.0f, 1.75f, 16.0f) }
+		};
+	}
 	m_IsInstanceReflective = {
 		false,
 		false,
@@ -4364,7 +4451,7 @@ void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 55.0f, 0.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 38.0f, 0.0f);
 	m_AreaLightData.Radiance = XMFLOAT3(5.0f, 5.0f, 5.0f);
 	m_AreaLightData.U = XMFLOAT3(16.0f, 0.0f, 0.0f);
 	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 16.0f);

@@ -64,7 +64,7 @@ Window::~Window()
 
 void Window::Init(const WindowProps& props)
 {
-	m_Camera.SetPosition(5.0f, 33.0f, -120.0f);
+	m_Camera.SetPosition(0.0f, 23.0f, -80.0f);
 
 	m_Data.Title = props.Title;
 	m_Data.Width = props.Width;

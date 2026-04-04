@@ -474,10 +474,10 @@ private:
 		float windowLogVars[8];
 		int windowCount;
 
-		bool m_UseTemporal = false;
+		bool m_UseTemporal = true;
 		bool m_UseRL = false;
 		bool m_RLQTableInSRVState = false;
-		bool m_UseQTable = true;
+		bool m_UseQTable = false;
 
 		std::vector<RLQValue> m_RLQTable;
 
@@ -524,7 +524,23 @@ private:
 			TEST_GLASS_CORNELL = 6,
 		};
 
-		SceneSetUp m_SceneID = SceneSetUp::DIFFUSE_SPHERE;
+		std::string GetSceneSetUpName(SceneSetUp setup)
+		{
+			switch (setup)
+			{
+			case SceneSetUp::DIFFUSE_SPHERE: return "Diffuse Sphere";
+			case SceneSetUp::DIFFUSE_CORNELL_BOX: return "Diffuse Cornell Box";
+			case SceneSetUp::DIFFUSE_ALCOVE: return "Diffuse Alcove";
+			case SceneSetUp::GLOSSY_SPHERE: return "Glossy Sphere";
+			case SceneSetUp::GLASS_SPHERE: return "Glass Sphere";
+			case SceneSetUp::TEST_DIFFUSE_CORNELL: return "Test Diffuse Cornell";
+			case SceneSetUp::TEST_GLASS_CORNELL: return "Test Glass Cornell";
+			default: return "Unknown Scene Setup";
+			}
+		}
+
+		SceneSetUp m_SceneID = SceneSetUp::DIFFUSE_ALCOVE;
+		std::string m_RunTimestamp;
 };
 
 struct PerInstanceData
