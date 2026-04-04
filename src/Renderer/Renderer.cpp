@@ -1537,7 +1537,7 @@ bool Renderer::Draw(bool useRaster)
 				memcpy(dstRow, srcRow, width * 4);
 			}
 
-			std::string folderName = GetTimestampString() + "_cornell_skull_dragon" + std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy));
+			std::string folderName = GetTimestampString() + "_cornell_skull_dragon" + std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy)) + (m_UseQTable ? "_qtable" : (m_UseTemporal ? "GT" : "Baseline"));
 			std::filesystem::path runPath = std::filesystem::path("experiments/runs") / folderName;
 			std::filesystem::create_directories(runPath);
 			std::string filename = std::to_string(static_cast<int>(m_RenderSettings.SamplingStrategy)) + ("frame_") + std::to_string(m_FrameIndex) + "SPP" + ".png";
@@ -4668,7 +4668,8 @@ void Renderer::RenderImGuiDebugWindow()
 
 	//}
 
-	ImGui::Text("Using RL: %s", m_UseRL == 1 ? "True" : "False");
+	ImGui::Text("Training RL: %s", m_UseRL == 1 ? "True" : "False");
+	ImGui::Text("Using Q Table: %s", m_UseQTable == 1 ? "True" : "False");
 
 	ImGui::End();
 }

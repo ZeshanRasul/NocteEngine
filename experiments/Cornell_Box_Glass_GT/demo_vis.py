@@ -8,11 +8,11 @@ from PIL import Image
 # USER SETTINGS: CHANGE THESE PATHS
 # ============================================================
 
-BASELINE_PATH = r"./Caustics/Dragon/Fog/Baseline_4096SPP.png"
-RL_PATH       = r"./Caustics/Dragon/Fog/RLPT_4096SPP.png"
-GT_PATH       = r"./Caustics/Dragon/Fog/GT_4096SPP.png"
+BASELINE_PATH = r"./Caustics/Caustics-Transfer-To-Diffuse/Baseline_4096SPP.png"
+RL_PATH       = r"./Caustics/Caustics-Transfer-To-Diffuse/RLPT_4096SPP.png"
+GT_PATH       = r"./Caustics/Caustics-Transfer-To-Diffuse/GT_4096SPP.png"
 
-OUTPUT_DIR    = r"./Caustics/Dragon/Fog/charts"
+OUTPUT_DIR    = r"./Caustics/Caustics-Transfer-To-Diffuse/charts"
 OUTPUT_NAME   = "rl_vs_baseline_figure_4096SPP.png"
 
 # Equal-cost label for the figure/caption
