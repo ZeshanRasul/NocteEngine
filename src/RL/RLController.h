@@ -6,7 +6,7 @@
 class RLController
 {
 public:
-    static constexpr int NumStates = 135;
+    static constexpr int NumStates = 243;
     static constexpr int NumActions = 3;
 
 	RLController() = default;

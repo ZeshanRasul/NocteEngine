@@ -239,7 +239,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 	if (m_UseQTable)
 	{
-		const int numStates = 238;
+		const int numStates = 243;
 		const int numActions = 3;
 
 		std::vector<float> m_QTableData = BuildQTableVector(
