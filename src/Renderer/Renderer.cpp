@@ -145,7 +145,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 	m_FrameIndex = 0;
 	m_MaxIterations = 4096;
-	m_MaxFrames = 4096;
+	m_MaxFrames = 8192;
 
 	m_RenderSettings = {};
 	m_RenderSettings.SamplingStrategy = SamplingMode::Balanced;
@@ -178,7 +178,9 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 		<< "Valid" << ","
 		<< "Q0" << ","
 		<< "Q1" << ","
-		<< "Q2" << "\n";
+		<< "Q2" << ","
+		<< "Q3" << ","
+		<< "Q4" << "\n";
 
 	vp.TopLeftX = 0.0f;
 	vp.TopLeftY = 0.0f;
@@ -240,10 +242,10 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	if (m_UseQTable)
 	{
 		const int numStates = 243;
-		const int numActions = 3;
+		const int numActions = 5;
 
 		std::vector<float> m_QTableData = BuildQTableVector(
-			Q_TABLE_DIFFUSE_CORNELL_BOX,
+			Q_TABLE_DIFFUSE_3_CORNELL_BOX,
 			numStates,
 			numActions
 		);
@@ -623,7 +625,9 @@ bool Renderer::Draw(bool useRaster)
 						<< t.Valid << ","
 						<< m_RLQTable[static_cast<size_t>(t.StateIndex) * NumActions + 0].Value << ","
 						<< m_RLQTable[static_cast<size_t>(t.StateIndex) * NumActions + 1].Value << ","
-						<< m_RLQTable[static_cast<size_t>(t.StateIndex) * NumActions + 2].Value << "\n";
+						<< m_RLQTable[static_cast<size_t>(t.StateIndex) * NumActions + 2].Value << ","
+						<< m_RLQTable[static_cast<size_t>(t.StateIndex) * NumActions + 3].Value << ","
+						<< m_RLQTable[static_cast<size_t>(t.StateIndex) * NumActions + 4].Value << "\n";
 					logged++;
 				}
 				file.close();
@@ -1399,7 +1403,13 @@ bool Renderer::Draw(bool useRaster)
 
 		m_PrevFrameStats = m_FrameStats;
 		m_HasPrevState = true;
-		m_MaxIterations = 4096;
+		if (m_UseRL || m_UseQTable || !m_UseTemporal)
+			m_MaxIterations = 4096;
+		else if (m_UseTemporal)
+		{
+			m_MaxIterations = 8192;
+		}
+
 		if (m_FrameIndex == m_MaxIterations)
 		{
 			m_TargetCaptureSPP = m_FrameIndex;
@@ -3992,7 +4002,7 @@ void Renderer::CreateAccelerationStructures()
 		// AreaLight
 		{ planeBottomLevelBuffers.pResult,
 		  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
-		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(170.0f)) *
+		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
 		  XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z)},
 
 		// Back wall (z = +20), normal pointing into the box (-Z)
@@ -4567,7 +4577,7 @@ void Renderer::RenderImGuiDebugWindow()
 	ImGui::Begin("Research Controls");
 
 	ImGui::SliderInt("SPP per frame", &m_SPP, 1, 8);
-	ImGui::SliderInt("Max Frames", &m_MaxFrames, 1, 4096);
+	ImGui::SliderInt("Max Frames", &m_MaxFrames, 1, 8192);
 
 	if (ImGui::Checkbox("Use Temporal Accumulation", &m_UseTemporal))
 	{

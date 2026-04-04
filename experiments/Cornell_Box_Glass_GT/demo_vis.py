@@ -8,16 +8,16 @@ from PIL import Image
 # USER SETTINGS: CHANGE THESE PATHS
 # ============================================================
 
-BASELINE_PATH = r"./RL_Eval/Diffuse_Cornell_Box/Baseline_4096SPP.png"
-RL_PATH       = r"./RL_Eval/Diffuse_Cornell_Box/RLPT_4096SPP.png"
-GT_PATH       = r"./RL_Eval/Diffuse_Cornell_Box/GT_4096SPP.png"
+BASELINE_PATH = r"./RL_Eval/Diffuse_2/Baseline_4096SPP.png"
+RL_PATH       = r"./RL_Eval/Diffuse_2/RLPT_4096SPP.png"
+GT_PATH       = r"./RL_Eval/Diffuse_2/GT_8192SPP.png"
 
-OUTPUT_DIR    = r"./RL_Eval/Diffuse_Cornell_Box/charts"
+OUTPUT_DIR    = r"./RL_Eval/Diffuse_2/charts"
 OUTPUT_NAME   = "rl_vs_baseline_figure_4096SPP.png"
 
 # Equal-cost label for the figure/caption
 SPP_LABEL = "4096 spp"
-GT_LABEL  = "4096 spp"
+GT_LABEL  = "8192 spp"
 
 
 # Improvement visualization clamp
@@ -205,6 +205,14 @@ def main():
 
     print(f"Saved figure to: {output_path}")
 
-
+    print("Baseline == GT:", np.array_equal(baseline, gt))
+    print("RL == GT:", np.array_equal(rl, gt))
+    print("Baseline path:", BASELINE_PATH)
+    print("GT path:", GT_PATH)
+    
+    print("Baseline shape:", baseline.shape)
+    print("GT shape:", gt.shape)
+    print("RL shape:", rl.shape)
+    
 if __name__ == "__main__":
     main()

@@ -1,8 +1,8 @@
 import pandas as pd
 
 
-INPUT_CSV = "./RL_Eval/Diffuse_Cornell_Box/metrics2026-04-04_15-43-49.csv"
-OUTPUT_HPP = "q_table_diffuse_cb.hpp"
+INPUT_CSV = "./RL_Eval/Diffuse_2/metrics2026-04-04_19-55-23.csv"
+OUTPUT_HPP = "q_table_generated_2.hpp"
 TABLE_NAME = "Q_TABLE_DIFFUSE_CORNELL_BOX"
 
 
@@ -11,13 +11,13 @@ def main() -> None:
     df = pd.read_csv(INPUT_CSV)
 
     # Validate required columns
-    required_columns = ["State", "Q0", "Q1", "Q2"]
+    required_columns = ["State", "Q0", "Q1", "Q2", "Q3", "Q4"]
     missing = [col for col in required_columns if col not in df.columns]
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
 
     # Keep only the relevant columns
-    df_clean = df[["State", "Q0", "Q1", "Q2"]].copy()
+    df_clean = df[["State", "Q0", "Q1", "Q2", "Q3", "Q4"]].copy()
 
     # Take the latest row for each observed state
     # groupby(...).last() preserves the last occurrence in file order
@@ -41,9 +41,13 @@ def main() -> None:
         q0 = float(row["Q0"])
         q1 = float(row["Q1"])
         q2 = float(row["Q2"])
+        q3 = float(row["Q3"])
+        q4 = float(row["Q4"])
+
+
 
         lines.append(
-            f"    {{{state}, {{{q0:.9f}f, {q1:.9f}f, {q2:.9f}f}}}},"
+            f"    {{{state}, {{{q0:.9f}f, {q1:.9f}f, {q2:.9f}f, {q3:.9f}f, {q4:.9f}f}}}},"
         )
 
     lines.append("};")

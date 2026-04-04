@@ -4,7 +4,9 @@ uint ChooseBestAction(uint stateIndex)
 
     float q0 = gQTable[baseIdx + 0].Value;
     float q1 = gQTable[baseIdx + 1].Value;
-    float q2 = gQTable[baseIdx + 2].Value;
+    float q1 = gQTable[baseIdx + 2].Value;
+    float q1 = gQTable[baseIdx + 3].Value;
+    float q2 = gQTable[baseIdx + 4].Value;
 
     uint bestAction = 0;
     float bestQ = q0;
@@ -20,6 +22,19 @@ uint ChooseBestAction(uint stateIndex)
         bestQ = q2;
         bestAction = 2;
     }
+    
+    if (q3 > bestQ)
+    {
+        bestQ = q3;
+        bestAction = 3;
+    }
+  
+    if (q4 > bestQ)
+    {
+        bestQ = q4;
+        bestAction = 4;
+    }
+
 
     return bestAction;
 }
@@ -135,18 +150,33 @@ SamplingModeParams GetSamplingParams(uint actionIndex)
 
     if (actionIndex == 0)
     {
-        p.bsdfProb = 0.8f;
-        p.lightProb = 0.2f;
+        p.bsdfProb = 0.9f;
+        p.lightProb = 0.1f;
     }
     else if (actionIndex == 1)
+    {
+        p.bsdfProb = 0.7f;
+        p.lightProb = 0.3f;
+    }
+    else if (actionIndex == 2)
     {
         p.bsdfProb = 0.5f;
         p.lightProb = 0.5f;
     }
+    else if (actionIndex == 3)
+    {
+        p.bsdfProb = 0.3;
+        p.lightProb = 0.7;
+    }
+    else if (actionIndex == 4)
+    {
+        p.bsdfProb = 0.1f;
+        p.lightProb = 0.9f;
+    }
     else
     {
-        p.bsdfProb = 0.2f;
-        p.lightProb = 0.8f;
+        p.bsdfProb = 0.5f;
+        p.lightProb = 0.5f;
     }
 
     return p;
