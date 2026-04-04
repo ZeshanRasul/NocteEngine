@@ -64,6 +64,9 @@ cbuffer cbPass : register(b0)
     int UseNEE;
     int gUseRL;
 
+    int UseQTable;
+    float3 padding;
+    
     Light gLights[MaxLights];
 };
 
@@ -357,15 +360,23 @@ void RayGen()
             if (gUseRL == 1)
             {
                 action = ChooseActionEpsilonGreedy(currentState, actionSeed, 0.1f);
+                params = GetSamplingParams(action);
+                record.ActionIndex = action;
+            }
+            else if (UseQTable)
+            {
+                action = ChooseBestActionWithTieBreak(currentState, actionSeed, frameIndex);
+                params = GetSamplingParams(action);
+                record.ActionIndex = action;
             }
             else
             {
-                action = 1;
+                params.bsdfProb = BSDFSampleProbability;
+                params.lightProb = LightSampleProbability;
+                record.ActionIndex = 999; // sentinel for baseline / not RL
             }
             
-            action = ChooseBestActionWithTieBreak(currentState, actionSeed, frameIndex);
-            
-            payload.prms = GetSamplingParams(action);
+            payload.prms = params;
             
             payload.isReflective = 0;
             payload.isRefractive = 0;

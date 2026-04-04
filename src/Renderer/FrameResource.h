@@ -55,6 +55,9 @@ struct PassConstants
 	int UseNEE = 1;
 	int UseRL = 0;
 
+	int UseQTable = 0;
+	float padding[3];
+
 	Light Lights[MaxLights];
 };
 

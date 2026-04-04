@@ -353,7 +353,6 @@ private:
 	int m_FrameIndex = 0;
 	int m_MaxFrames = 8192;
 	int m_SPP = 1;
-	bool m_UseTemporal = false;
 	bool m_UseDenoiser = false;
 	bool m_ClearAccumulation = false;
 	void ClearAccumulation() {};
@@ -475,6 +474,7 @@ private:
 		float windowLogVars[8];
 		int windowCount;
 
+		bool m_UseTemporal = true;
 		bool m_UseRL = false;
 		bool m_RLQTableInSRVState = false;
 		bool m_UseQTable = false;

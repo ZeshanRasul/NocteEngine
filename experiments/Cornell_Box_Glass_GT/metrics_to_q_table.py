@@ -1,9 +1,9 @@
 import pandas as pd
 
 
-INPUT_CSV = "./Caustics/Dragon/metrics2026-04-03_22-35-41.csv"
-OUTPUT_HPP = "q_table_generated.hpp"
-TABLE_NAME = "Q_TABLE_CAUSTICS_DRAGON"
+INPUT_CSV = "./RL_Eval/Diffuse_Cornell_Box/metrics2026-04-04_15-43-49.csv"
+OUTPUT_HPP = "q_table_diffuse_cb.hpp"
+TABLE_NAME = "Q_TABLE_DIFFUSE_CORNELL_BOX"
 
 
 def main() -> None:

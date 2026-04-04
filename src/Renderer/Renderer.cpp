@@ -243,7 +243,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 		const int numActions = 3;
 
 		std::vector<float> m_QTableData = BuildQTableVector(
-			Q_TABLE_CAUSTICS_DRAGON,
+			Q_TABLE_DIFFUSE_CORNELL_BOX,
 			numStates,
 			numActions
 		);
@@ -2751,7 +2751,12 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.MaxBounces = m_RenderSettings.MaxBounces;
 	m_MainPassCB.FrameIndex = m_FrameIndex;
 	m_MainPassCB.UseNEE = m_RenderSettings.useNEE ? 1 : 0;
-	m_MainPassCB.UseRL = m_UseRL;
+	m_MainPassCB.UseRL = m_UseRL ? 1 : 0;
+
+	m_MainPassCB.UseQTable = m_UseQTable ? 1 : 0;
+	m_MainPassCB.padding[0] = 0.0f;
+	m_MainPassCB.padding[1] = 0.0f;
+	m_MainPassCB.padding[2] = 0.0f;
 
 	m_MainPassCB.Lights[0].Strength = { 4.6f, 4.6f, 4.6f };
 	m_MainPassCB.Lights[0].Direction = { 0.3f, -0.46f, 0.7f };

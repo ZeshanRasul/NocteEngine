@@ -521,8 +521,11 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     float xi2 = Rand(payload.seed);
 
     float p_bsdf = payload.prms.bsdfProb;
-   // p_bsdf = clamp(p_bsdf, 0.05f, 0.95f);
-    float p_light = 1.0f - p_bsdf;
+    float p_light = payload.prms.lightProb;
+
+    float sumP = max(p_bsdf + p_light, 1e-6f);
+    p_bsdf /= sumP;
+    p_light /= sumP;
 
     bool chooseLight = (xi2 < p_light);
     
