@@ -13,7 +13,7 @@ namespace
 {
     int BucketizeBounce(int bounce)
     {
-        if (bounce <= 1) return 0;
+        if (bounce == 0) return 0;
         if (bounce <= 3) return 1;
         return 2;
     }
@@ -23,7 +23,7 @@ namespace
         if (isRefractive)
             return static_cast<int>(SurfaceClass::Refractive);
 
-        if (isReflective || roughness < 0.08f)
+        if (isReflective)
             return static_cast<int>(SurfaceClass::Reflective);
 
         return static_cast<int>(SurfaceClass::Diffuse);
@@ -47,8 +47,15 @@ namespace
 
     int BucketizeRoughness(float roughness)
     {
-        if (roughness < 0.05f) return 0;
+        if (roughness < 0.08f) return 0;
         if (roughness < 0.3f) return 1;
+        return 2;
+    }
+
+    int BucketizeSpecularChain(int specularChainLength)
+    {
+        if (specularChainLength == 0) return 0;
+        if (specularChainLength == 1) return 1;
         return 2;
     }
 }
@@ -64,7 +71,6 @@ DiscreteState BucketizeState(const FrameStats& stats, int maxIterations)
         stats.IsReflective,
         stats.Roughness
     );
-    state.CosThetaBucket = BucketizeCosTheta(stats.CosTheta);
     state.ThroughputBucket = BucketizeThroughput(stats.ThroughputLuminance);
     state.RoughnessBucket = BucketizeRoughness(stats.Roughness);
 

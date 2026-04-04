@@ -511,6 +511,20 @@ private:
 			ID3D12Device* device,
 			ID3D12GraphicsCommandList* cmdList,
 			const std::string& filename);
+
+		enum class SceneSetUp
+		{
+			DIFFUSE_SPHERE = 0,
+			DIFFUSE_CORNELL_BOX = 1,
+			DIFFUSE_ALCOVE = 2,
+			GLOSSY_SPHERE = 3,
+			GLASS_SPHERE = 4,
+
+			TEST_DIFFUSE_CORNELL = 5,
+			TEST_GLASS_CORNELL = 6,
+		};
+
+		SceneSetUp m_SceneID = SceneSetUp::DIFFUSE_SPHERE;
 };
 
 struct PerInstanceData
