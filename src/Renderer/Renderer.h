@@ -475,9 +475,9 @@ private:
 		int windowCount;
 
 		bool m_UseTemporal = false;
-		bool m_UseRL = false;
+		bool m_UseRL = true;
 		bool m_RLQTableInSRVState = false;
-		bool m_UseQTable = true;
+		bool m_UseQTable = false;
 
 		std::vector<RLQValue> m_RLQTable;
 

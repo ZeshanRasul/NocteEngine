@@ -3,8 +3,10 @@
 enum class SamplingMode
 {
 	BSDFHeavy = 0,
-	Balanced = 1,
-	LightHeavy = 2
+	BSDFGentle = 1,
+	Balanced = 2,
+	LightGentle = 3,
+	LightHeavy = 4
 };
 
 struct RenderSettings

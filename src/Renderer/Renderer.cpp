@@ -1552,6 +1552,12 @@ bool Renderer::Draw(bool useRaster)
 			m_ReadbackBuffer->Unmap(0, nullptr);
 			m_SaveImage = false;
 			//	m_FrameIndex = 0;
+
+			if (m_FrameIndex == m_MaxIterations)
+			{
+				return false;
+			}
+
 		}
 
 

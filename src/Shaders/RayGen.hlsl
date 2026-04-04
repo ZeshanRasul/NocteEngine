@@ -2,7 +2,7 @@
 #include "PathTracerCommon.hlsl"
 
 #define MaxLights 16
-#define NUM_ACTIONS 3
+#define NUM_ACTIONS 5
 
 struct RLTransitionGPU
 {
@@ -131,10 +131,12 @@ uint ChooseBestActionWithTieBreak(uint stateIndex, uint pixel, uint frameIndex)
     float q0 = gQTable[baseIdx + 0].Value;
     float q1 = gQTable[baseIdx + 1].Value;
     float q2 = gQTable[baseIdx + 2].Value;
+    float q3 = gQTable[baseIdx + 3].Value;
+    float q4 = gQTable[baseIdx + 4].Value;
 
-    float maxQ = max(q0, max(q1, q2));
+    float maxQ = max(q0, max(q1, max(q2, max(q3, q4))));
 
-    uint candidates[3];
+    uint candidates[5];
     uint count = 0;
 
     if (q0 == maxQ)
@@ -143,6 +145,10 @@ uint ChooseBestActionWithTieBreak(uint stateIndex, uint pixel, uint frameIndex)
         candidates[count++] = 1;
     if (q2 == maxQ)
         candidates[count++] = 2;
+    if (q3 == maxQ)
+        candidates[count++] = 3;
+    if (q4 == maxQ)
+        candidates[count++] = 4;
 
     float r = HashToUnitFloat(pixel + 7919u * frameIndex);
     uint pick = min((uint) (r * count), count - 1);
@@ -246,13 +252,28 @@ SamplingModeParams GetSamplingParams(uint actionIndex)
     }
     else if (actionIndex == 1)
     {
+        p.bsdfProb = 0.7f;
+        p.lightProb = 0.3f;
+    }
+    else if (actionIndex == 2)
+    {
         p.bsdfProb = 0.5f;
         p.lightProb = 0.5f;
     }
-    else
+    else if (actionIndex == 3)
+    {
+        p.bsdfProb = 0.3;
+        p.lightProb = 0.7;
+    }
+    else if (actionIndex == 4)
     {
         p.bsdfProb = 0.1f;
         p.lightProb = 0.9f;
+    }
+    else
+    {
+        p.bsdfProb = 0.5f;
+        p.lightProb = 0.5f;
     }
 
     return p;
