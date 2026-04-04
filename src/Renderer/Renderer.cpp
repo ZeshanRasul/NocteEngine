@@ -157,6 +157,45 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	BuildMaterials();
 	BuildRenderItems();
 
+	if (m_SceneID == SceneSetUp::DIFFUSE_ALCOVE)
+	{
+		instanceMaterialIndices =
+		{
+			0,  // floor -> white
+			0,  // ceiling -> white
+			6,  // arealight -> olive
+			0,  // back/front wall -> white
+			7,  // left wall -> red
+			4,  // right wall -> green
+			1,
+			1,
+			1,
+			1,
+			//5,  // left sphere -> sphere material
+			5,  // right sphere -> sphere material
+			//3,  // skull right -> skull material
+			3,  // skull left -> skull material
+			//11  // dragon -> dragon material
+		};
+	}
+	else if (m_SceneID == SceneSetUp::DIFFUSE_CORNELL_BOX)
+	{
+		instanceMaterialIndices =
+		{
+			0,  // floor -> white
+			0,  // ceiling -> white
+			6,  // arealight -> olive
+			0,  // back/front wall -> white
+			7,  // left wall -> red
+			4,  // right wall -> green
+			//	0,  // little plane -> white
+			5,  // left sphere -> sphere material
+			//5,  // right sphere -> sphere material
+			//3,  // skull right -> skull material
+			3,  // skull left -> skull material
+			//11  // dragon -> dragon material
+		};
+	}
 
 	m_FrameIndex = 0;
 	m_MaxIterations = 8192;
@@ -172,7 +211,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	m_RLController.SetEpsilon(0.1f);
 
 	m_RunTimestamp = GetTimestampString();
-	std::filesystem::path metricsPath = std::filesystem::path("metrics");
+	std::filesystem::path metricsPath = std::filesystem::path("metrics" + GetSceneSetUpName(m_SceneID));
 	std::filesystem::create_directories(metricsPath);
 	std::string filename = "metrics" + m_RunTimestamp + ".csv";
 	m_Fullpath = metricsPath / filename;
@@ -2090,7 +2129,7 @@ void Renderer::BuildMaterials()
 	bricks0->Name = "bricks0";
 	bricks0->MatCBIndex = 1;
 	bricks0->DiffuseSrvHeapIndex = 1;
-	bricks0->DiffuseAlbedo = XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
+	bricks0->DiffuseAlbedo = XMFLOAT4(0.64f, 0.64f, 0.64f, 1.0f);
 	bricks0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	bricks0->Roughness = 1.0f;
 	bricks0->metallic = 0.00f;
@@ -4072,15 +4111,15 @@ void Renderer::CreateAccelerationStructures()
 			// Objects on the floor: sphere (left) + skull (right)
 			// ----------------------------------------------------
 
-	        // Sphere in center: radius ~12.5 at y = 12.5
+			// Sphere in center: radius ~12.5 at y = 12.5
 			{ sphereBottomLevelBuffers.pResult,
 			XMMatrixScaling(25.0f, 25.0f, 25.0f) *
-			XMMatrixTranslation(0.0f, 12.5f, 0.0f) },
+			XMMatrixTranslation(10.0f, 12.5f, 0.0f) },
 
 			// Skull on the left
 			{ skull0BottomLevelBuffers.pResult,
-			  XMMatrixScaling(5.0f, 5.0f, 5.0f) *
-			  XMMatrixTranslation(-33.0f, 2.5f, 15.0f) }
+			  XMMatrixScaling(3.0f, 3.0f, 3.0f) *
+			  XMMatrixTranslation(-16.0f, 1.5f, 15.0f) }
 		};
 	}
 
@@ -4160,12 +4199,12 @@ void Renderer::CreateAccelerationStructures()
 			// Sphere near center/front of alcove entrance
 			{ sphereBottomLevelBuffers.pResult,
 			  XMMatrixScaling(8.0f, 8.0f, 8.0f) *
-			  XMMatrixTranslation(3.0f, 8.0f, 6.0f) },
+			  XMMatrixTranslation(13.0f, 8.0f, 6.0f) },
 
 			// Skull off to the left, closer to recessed region
 			{ skull0BottomLevelBuffers.pResult,
-			  XMMatrixScaling(3.5f, 3.5f, 3.5f) *
-			  XMMatrixTranslation(-10.0f, 1.75f, 16.0f) }
+			  XMMatrixScaling(1.5f, 1.5f, 1.5f) *
+			  XMMatrixTranslation(-15.5f, 0.75f, 16.0f) }
 		};
 	}
 	m_IsInstanceReflective = {

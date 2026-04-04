@@ -390,21 +390,7 @@ private:
 
 	std::vector<bool> m_IsInstanceReflective;
 
-	std::vector<uint32_t> instanceMaterialIndices =
-	{
-		0,  // floor -> white
-		0,  // ceiling -> white
-		6,  // arealight -> olive
-		0,  // back/front wall -> white
-		7,  // left wall -> red
-		4,  // right wall -> green
-	//	0,  // little plane -> white
-		//5,  // left sphere -> sphere material
-		//5,  // right sphere -> sphere material
-		//3,  // skull right -> skull material
-		//3,  // skull left -> skull material
-		11  // dragon -> dragon material
-	};
+	std::vector<uint32_t> instanceMaterialIndices;
 
 	void CreateModelBuffers(Model& model, Microsoft::WRL::ComPtr<ID3D12Resource>& vb, Microsoft::WRL::ComPtr<ID3D12Resource>& ib, D3D12_VERTEX_BUFFER_VIEW& vbv, D3D12_INDEX_BUFFER_VIEW& ibv);
 
@@ -474,7 +460,7 @@ private:
 		float windowLogVars[8];
 		int windowCount;
 
-		bool m_UseTemporal = true;
+		bool m_UseTemporal = false;
 		bool m_UseRL = false;
 		bool m_RLQTableInSRVState = false;
 		bool m_UseQTable = false;
@@ -528,13 +514,13 @@ private:
 		{
 			switch (setup)
 			{
-			case SceneSetUp::DIFFUSE_SPHERE: return "Diffuse Sphere";
-			case SceneSetUp::DIFFUSE_CORNELL_BOX: return "Diffuse Cornell Box";
-			case SceneSetUp::DIFFUSE_ALCOVE: return "Diffuse Alcove";
-			case SceneSetUp::GLOSSY_SPHERE: return "Glossy Sphere";
-			case SceneSetUp::GLASS_SPHERE: return "Glass Sphere";
-			case SceneSetUp::TEST_DIFFUSE_CORNELL: return "Test Diffuse Cornell";
-			case SceneSetUp::TEST_GLASS_CORNELL: return "Test Glass Cornell";
+			case SceneSetUp::DIFFUSE_SPHERE: return "Diffuse_Sphere";
+			case SceneSetUp::DIFFUSE_CORNELL_BOX: return "Diffuse_Cornell_Box";
+			case SceneSetUp::DIFFUSE_ALCOVE: return "Diffuse_Alcove";
+			case SceneSetUp::GLOSSY_SPHERE: return "Glossy_Sphere";
+			case SceneSetUp::GLASS_SPHERE: return "Glass_Sphere";
+			case SceneSetUp::TEST_DIFFUSE_CORNELL: return "Test_Diffuse_Cornell";
+			case SceneSetUp::TEST_GLASS_CORNELL: return "Test_Glass_Cornell";
 			default: return "Unknown Scene Setup";
 			}
 		}
