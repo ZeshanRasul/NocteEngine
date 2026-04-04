@@ -2042,10 +2042,10 @@ void Renderer::BuildMaterials()
 	boxMat->Name = "box";
 	boxMat->MatCBIndex = 0;
 	boxMat->DiffuseSrvHeapIndex = 0;
-	boxMat->DiffuseAlbedo = XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
+	boxMat->DiffuseAlbedo = XMFLOAT4(0.73f, 0.73f, 0.73f, 1.0f);
 	boxMat->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	boxMat->Roughness = 0.99f;
-	boxMat->metallic = 0.01f;
+	boxMat->Roughness = 1.0f;
+	boxMat->metallic = 0.00f;
 	boxMat->Ior = 1.0f;
 	boxMat->IsReflective = false;
 	boxMat->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
@@ -2076,16 +2076,20 @@ void Renderer::BuildMaterials()
 
 
 	auto skullMat = std::make_unique<Material>();
-	skullMat->Name = "skullMat";
-	skullMat->MatCBIndex = 3;
-	skullMat->DiffuseSrvHeapIndex = -1;
-	skullMat->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-	skullMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05);
-	skullMat->Roughness = 0.005f;
+	skullMat->Name = "skull";
+	skullMat->MatCBIndex = 12;
+	skullMat->DiffuseSrvHeapIndex = 3;
+
+	skullMat->DiffuseAlbedo = XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
+
+	skullMat->FresnelR0 = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	skullMat->Roughness = 1.0f;
 	skullMat->metallic = 0.0f;
-	skullMat->Ior = 1.5f;
-	skullMat->IsReflective = true;
-	skullMat->IsRefractive = true;
+
+	skullMat->IsReflective = false;
+	skullMat->IsRefractive = false;
+	skullMat->Ior = 1.0f;
+
 	skullMat->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	skullMat->isEmissive = 0;
 
@@ -2093,36 +2097,36 @@ void Renderer::BuildMaterials()
 	tile0->Name = "tile0";
 	tile0->MatCBIndex = 4;
 	tile0->DiffuseSrvHeapIndex = 2;
-	tile0->DiffuseAlbedo = XMFLOAT4(0.140f, 0.650f, 0.091f, 1.0f);
+	tile0->DiffuseAlbedo = XMFLOAT4(0.05f, 0.65f, 0.05f, 1.0f);
 	tile0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	tile0->Roughness = 0.8f;
-	tile0->metallic = 0.05f;
+	tile0->Roughness = 1.0f;
+	tile0->metallic = 0.00f;
 	tile0->IsReflective = false;
 	tile0->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	tile0->isEmissive = 0;
 
-	auto sphereMat = std::make_unique<Material>();
-	sphereMat->Name = "sphere";
-	sphereMat->MatCBIndex = 5;
-	sphereMat->DiffuseSrvHeapIndex = 4;
-	sphereMat->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-	sphereMat->FresnelR0 = XMFLOAT3(0.04f, 0.04f, 0.04f);
-	sphereMat->Roughness = 0.0f;
-	sphereMat->metallic = 0.0f;
-	sphereMat->Ior = 1.5f;
-	sphereMat->IsReflective = true;
-	sphereMat->IsRefractive = true;
-	sphereMat->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
-	sphereMat->isEmissive = 0;
+	auto sphere = std::make_unique<Material>();
+	sphere->Name = "sphere";
+	sphere->MatCBIndex = 13;
+	sphere->DiffuseSrvHeapIndex = 4;
+	sphere->DiffuseAlbedo = XMFLOAT4(0.6f, 0.6f, 0.6f, 1.0f);
+	sphere->FresnelR0 = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	sphere->Roughness = 1.0f;
+	sphere->metallic = 0.0f;
+	sphere->IsReflective = false;
+	sphere->IsRefractive = false;
+	sphere->Ior = 1.0f;
+	sphere->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	sphere->isEmissive = 0;
 
 	auto tile1 = std::make_unique<Material>();
 	tile1->Name = "tile1";
 	tile1->MatCBIndex = 6;
 	tile1->DiffuseSrvHeapIndex = 2;
 	tile1->DiffuseAlbedo = XMFLOAT4(m_AreaLightData.Radiance.x, m_AreaLightData.Radiance.y, m_AreaLightData.Radiance.z, 1.0f);
-	tile1->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	tile1->Roughness = 0.8f;
-	tile1->metallic = 0.05f;
+	tile1->FresnelR0 = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	tile1->Roughness = 0.0f;
+	tile1->metallic = 0.0f;
 	tile1->IsReflective = false;
 	tile1->emission = m_AreaLightData.Radiance;
 	tile1->isEmissive = 1;
@@ -2131,10 +2135,10 @@ void Renderer::BuildMaterials()
 	tile2->Name = "tile2";
 	tile2->MatCBIndex = 7;
 	tile2->DiffuseSrvHeapIndex = 2;
-	tile2->DiffuseAlbedo = XMFLOAT4(0.830f, 0.065f, 0.050f, 1.0f);
+	tile2->DiffuseAlbedo = XMFLOAT4(0.65f, 0.05f, 0.05f, 1.0f);
 	tile2->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	tile2->Roughness = 0.8f;
-	tile2->metallic = 0.05f;
+	tile2->Roughness = 1.0f;
+	tile2->metallic = 0.00f;
 	tile2->IsReflective = false;
 	tile2->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	tile2->isEmissive = 0;
@@ -2180,13 +2184,17 @@ void Renderer::BuildMaterials()
 	dragon->Name = "dragon";
 	dragon->MatCBIndex = 11;
 	dragon->DiffuseSrvHeapIndex = 2;
-	dragon->DiffuseAlbedo = XMFLOAT4(Colors::White);
-	dragon->FresnelR0 = XMFLOAT3(0.04f, 0.04f, 0.04f);
-	dragon->Roughness = 0.005f;
+	// Pure diffuse
+	dragon->DiffuseAlbedo = XMFLOAT4(0.75f, 0.75f, 0.75f, 1.0f);
+	// Disable specular behaviour
+	dragon->FresnelR0 = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	dragon->Roughness = 1.0f;
 	dragon->metallic = 0.0f;
-	dragon->IsReflective = true;
-	dragon->IsRefractive = true;
-	dragon->Ior = 1.5f;
+	// Disable reflection/refraction
+	dragon->IsReflective = false;
+	dragon->IsRefractive = false;
+	dragon->Ior = 1.0f;
+	// No emission
 	dragon->emission = XMFLOAT3(0.0f, 0.0f, 0.0f);
 	dragon->isEmissive = 0;
 
@@ -2208,7 +2216,7 @@ void Renderer::BuildMaterials()
 	m_Materials.push_back(std::move(stone0));    // 2
 	m_Materials.push_back(std::move(skullMat));  // 3
 	m_Materials.push_back(std::move(tile0));     // 4
-	m_Materials.push_back(std::move(sphereMat)); // 5
+	m_Materials.push_back(std::move(sphere));	 // 5
 	m_Materials.push_back(std::move(tile1));     // 6
 	m_Materials.push_back(std::move(tile2));     // 7
 	m_Materials.push_back(std::move(tile3));     // 8
@@ -3808,24 +3816,24 @@ void Renderer::CreateShaderBindingTable()
 			//	ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
 			//}
 
-		//if (i >= 8 && i < 9)
-		//{
-		//	//vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
-		//	//ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
-
-		//}
-	/*	else if (i >= 7 && i < 8)
+		if (i >= 7 && i < 8)
 		{
-			vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
-			ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
+			vb = m_Geometries["skullGeo"]->VertexBufferGPU->GetGPUVirtualAddress();
+			ib = m_Geometries["skullGeo"]->IndexBufferGPU->GetGPUVirtualAddress();
 
-		}*/
+		}
 		if (i < 6)
 		{
 			vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
 			ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
 		}
-		else if (i == 6)
+		else if (i >= 6 && i < 7)
+		{
+			vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
+			ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
+
+		}
+		else if (i == 8)
 		{
 			vb = m_DragonVertexBuffer->GetGPUVirtualAddress();
 			ib = m_DragonIndexBuffer->GetGPUVirtualAddress();
@@ -3950,10 +3958,10 @@ void Renderer::CreateAccelerationStructures()
 
 	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_DragonVertexBuffer, m_DragonModel.vertices.size()} }, { {m_DragonIndexBuffer, m_DragonModel.indices.size()}
 		});
-	//AccelerationStructureBuffers skull0BottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} }, { {m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount} });
+	AccelerationStructureBuffers skull0BottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} }, { {m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount} });
 
-	//AccelerationStructureBuffers sphereBottomLevelBuffers = CreateBottomLevelAS({ { sphereSubmesh.VertexBufferGPU, sphereSubmesh.VertexCount} }, { {sphereSubmesh.IndexBufferGPU, sphereSubmesh.IndexCount} });
-	//AccelerationStructureBuffers boxBottomLevelBuffers = CreateBottomLevelAS({ { boxSubmesh.VertexBufferGPU, boxSubmesh.VertexCount} }, { {boxSubmesh.IndexBufferGPU, boxSubmesh.IndexCount} });
+	AccelerationStructureBuffers sphereBottomLevelBuffers = CreateBottomLevelAS({ { sphereSubmesh.VertexBufferGPU, sphereSubmesh.VertexCount} }, { {sphereSubmesh.IndexBufferGPU, sphereSubmesh.IndexCount} });
+	AccelerationStructureBuffers boxBottomLevelBuffers = CreateBottomLevelAS({ { boxSubmesh.VertexBufferGPU, boxSubmesh.VertexCount} }, { {boxSubmesh.IndexBufferGPU, boxSubmesh.IndexCount} });
 	AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { m_PlaneVertexBuffer, 4} }, { { m_PlaneIndexBuffer, 6 }
 		});
 
@@ -4008,9 +4016,9 @@ void Renderer::CreateAccelerationStructures()
 		//  XMMatrixTranslation(-17.0f, 3.0f, -5.0f) },
 
 		// Sphere on the right: radius ~3 at y = 3
-		/*{ sphereBottomLevelBuffers.pResult,
+		{ sphereBottomLevelBuffers.pResult,
 		  XMMatrixScaling(25.0f, 25.0f, 25.0f) *
-		  XMMatrixTranslation(10.0f, 12.5f, 0.0f) },*/
+		  XMMatrixTranslation(40.0f, 12.5f, -20.0f) },
 
 		//// Skull on the right
 		//{ skull0BottomLevelBuffers.pResult,
@@ -4018,9 +4026,9 @@ void Renderer::CreateAccelerationStructures()
 		//  XMMatrixTranslation(12.0f, 2.0f, 8.0f) },
 
 		// Skull on the left
-		/*{ skull0BottomLevelBuffers.pResult,
+		{ skull0BottomLevelBuffers.pResult,
 		  XMMatrixScaling(5.0f, 5.0f, 5.0f) *
-		  XMMatrixTranslation(-33.0f, 2.5f, 15.0f) },*/
+		  XMMatrixTranslation(-33.0f, 2.5f, 15.0f) },
 
 		{ bottomLevelBuffers.pResult,
 		  XMMatrixRotationY(8.0 * XM_PIDIV2) *

@@ -340,9 +340,9 @@ private:
 	void CreatePerInstanceBuffers();
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_PerInstanceCBs;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_TriMatIndexCB;
-	UINT m_PerInstanceCBCount = 7;
-	UINT m_SkullCount = 0;
-	UINT m_SphereCount = 0;
+	UINT m_PerInstanceCBCount = 9;
+	UINT m_SkullCount = 1;
+	UINT m_SphereCount = 1;
 	void LoadTextures(Model& model);
 	std::vector<std::unique_ptr<Texture>> m_Textures;
 	std::vector<int> matIndices;
@@ -353,7 +353,7 @@ private:
 	int m_FrameIndex = 0;
 	int m_MaxFrames = 8192;
 	int m_SPP = 1;
-	bool m_UseTemporal = true;
+	bool m_UseTemporal = false;
 	bool m_UseDenoiser = false;
 	bool m_ClearAccumulation = false;
 	void ClearAccumulation() {};
@@ -363,7 +363,7 @@ private:
 	void UpdateMediumConstantBuffer();
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_MediumCB;
 	MediumParams m_MediumParams;
-	bool m_UseFog = true;
+	bool m_UseFog = false;
 	float m_FogMaxDistance = 120.0f;
 	float m_SigmaT = 0.01f;
 
@@ -393,7 +393,7 @@ private:
 
 	std::vector<uint32_t> instanceMaterialIndices =
 	{
-		1,  // floor -> white
+		0,  // floor -> white
 		0,  // ceiling -> white
 		6,  // arealight -> olive
 		0,  // back/front wall -> white
@@ -501,7 +501,7 @@ private:
 		void CreateRLTransitionReadbackBuffer();
 		void CopyRLTransitionsToReadback();
 		std::vector<RLTransitionGPU> ReadBackRLTransitions();
-		bool m_UseQTable = false;
+		bool m_UseQTable = true;
 		std::vector<float> m_QTableData; // [state][action]
 
 
