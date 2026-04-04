@@ -440,10 +440,12 @@ private:
 		std::string m_MetricsFileName;
 		std::filesystem::path m_Fullpath;
 
-		const char* samplingModeNames[3] =
+		const char* samplingModeNames[5] =
 		{
 			"BSDF Heavy",
+			"BSDF Gentle",
 			"Balanced",
+			"Light Gentle"
 			"Light Heavy"
 		};
 
@@ -463,7 +465,7 @@ private:
 		bool m_UseTemporal = false;
 		bool m_UseRL = false;
 		bool m_RLQTableInSRVState = false;
-		bool m_UseQTable = false;
+		bool m_UseQTable = true;
 
 		std::vector<RLQValue> m_RLQTable;
 
@@ -525,7 +527,7 @@ private:
 			}
 		}
 
-		SceneSetUp m_SceneID = SceneSetUp::DIFFUSE_ALCOVE;
+		SceneSetUp m_SceneID = SceneSetUp::DIFFUSE_SPHERE;
 		std::string m_RunTimestamp;
 };
 

@@ -178,7 +178,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 			//11  // dragon -> dragon material
 		};
 	}
-	else if (m_SceneID == SceneSetUp::DIFFUSE_CORNELL_BOX)
+	else if (m_SceneID == SceneSetUp::DIFFUSE_CORNELL_BOX || m_SceneID == SceneSetUp::DIFFUSE_SPHERE)
 	{
 		instanceMaterialIndices =
 		{
@@ -272,7 +272,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRaytracingOutputBuffer();
 	CreatePresentUAV();
 	CreateAccumulationBuffer();
-	LoadTextureFromFileToSRV(m_Device.Get(), m_CommandList.Get(), "experiments/Cornell_Box_Glass_GT/Baseline_Cornell_Box_Glass_4096SPP.png");
+	LoadTextureFromFileToSRV(m_Device.Get(), m_CommandList.Get(), "experiments/V2/Run_2/Scene1SPP.png");
 	CreateShaderResourceHeap();
 	CreateShaderResourceCPUHeap();
 	CreateSamplerHeap();
@@ -299,11 +299,11 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 	if (m_UseQTable)
 	{
-		const int numStates = 243;
+		const int numStates = 236;
 		const int numActions = 5;
 
 		std::vector<float> m_QTableData = BuildQTableVector(
-			Q_TABLE_DIFFUSE_3_CORNELL_BOX,
+			Q_TABLE_RUN_2,
 			numStates,
 			numActions
 		);
@@ -1608,7 +1608,7 @@ bool Renderer::Draw(bool useRaster)
 			std::string folderName = m_RunTimestamp + GetSceneSetUpName(m_SceneID);
 			std::filesystem::path runPath = std::filesystem::path("experiments/runs") / folderName;
 			std::filesystem::create_directories(runPath);
-			std::string filename = (m_UseQTable ? "QTable" : (m_UseTemporal ? "GT" : "Baseline")) + std::to_string(m_FrameIndex) + "SPP" + ".png";
+			std::string filename = (m_UseQTable ? "QTable" : (m_UseTemporal ? "GT" : (m_UseRL ? "RL" : "Baseline"))) + std::to_string(m_FrameIndex) + "SPP" + ".png";
 			std::filesystem::path fullPath = runPath / filename;
 
 			int result = stbi_write_jpg(fullPath.string().c_str(), width, height, 4, image.data(), width * 4);
