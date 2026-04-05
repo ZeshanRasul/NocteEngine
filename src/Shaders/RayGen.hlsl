@@ -569,9 +569,9 @@ void RayGen()
     if (frameIndex < 16)
         sppWeight = 1.0f;
     else if (frameIndex < 64)
-        sppWeight = 1.5f;
+        sppWeight = 3.0f;
     else
-        sppWeight = 3.0f; // stronger penalty/reward for late-stage correctness
+        sppWeight = 8.0f; // stronger penalty/reward for late-stage correctness
 
             
     finalReward = tanh(2.5f * rawReward) * 6.0f * sppWeight;
