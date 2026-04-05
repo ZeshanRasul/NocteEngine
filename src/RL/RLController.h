@@ -44,6 +44,14 @@ public:
     {
         return static_cast<RLAction>(index);
     }
+    
+    inline int GetSPPBucket(int spp)
+    {
+        if (spp < 16) return 0;
+        else if (spp < 64) return 1;
+        else return 2;
+    }
+
 private:
 
     int GetBestActionIndex(int stateIndex) const
