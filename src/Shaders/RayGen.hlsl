@@ -220,25 +220,37 @@ uint BucketizeCosTheta(float cosTheta)
     return 2;
 }
 
+uint BucketizeSPP(int frameIndex)
+{
+    if (frameIndex < 16)
+        return 0;
+    if (frameIndex < 64)
+        return 1;
+    return 2;
+}
+
 uint ComputeStateIndex(
     uint bounce,
     bool isRefractive,
     bool isReflective,
     float roughness,
     float cosTheta,
-    float3 throughput)
+    float3 throughput,
+    uint frameIndex)
 {
     uint bounceBucket = BucketizeBounce(bounce);
     uint surfaceBucket = BucketizeSurfaceClass(isRefractive, isReflective, roughness);
     uint cosThetaBucket = BucketizeCosTheta(cosTheta);
     uint throughputBucket = BucketizeThroughput(Luminance(throughput));
     uint roughnessBucket = BucketizeRoughness(roughness);
-
+    uint sppBucket = BucketizeSPP(frameIndex);
+    
     return bounceBucket
          + 3 * surfaceBucket
          + 9 * cosThetaBucket
          + 27 * throughputBucket
-         + 81 * roughnessBucket;
+         + 81 * roughnessBucket
+         + 243 * sppBucket;
 }
 
 SamplingModeParams GetSamplingParams(uint actionIndex)
@@ -359,7 +371,8 @@ void RayGen()
             false, // isReflective
             0.5f, // neutral roughness placeholder
             1.0f, // neutral cosTheta
-            float3(1.0f, 1.0f, 1.0f) // full throughput
+            float3(1.0f, 1.0f, 1.0f), // full throughput
+            frameIndex
         );
         
         for (int bounce = 0; bounce < MaxBounces; ++bounce)
@@ -473,9 +486,11 @@ void RayGen()
               payload.isReflective,
               payload.matRoughness,
               payload.cosTheta,
-              nextThroughput);
-            
-            
+              nextThroughput,
+              frameIndex
+            );
+
+
             if (payload.hitSomething == 1)
             {
                 reward += 0.1f;

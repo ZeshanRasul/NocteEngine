@@ -272,7 +272,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRaytracingOutputBuffer();
 	CreatePresentUAV();
 	CreateAccumulationBuffer();
-	LoadTextureFromFileToSRV(m_Device.Get(), m_CommandList.Get(), "experiments/V2/Run_2/Scene1SPP.png");
+	LoadTextureFromFileToSRV(m_Device.Get(), m_CommandList.Get(), "experiments/V2/Run_3/GT_Renders/Scene1SPP.png");
 	CreateShaderResourceHeap();
 	CreateShaderResourceCPUHeap();
 	CreateSamplerHeap();
@@ -299,11 +299,11 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 	if (m_UseQTable)
 	{
-		const int numStates = 236;
+		const int numStates = 722;
 		const int numActions = 5;
 
 		std::vector<float> m_QTableData = BuildQTableVector(
-			Q_TABLE_RUN_2,
+			Q_TABLE_DIFFUSE_SPHERE_3,
 			numStates,
 			numActions
 		);

@@ -9,6 +9,7 @@ struct DiscreteState
     int CosThetaBucket = 0;
     int ThroughputBucket = 0;
     int RoughnessBucket = 0;
+	int SPPBucket = 0;
 
     int ToIndex() const
     {
@@ -16,7 +17,8 @@ struct DiscreteState
             3 * SurfaceClassBucket +
             9 * CosThetaBucket +
             27 * ThroughputBucket +
-            81 * RoughnessBucket;
+            81 * RoughnessBucket + 
+            243 * SPPBucket;
     }
 };
 
@@ -27,3 +29,4 @@ const char* GetSurfaceClassStateName(const DiscreteState& state);
 const char* GetCosThetaStateName(const DiscreteState& state);
 const char* GetThroughputStateName(const DiscreteState& state);
 const char* GetRoughnessStateName(const DiscreteState& state);
+const char* GetSPPStateName(const DiscreteState& state);

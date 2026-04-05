@@ -480,7 +480,7 @@ private:
 		uint64_t m_RLQTableBufferSize = 0;
 
 		static constexpr uint32_t NumActions = 5;
-		static constexpr uint32_t NumStates = 243;
+		static constexpr uint32_t NumStates = 722;
 		float m_Alpha = 0.1f;
 
 		void CreateRLQTableBuffer();

@@ -73,7 +73,6 @@ DiscreteState BucketizeState(const FrameStats& stats, int maxIterations)
     );
     state.ThroughputBucket = BucketizeThroughput(stats.ThroughputLuminance);
     state.RoughnessBucket = BucketizeRoughness(stats.Roughness);
-
     return state;
 }
 

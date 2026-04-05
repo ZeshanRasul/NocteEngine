@@ -40,6 +40,7 @@ file(GLOB APP_SOURCES
     "src/Renderer/*.h"
     "src/RL/*.cpp"
     "src/RL/*.h"
+    "src/RL/*.hpp"
     "src/Utils/*.cpp"
     "src/Utils/*.h"
 )
