@@ -86,32 +86,6 @@ cbuffer MediumParams : register(b6)
     float3 gFogPadding;
 }
 
-uint ChooseBestAction(uint stateIndex)
-{
-    uint baseIdx = stateIndex * NUM_ACTIONS;
-
-    float q0 = gQTable[baseIdx + 0].Value;
-    float q1 = gQTable[baseIdx + 1].Value;
-    float q2 = gQTable[baseIdx + 2].Value;
-
-    uint bestAction = 0;
-    float bestQ = q0;
-
-    if (q1 > bestQ)
-    {
-        bestQ = q1;
-        bestAction = 1;
-    }
-
-    if (q2 > bestQ)
-    {
-        bestQ = q2;
-        bestAction = 2;
-    }
-
-    return bestAction;
-}
-
 float HashToUnitFloat(uint x)
 {
     x ^= x >> 17;
@@ -220,11 +194,11 @@ uint BucketizeCosTheta(float cosTheta)
     return 2;
 }
 
-uint BucketizeSPP(int frameIndex)
+uint BucketizeSPP(int pFrameIndex)
 {
-    if (frameIndex < 16)
+    if (pFrameIndex < 16)
         return 0;
-    if (frameIndex < 64)
+    if (pFrameIndex < 64)
         return 1;
     return 2;
 }
@@ -329,11 +303,17 @@ void RayGen()
     float3 finalColor = 0.0f;
     float3 sppSum = 0.0f;
     int isemissive = 0;
-    
 
-    RLTransitionGPU record;
-    float reward = 0.0f;
+    float rawReward = 0.0f;
+    float finalReward = 0.0f;
+    float oldErr = 0.0f;
+    float newErr = 0.0f;
+    
+    uint firstTransitionIndex = 0;
+    bool firstTransitionRecorded = false;
+    uint lastTransitionIndex = 0;
     int index = 0;
+    
     for (int s = 0; s < SPP; ++s)
     {
         
@@ -378,13 +358,20 @@ void RayGen()
         for (int bounce = 0; bounce < MaxBounces; ++bounce)
         {
             
-            //uint state = ComputeStateIndex(
-            // payload.depth,
-            // payload.isRefractive,
-            // payload.isReflective,
-            // payload.matRoughness,
-            // payload.cosTheta,
-            // payload.throughput);
+            index = (linearIndex * SPP + s) * MaxBounces + bounce;
+            
+
+            
+            if (!firstTransitionRecorded)
+            {
+                firstTransitionIndex = index;
+                firstTransitionRecorded = true;
+            }
+            
+            lastTransitionIndex = index;
+            
+            RLTransitionGPU record;
+
             
             record.StateIndex = currentState;
             
@@ -422,22 +409,7 @@ void RayGen()
             payload.emission = 0.0f;
             payload.bsdfOverPdf = 0.0f;
             payload.pdf = 1.0f;
-            
-            //record.StateIndex = ComputeStateIndex(
-            //    payload.depth,
-            //    payload.isRefractive,
-            //    payload.isReflective,
-            //    payload.matRoughness,
-            //    payload.cosTheta,
-            //    payload.throughput);
-
-
-            //record.ActionIndex = ChooseActionEpsilonGreedy(record.StateIndex, actionSeed, 0.1f);
-
-            //params = GetSamplingParams(record.ActionIndex);
-            
-            //payload.prms = params;
-            
+                       
             TraceRay(
             SceneBVH,
             RAY_FLAG_NONE,
@@ -468,7 +440,6 @@ void RayGen()
                 primarySet = true;
             }
             
-            index = (linearIndex * SPP + s) * MaxBounces + bounce;
             float3 bounceContrib = payload.throughput * payload.emission;
             
             float3 nextThroughput = payload.throughput;
@@ -490,48 +461,54 @@ void RayGen()
               frameIndex
             );
 
-
-            if (payload.hitSomething == 1)
-            {
-                reward += 0.1f;
-            }
-
-            record.Valid = 1;
-            record.ActionIndex = action;
-
-            record.NextStateIndex = nextState;
-            
-            record.Terminated = payload.done ? 1 : 0;
-           
-        
             payload.throughput = nextThroughput;
             
             currentState = nextState;
             
-            //if (payload.done != 0)
-            //    break;
-
-        // Update throughput: multiply by f * cos / pdf
-   //         payload.throughput *= payload.bsdfOverPdf;
-        
+       
         // Russian roulette after a few bounces
-            if (bounce >= 4)
+            bool terminatedNow = (payload.done != 0);
+
+            if (!terminatedNow && bounce >= 4)
             {
                 float pCont = max(payload.throughput.x,
                            max(payload.throughput.y, payload.throughput.z));
                 pCont = clamp(pCont, 0.05f, 0.95f);
 
                 if (pCont < 1e-3f)
-                    break;
-
-                float r = Rand(payload.seed);
-                if (r > pCont)
                 {
-                    record.Terminated = 1;
-                    break;
+                    terminatedNow = true;
                 }
-                payload.throughput /= pCont;
+                else
+                {
+                
+                    float r = Rand(payload.seed);
+                    if (r > pCont)
+                    {
+                        terminatedNow = true;
+                    }
+                    else
+                    {
+                        payload.throughput /= pCont;
+                    }
+                }
             }
+            record.Valid = 1;
+
+            record.NextStateIndex = nextState;
+            
+            record.Terminated = terminatedNow ? 1 : 0;
+            record.RawReward = 0.0f;
+            record.Reward = 0.0f;
+            record.OldError = 0.0f;
+            record.NewError = 0.0f;
+            record.UseQValue = 0;
+            
+            gRLTransitions[index] = record;
+            
+            if (terminatedNow)
+                break;
+            
             float3 offsetDir = (dot(payload.wi, payload.normal) > 0.0f)
          ? payload.normal   // going to the “outside” side of the surface
          : -payload.normal; // going inside
@@ -539,6 +516,8 @@ void RayGen()
             ray.Direction = normalize(payload.wi);
             ray.TMin = 0.001f;
             ray.TMax = 1e38f;
+            
+            
 
         }
         sppSum += finalRadiance;
@@ -554,63 +533,86 @@ void RayGen()
         {
             isemissive = 0;
         }
-
-
     }
    
     finalColor = sppSum / (float) SPP;
-    
-    float3 nEncoded = primarySet ? (primaryNormal * 0.5f + 0.5f) : float3(0.5f, 0.5f, 1.0f);
-    gNormal[launchIndex] = float4(nEncoded, float(isemissive));
-
-    gDepth[launchIndex] = primaryDepth;
 
     float3 prevAccum = 0.0;
-// Progressive accumulation
     float3 accumColor = 0.0;
-    if (FrameIndex <= 1)
+    if (frameIndex <= 1)
     {
         accumColor = finalColor;
     }
     else
     {
         prevAccum = gAccumHistory[launchIndex].rgb;
-        float n = (float) FrameIndex;
+        float n = (float) frameIndex;
         accumColor = (((n - 1.0f) * prevAccum) + finalColor) / n;
     }
-    
+        
     float3 oldEstimate = prevAccum;
+
     float3 newEstimate = accumColor;
 
     
     float3 diffOld = oldEstimate - refColor;
     float3 diffNew = newEstimate - refColor;
 
-    float oldErr = dot(diffOld, diffOld); // RGB squared error
-    float newErr = dot(diffNew, diffNew);
-    record.OldError = oldErr;
-    record.NewError = newErr;
+    oldErr = dot(diffOld, diffOld); // RGB squared error
+    newErr = dot(diffNew, diffNew);
     float improvement = oldErr - newErr;
 
-// Normalize more gently
     float scale = max(oldErr + newErr + 1e-4f, 1e-4f);
-    float rawReward = improvement / scale;
+    rawReward = improvement / scale;
 
     float sppWeight = 1.0f;
     if (frameIndex < 16)
         sppWeight = 1.0f;
     else if (frameIndex < 64)
-        sppWeight = 1.0f;
+        sppWeight = 1.5f;
     else
-        sppWeight = 1.5f; // stronger penalty/reward for late-stage correctness
+        sppWeight = 3.0f; // stronger penalty/reward for late-stage correctness
 
-    record.UseQValue = 0;
+            
+    finalReward = tanh(2.5f * rawReward) * 6.0f * sppWeight;
+            
+    if (firstTransitionRecorded)
+    {
+        for (uint i = firstTransitionIndex; i <= lastTransitionIndex; ++i)
+        {
+            RLTransitionGPU rec = gRLTransitions[i];
+            if (rec.Valid == 0)
+                continue;
+
+            rec.RawReward = rawReward;
+            uint bounceOffset = (i - firstTransitionIndex) % MaxBounces;
+            float depthWeight = pow(0.9f, (float) bounceOffset);
+            rec.Reward = finalReward * depthWeight;
+            rec.OldError = oldErr;
+            rec.NewError = newErr;
+            gRLTransitions[i] = rec;
+        }
+    }
     
-// Bound reward
-    reward = tanh(2.0f * rawReward) * 5.0f * sppWeight;
-    record.RawReward = rawReward;
-    record.Reward = tanh(3.0f * rawReward) * 10.0f;
-    gRLTransitions[index] = record;
+    float3 nEncoded = primarySet ? (primaryNormal * 0.5f + 0.5f) : float3(0.5f, 0.5f, 1.0f);
+    gNormal[launchIndex] = float4(nEncoded, float(isemissive));
+
+    gDepth[launchIndex] = primaryDepth;
+
+// Progressive accumulation
+    if (frameIndex <= 1)
+    {
+        accumColor = finalColor;
+    }
+    else
+    {
+        prevAccum = gAccumHistory[launchIndex].rgb;
+        float n = (float) frameIndex;
+        accumColor = (((n - 1.0f) * prevAccum) + finalColor) / n;
+    }
+    
+
+
     
     gAccumBuf[launchIndex] = float4(accumColor, 1.0f);
     gPresent[launchIndex] = float4(accumColor, 1.0f);
