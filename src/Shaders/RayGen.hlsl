@@ -582,21 +582,32 @@ void RayGen()
     float3 oldEstimate = prevAccum;
     float3 newEstimate = accumColor;
 
-    float refLum = Luminance(refColor);
-    float oldLum = Luminance(oldEstimate);
-    float newLum = Luminance(newEstimate);
+    
+    float3 diffOld = oldEstimate - refColor;
+    float3 diffNew = newEstimate - refColor;
 
-    float eps = 1e-4f;
-    float denom = max(refLum, eps);
-
-    float oldErr = abs(oldLum - refLum) / denom;
-    float newErr = abs(newLum - refLum) / denom;
-
-    record.UseQValue = 0;
-    float improvement = oldErr - newErr;
+    float oldErr = dot(diffOld, diffOld); // RGB squared error
+    float newErr = dot(diffNew, diffNew);
     record.OldError = oldErr;
     record.NewError = newErr;
-    float rawReward = improvement / max(oldErr, 1e-6f);
+    float improvement = oldErr - newErr;
+
+// Normalize more gently
+    float scale = max(oldErr + newErr + 1e-4f, 1e-4f);
+    float rawReward = improvement / scale;
+
+    float sppWeight = 1.0f;
+    if (frameIndex < 16)
+        sppWeight = 1.0f;
+    else if (frameIndex < 64)
+        sppWeight = 1.0f;
+    else
+        sppWeight = 1.5f; // stronger penalty/reward for late-stage correctness
+
+    record.UseQValue = 0;
+    
+// Bound reward
+    reward = tanh(2.0f * rawReward) * 5.0f * sppWeight;
     record.RawReward = rawReward;
     record.Reward = tanh(3.0f * rawReward) * 10.0f;
     gRLTransitions[index] = record;

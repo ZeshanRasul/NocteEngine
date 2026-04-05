@@ -463,7 +463,7 @@ private:
 		int windowCount;
 
 		bool m_UseTemporal = false;
-		bool m_UseRL = false;
+		bool m_UseRL = true;
 		bool m_RLQTableInSRVState = false;
 		bool m_UseQTable = true;
 
