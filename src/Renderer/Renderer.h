@@ -463,7 +463,7 @@ private:
 		int windowCount;
 
 		bool m_UseTemporal = false;
-		bool m_UseRL = true;
+		bool m_UseRL = false;
 		bool m_RLQTableInSRVState = false;
 		bool m_UseQTable = true;
 
@@ -480,7 +480,7 @@ private:
 		uint64_t m_RLQTableBufferSize = 0;
 
 		static constexpr uint32_t NumActions = 5;
-		static constexpr uint32_t NumStates = 722;
+		static constexpr uint32_t NumStates = 729;
 		float m_Alpha = 0.1f;
 
 		void CreateRLQTableBuffer();
@@ -527,7 +527,7 @@ private:
 			}
 		}
 
-		SceneSetUp m_SceneID = SceneSetUp::DIFFUSE_SPHERE;
+		SceneSetUp m_SceneID = SceneSetUp::DIFFUSE_CORNELL_BOX;
 		std::string m_RunTimestamp;
 };
 

@@ -272,7 +272,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRaytracingOutputBuffer();
 	CreatePresentUAV();
 	CreateAccumulationBuffer();
-	LoadTextureFromFileToSRV(m_Device.Get(), m_CommandList.Get(), "experiments/V2/Run_4/GT_Renders/Scene1SPP.png");
+	LoadTextureFromFileToSRV(m_Device.Get(), m_CommandList.Get(), "C:\dev\NocteEngine\out\build\x64-Release\bin\RelWithDebInfo\experiments\runs\2026-04-05_13-03-11Diffuse_Cornell_Box\GT8192SPP.png");
 	CreateShaderResourceHeap();
 	CreateShaderResourceCPUHeap();
 	CreateSamplerHeap();
@@ -303,7 +303,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 		const int numActions = 5;
 
 		std::vector<float> m_QTableData = BuildQTableVector(
-			Q_TABLE_DIFFUSE_SPHERE_4,
+			Q_TABLE_SCENE_1_AND_2,
 			numStates,
 			numActions
 		);

@@ -31,7 +31,7 @@ RL_DIR = Path(r"./RL_Renders")
 OUTPUT_DIR = Path(r"./Charts/Comparison_Results")
 
 SCENES = [
-    "Scene1",
+    "Scene2",
 ]
 
 SPPS = [4, 8, 16, 32, 256]
