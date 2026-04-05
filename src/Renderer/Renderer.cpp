@@ -303,7 +303,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 		const int numActions = 5;
 
 		std::vector<float> m_QTableData = BuildQTableVector(
-			Q_TABLE_SCENE_1_AND_2,
+			Q_TABLE_ALCOVE_CORNELL,
 			numStates,
 			numActions
 		);
