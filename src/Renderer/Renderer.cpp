@@ -134,7 +134,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	switch (m_SceneID)
 	{
 	case SceneSetUp::DIFFUSE_SPHERE:
-		m_PerInstanceCBCount = 2;
+		m_PerInstanceCBCount = 1;
 		break;
 	case SceneSetUp::DIFFUSE_CORNELL_BOX:
 		m_PerInstanceCBCount = 8;
@@ -452,7 +452,7 @@ bool Renderer::Draw(bool useRaster)
 
 	m_CommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
 
-	CreateTopLevelAS(m_Instances, true);
+	//CreateTopLevelAS(m_Instances, true);
 
 	std::vector<ID3D12DescriptorHeap*> heaps = { m_SrvUavHeap.Get(), m_SamplerHeap.Get() };
 	m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
@@ -2060,7 +2060,7 @@ void Renderer::BuildMaterials()
 	//m_Materials.push_back(std::move(skullMat));  // 3
 	//m_Materials.push_back(std::move(tile0));     // 4
 	//m_Materials.push_back(std::move(sphere));	 // 5
-	m_Materials.push_back(std::move(tile1));     // 6
+	//m_Materials.push_back(std::move(tile1));     // 6
 	//m_Materials.push_back(std::move(tile2));     // 7
 	//m_Materials.push_back(std::move(tile3));     // 8
 	//m_Materials.push_back(std::move(tile4));     // 9
@@ -2508,7 +2508,7 @@ void Renderer::BuildFrameResources()
 {
 	for (int i = 0; i < NumFrameResources; ++i)
 	{
-		m_FrameResources.push_back(std::make_unique<FrameResource>(m_Device.Get(), 1, (UINT)2));
+		m_FrameResources.push_back(std::make_unique<FrameResource>(m_Device.Get(), 1, (UINT)1));
 	}
 }
 void Renderer::UpdateObjectCBs()
@@ -3627,13 +3627,13 @@ void Renderer::CreateShaderBindingTable()
 
 		if (m_SceneID == SceneSetUp::DIFFUSE_SPHERE)
 		{
-			m_PerInstanceCBCount = 2;
-			if (i < 1)
+			m_PerInstanceCBCount = 1;
+			/*if (i < 1)
 			{
 				vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
 				ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
-			}
-			else if (i == 1)
+			}*/
+			if (i == 0)
 			{
 				vb = m_SponzaVertexBuffer->GetGPUVirtualAddress();
 				ib = m_SponzaIndexBuffer->GetGPUVirtualAddress();
@@ -3813,11 +3813,11 @@ void Renderer::CreateAccelerationStructures()
 	{
 		m_Instances =
 		{
-			// AreaLight
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(m_AreaLights.gAreaLights[0].U.x, 1.0f, m_AreaLights.gAreaLights[0].V.z) *
-			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
-			  XMMatrixTranslation(m_AreaLights.gAreaLights[0].Position.x, m_AreaLights.gAreaLights[0].Position.y, m_AreaLights.gAreaLights[0].Position.z)},
+			//// AreaLight
+			//{ planeBottomLevelBuffers.pResult,
+			//  XMMatrixScaling(m_AreaLights.gAreaLights[0].U.x, 1.0f, m_AreaLights.gAreaLights[0].V.z) *
+			//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+			//  XMMatrixTranslation(m_AreaLights.gAreaLights[0].Position.x, m_AreaLights.gAreaLights[0].Position.y, m_AreaLights.gAreaLights[0].Position.z)},
 		
 			{sponzaBottomLevelBuffer.pResult,
 			XMMatrixScaling(1.0f, 1.0f, 1.0f) *
