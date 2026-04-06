@@ -114,14 +114,51 @@ cbuffer FrameData : register(b5)
     uint frameIndex;
 }
 
-float3 EvaluateDirectionalDiffuse(
-    float3 normal,
-    float3 albedo,
-    float3 lightDir, // direction TO light
-    float3 lightRadiance)
+bool IsOccluded(float3 origin, float3 dir, float maxDistance)
 {
-    float NdotL = saturate(dot(normal, lightDir));
-    return (albedo / PI) * lightRadiance * NdotL;
+    ShadowPayload spayload;
+    spayload.isHit = true;
+    
+    RayDesc shadowRay;
+    shadowRay.Origin = origin;
+    shadowRay.Direction = dir;
+    shadowRay.TMin = 0.001f;
+    shadowRay.TMax = maxDistance - 0.001f;
+    
+    TraceRay(
+    SceneBVH,
+    RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH |
+    RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_OPAQUE,
+    0xFF,
+    1,
+    2,
+    1,
+    shadowRay,
+    spayload);
+
+    return spayload.isHit;
+}
+
+float3 EvaluateDirectionalLightNEE(
+    float3 p,
+    float3 N,
+    float3 V,
+    Material mat,
+    DirectionalLight sun)
+{
+    float3 wi = normalize(-sun.direction); // surface -> light
+    float NdotL = saturate(dot(N, wi));
+    float NdotV = saturate(dot(N, V));
+
+    if (NdotL <= 0.0f || NdotV <= 0.0f)
+        return 0.0f.xxx;
+
+    bool occluded = IsOccluded(p + N * 0.001f, wi, 100000.0f);
+    if (occluded)
+        return 0.0f.xxx;
+
+    float3 f = EvaluateDisneyBRDF(mat, N, V, wi);
+    return f * sun.radiance * NdotL;
 }
 
 // Handles a refractive material (glass) as a specular BSDF
@@ -272,31 +309,6 @@ bool BuildLightSample(
     }
 
     return true;
-}
-
-bool IsOccluded(float3 origin, float3 dir, float maxDistance)
-{
-    ShadowPayload spayload;
-    spayload.isHit = true;
-    
-    RayDesc shadowRay;
-    shadowRay.Origin = origin;
-    shadowRay.Direction = dir;
-    shadowRay.TMin = 0.001f;
-    shadowRay.TMax = maxDistance - 0.001f;
-    
-    TraceRay(
-    SceneBVH,
-    RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH |
-    RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_FORCE_OPAQUE,
-    0xFF,
-    1,
-    2,
-    1,
-    shadowRay,
-    spayload);
-
-    return spayload.isHit;
 }
 
 struct LightSample
@@ -506,19 +518,15 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
 
     float3 L = normalize(-sun.direction);
 
-    float3 lighting = EvaluateDirectionalDiffuse(
+    float3 lighting = EvaluateDirectionalLightNEE(
+    pW,
     N,
-    mat.DiffuseAlbedo.rgb,
     L,
-    sun.radiance);
-
-    bool inShadow = IsOccluded(pW + N * 0.001f, L, 100000.0f);
-
-    if (inShadow)
-        lighting = 0;
-    
+    mat,
+    sun);
+     
     LightSample lightSample = SampleAreaLight(pW, N, payload.seed);
-    
+        
     if (lightSample.pdf > 0.0f)
     {
         bool occluded = IsOccluded(pW + N * 0.001f, lightSample.dir, lightSample.dist - 1e-4f);
@@ -548,12 +556,14 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
             }
         }
     }
-      
+     
+    float3 direct = LdContrib + lighting;
+    
     BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);
     
     if (!bsdf.valid || all(bsdf.fOverPdf == 0.0f) || bsdf.pdf <= 0.0f)
     {
-        payload.emission = selfEmit + LdContrib + lighting;
+        payload.emission = selfEmit + payload.throughput * direct;
         payload.done = 1;
         payload.bsdfOverPdf = 0.0f;
         return;
@@ -563,7 +573,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     payload.bsdfOverPdf = bsdf.fOverPdf;
     payload.pdf = bsdf.pdf;
         
-    payload.emission = selfEmit + LdContrib + lighting;
+    payload.emission = selfEmit + payload.throughput * direct;
     payload.prevHitPos = pW;
     payload.lastBounceWasDelta = (bsdf.delta == 1) ? 1 : 0;
     payload.prevBsdfPdf = bsdf.pdf;
