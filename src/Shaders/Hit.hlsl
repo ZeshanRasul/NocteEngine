@@ -160,18 +160,13 @@ void HandleRefractiveHit(
 
     // Tint the glass by base color
     weight *= mat.DiffuseAlbedo.rgb;
-
-    float maxGlassLum = 20.0f;
-    float lum = dot(weight, float3(0.2126, 0.7152, 0.0722));
-    if (lum > maxGlassLum)
-    {
-        weight *= maxGlassLum / lum;
-    }
-    
+  
     payload.wi = dir;
     payload.bsdfOverPdf = weight; // f * cos / pdf collapsed into this scalar weight
     payload.pdf = 1.0f; // implicit delta BSDF
-
+    payload.lastBounceWasDelta = 1;
+    payload.prevBsdfPdf = 1.0f;
+    
     // Glass itself does not emit
     payload.emission = 0.0f;
 
@@ -380,7 +375,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
 
     Material mat;
     
-    if (InstanceID() >= 0)
+    if (InstanceID() >= 1)
     {
         mat = materials[materialIndex + matIndices[triIndex]];
     }
@@ -428,25 +423,18 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
             {
                 float3 f = EvaluateDisneyBRDF(mat, N, V, L);
                 float pdfBSDF = PdfDisneyBRDF(mat, N, V, L);
+                pdfBSDF = max(pdfBSDF, 0.0f);
                 
-                if (pdfBSDF <= 0.0f)
-                {
-                    pdfBSDF = 0.0f;
-                }
-                if (pdfBSDF > 0.0f)
-                {
-                    // Multiple importance sampling weight (balance heuristic)
-                    float pdfLight = lightSample.pdf;
-                    float pdfL2 = pdfLight * pdfLight;
-                    float pdfBSDF2 = pdfBSDF * pdfBSDF;
+ 
+                // Multiple importance sampling weight (power heuristic)
+                float pdfLight = lightSample.pdf;
+                float pdfL2 = pdfLight * pdfLight;
+                float pdfBSDF2 = pdfBSDF * pdfBSDF;
                 
-                    float wLight = pdfL2 / max(pdfL2 + pdfBSDF2, 1e-4f);
+                float wLight = pdfL2 / max(pdfL2 + pdfBSDF2, 1e-8f);
                 
-                    wLight = saturate(wLight);
-                    wLight = lerp(0.01f, 0.99f, wLight);
+                LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
                 
-                    LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
-                }
             }
         }
     }
@@ -463,21 +451,56 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     }
 
     float3 fOverPdf = bsdf.fOverPdf;
-    float maxBsdfLum = 20.0f; // try 10–50, tweak later
 
-    float lum = dot(fOverPdf, float3(0.2126, 0.7152, 0.0722));
-    if (lum > maxBsdfLum)
-    {
-        fOverPdf *= maxBsdfLum / lum;
-    }
-    
     payload.wi = bsdf.wi;
     payload.bsdfOverPdf = bsdf.fOverPdf;
     payload.pdf = bsdf.pdf;
     
-    float3 selfEmit = 0.0f;
-    payload.emission = selfEmit + LdContrib;
+    payload.lastBounceWasDelta = (bsdf.delta == 1) ? 1 : 0;
+    payload.prevBsdfPdf = bsdf.pdf;
     
+    float3 selfEmit = 0.0f;
+
+// Replace this with your real emissive test / emissive field
+    bool isEmitter = any(mat.EmissiveColor.rgb > 0.0f);
+
+    if (isEmitter)
+    {
+        float3 Le = mat.EmissiveColor.rgb;
+
+        if (payload.lastBounceWasDelta != 0 || payload.depth == 1)
+        {
+        // No MIS against NEE for primary hits or after delta events
+            selfEmit = Le;
+        }
+        else
+        {
+        // Compute light pdf for having sampled this exact point via NEE
+            float3 toLight = pW - payload.prevHitPos;
+            float dist2 = dot(toLight, toLight);
+            float dist = sqrt(max(dist2, 1e-8f));
+            float3 wiToLight = toLight / dist;
+
+            float3 nLight = N; // for a flat emissive area light this is fine
+            float cosOnLight = saturate(dot(nLight, -wiToLight));
+
+            float pdfLight = 0.0f;
+            if (cosOnLight > 0.0f)
+            {
+                float pdfArea = 1.0f / max(gAreaLight.Area, 1e-8f);
+                pdfLight = pdfArea * dist2 / max(cosOnLight, 1e-8f);
+            }
+
+            float pdfBSDF = max(payload.prevBsdfPdf, 0.0f);
+
+            float wBsdf = (pdfBSDF * pdfBSDF) /
+                      max(pdfBSDF * pdfBSDF + pdfLight * pdfLight, 1e-8f);
+
+            selfEmit = Le * wBsdf;
+        }
+    }
+
+    payload.emission = selfEmit + LdContrib;
     // Stop if pdf is invalid or if throughput will be zero
     if (all(bsdf.fOverPdf == 0.0f) || bsdf.pdf <= 0.0f)
     {

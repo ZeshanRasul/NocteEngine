@@ -134,7 +134,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	switch (m_SceneID)
 	{
 	case SceneSetUp::DIFFUSE_SPHERE:
-		m_PerInstanceCBCount = 1;
+		m_PerInstanceCBCount = 2;
 		break;
 	case SceneSetUp::DIFFUSE_CORNELL_BOX:
 		m_PerInstanceCBCount = 8;
@@ -1981,11 +1981,13 @@ void Renderer::BuildMaterials()
 	tile1->Name = "tile1";
 	tile1->MatCBIndex = 6;
 	tile1->DiffuseSrvHeapIndex = 2;
-	tile1->DiffuseAlbedo = XMFLOAT4(Colors::DarkSlateGray);
+	tile1->DiffuseAlbedo = XMFLOAT4(m_AreaLightData.Radiance.x, m_AreaLightData.Radiance.y, m_AreaLightData.Radiance.z, 1.0f);
 	tile1->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile1->Roughness = 0.8f;
 	tile1->metallic = 0.05f;
 	tile1->IsReflective = false;
+	tile1->emission = m_AreaLightData.Radiance;
+	tile1->isEmissive = 1;
 
 	auto tile2 = std::make_unique<Material>();
 	tile2->Name = "tile2";
@@ -2061,7 +2063,7 @@ void Renderer::BuildMaterials()
 	//m_Materials.push_back(std::move(skullMat));  // 3
 	//m_Materials.push_back(std::move(tile0));     // 4
 	//m_Materials.push_back(std::move(sphere));	 // 5
-	//m_Materials.push_back(std::move(tile1));     // 6
+	m_Materials.push_back(std::move(tile1));     // 6
 	//m_Materials.push_back(std::move(tile2));     // 7
 	//m_Materials.push_back(std::move(tile3));     // 8
 	//m_Materials.push_back(std::move(tile4));     // 9
@@ -2509,7 +2511,7 @@ void Renderer::BuildFrameResources()
 {
 	for (int i = 0; i < NumFrameResources; ++i)
 	{
-		m_FrameResources.push_back(std::make_unique<FrameResource>(m_Device.Get(), 1, (UINT)1));
+		m_FrameResources.push_back(std::make_unique<FrameResource>(m_Device.Get(), 1, (UINT)2));
 	}
 }
 void Renderer::UpdateObjectCBs()
@@ -3628,20 +3630,13 @@ void Renderer::CreateShaderBindingTable()
 
 		if (m_SceneID == SceneSetUp::DIFFUSE_SPHERE)
 		{
-			m_PerInstanceCBCount = 1;
-	/*		if (i < 6)
+			m_PerInstanceCBCount = 2;
+			if (i < 1)
 			{
 				vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
 				ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
 			}
-			else if (i == 6)
-			{
-				vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
-				ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
-
-			}
-			else */
-			if (i == 0)
+			else if (i == 1)
 			{
 				vb = m_SponzaVertexBuffer->GetGPUVirtualAddress();
 				ib = m_SponzaIndexBuffer->GetGPUVirtualAddress();
@@ -3832,11 +3827,11 @@ void Renderer::CreateAccelerationStructures()
 			//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
 			//  XMMatrixTranslation(0.0f, 40.0f, 0.0f) },
 
-			//// AreaLight
-			//{ planeBottomLevelBuffers.pResult,
-			//  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
-			//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
-			//  XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z)},
+			// AreaLight
+			{ planeBottomLevelBuffers.pResult,
+			  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
+			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+			  XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z)},
 
 			//// Back wall (z = +20), normal pointing into the box (-Z)
 			//{ planeBottomLevelBuffers.pResult,
@@ -4354,30 +4349,30 @@ void Renderer::CreatePerInstanceBuffers()
 		m_PerInstanceCBs[i]->Unmap(0, nullptr);
 	}
 
-	m_MaterialsGPU.reserve(m_SponzaModel.materials.size());
+	m_MaterialsGPU.reserve(m_PerInstanceCBCount + m_SponzaModel.materials.size());
 	//m_MaterialsGPU.reserve(m_PerInstanceCBCount);
 
-	//for (auto& m : m_Materials)
-	//{
-	//	MaterialDataGPU matGpu{};
-	//	Material* mat = m.get();
-	//	matGpu.DiffuseAlbedo = mat->DiffuseAlbedo;
-	//	matGpu.FresnelR0 = mat->FresnelR0;
-	//	matGpu.Ior = mat->Ior;
-	//	matGpu.Reflectivity = mat->Reflectivity;
-	//	matGpu.Absorption = mat->Absorption;
-	//	matGpu.Roughness = mat->Roughness;
-	//	matGpu.pad = 1.0f;
-	//	matGpu.pad2 = 1.0f;
-	//	matGpu.metallic = mat->metallic;
-	//	matGpu.isReflective = mat->IsReflective;
-	//	matGpu.isRefractive = mat->IsRefractive;
-	//	matGpu.pad3 = 0.0f;
-	//	matGpu.TexIndex = mat->DiffuseSrvHeapIndex;
-	//	matGpu.isEmissive = mat->isEmissive;
-	//	matGpu.Emission = mat->emission;
-	//	m_MaterialsGPU.push_back(std::move(matGpu));
-	//}
+	for (auto& m : m_Materials)
+	{
+		MaterialDataGPU matGpu{};
+		Material* mat = m.get();
+		matGpu.DiffuseAlbedo = mat->DiffuseAlbedo;
+		matGpu.FresnelR0 = mat->FresnelR0;
+		matGpu.Ior = mat->Ior;
+		matGpu.Reflectivity = mat->Reflectivity;
+		matGpu.Absorption = mat->Absorption;
+		matGpu.Roughness = mat->Roughness;
+		matGpu.pad = 1.0f;
+		matGpu.pad2 = 1.0f;
+		matGpu.metallic = mat->metallic;
+		matGpu.isReflective = mat->IsReflective;
+		matGpu.isRefractive = mat->IsRefractive;
+		matGpu.pad3 = 0.0f;
+		matGpu.TexIndex = mat->DiffuseSrvHeapIndex;
+		matGpu.isEmissive = mat->isEmissive;
+		matGpu.Emission = mat->emission;
+		m_MaterialsGPU.push_back(std::move(matGpu));
+	}
 
 	for (auto& m : m_SponzaModel.materials)
 	{

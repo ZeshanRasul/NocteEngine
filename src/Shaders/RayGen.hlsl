@@ -368,26 +368,8 @@ void RayGen()
             record.StateIndex = currentState;
             
             uint actionSeed = linearIndex ^ (bounce * 16777619u) ^ (s * 374761393u) ^ (frameIndex * 2246822519u);
-
-            uint action;
-            if (gUseRL == 1)
-            {
-                action = ChooseActionEpsilonGreedy(currentState, actionSeed, 0.1f);
-                params = GetSamplingParams(action);
-                record.ActionIndex = action;
-            }
-            else if (UseQTable)
-            {
-                action = ChooseBestActionWithTieBreak(currentState, actionSeed, frameIndex);
-                params = GetSamplingParams(action);
-                record.ActionIndex = action;
-            }
-            else
-            {
-                params.bsdfProb = BSDFSampleProbability;
-                params.lightProb = LightSampleProbability;
-                record.ActionIndex = 999; // sentinel for baseline / not RL
-            }
+            
+            record.ActionIndex = 999;
             
             payload.prms = params;
             
@@ -401,7 +383,9 @@ void RayGen()
             payload.emission = 0.0f;
             payload.bsdfOverPdf = 0.0f;
             payload.pdf = 1.0f;
-                       
+            payload.prevHitPos = ray.Origin;
+            
+            
             TraceRay(
             SceneBVH,
             RAY_FLAG_NONE,
