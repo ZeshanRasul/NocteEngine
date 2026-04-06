@@ -4255,7 +4255,7 @@ void Renderer::CreateAreaLightConstantBuffer()
 	areaLight.Position = XMFLOAT3(0.0f, 1038.0f, 0.0f);
 	areaLight.Radiance = XMFLOAT3(50.0f, 50.0f, 50.0f);
 	areaLight.U = XMFLOAT3(400.0f, 0.0f, 0.0f);
-	areaLight.V = XMFLOAT3(0.0f, 0.0f, 400.0f);
+	areaLight.V = XMFLOAT3(0.0f, 0.0f, 100.0f);
 
 	XMVECTOR U = XMLoadFloat3(&areaLight.U);
 	XMVECTOR V = XMLoadFloat3(&areaLight.V);
