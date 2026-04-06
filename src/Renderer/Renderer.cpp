@@ -590,11 +590,7 @@ bool Renderer::Draw(bool useRaster)
 	{
 		useHistory = 1;
 	}
-	if (!m_UseQTable && m_UseRL)
-	{
-		UploadRLQTable(m_RLQTable);
 
-	}
 
 	if (m_UseQTable)
 	{
@@ -903,48 +899,48 @@ bool Renderer::Draw(bool useRaster)
 
 	if (m_UseTemporal && m_UseDenoiser)
 	{
-		// Transition AccumulationBuffer back to UAV for next frame
-		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-			m_AccumulationBuffer.Get(),
-			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	//	// Transition AccumulationBuffer back to UAV for next frame
+	//	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+	//		m_AccumulationBuffer.Get(),
+	//		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+	//		D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 
-		// Copy TA result to denoiser input
-		D3D12_RESOURCE_BARRIER barriers[2];
-		barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_FinalDenoiseBuffer,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_COPY_DEST);
-		barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_TemporalRadianceBuffer.Get(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_COPY_SOURCE);
-		m_CommandList->ResourceBarrier(_countof(barriers), barriers);
+	//	// Copy TA result to denoiser input
+	//	D3D12_RESOURCE_BARRIER barriers[2];
+	//	barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+	//		m_FinalDenoiseBuffer,
+	//		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+	//		D3D12_RESOURCE_STATE_COPY_DEST);
+	//	barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+	//		m_TemporalRadianceBuffer.Get(),
+	//		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+	//		D3D12_RESOURCE_STATE_COPY_SOURCE);
+	//	m_CommandList->ResourceBarrier(_countof(barriers), barriers);
 
-		m_CommandList->CopyResource(m_FinalDenoiseBuffer, m_TemporalRadianceBuffer.Get());
+	//	m_CommandList->CopyResource(m_FinalDenoiseBuffer, m_TemporalRadianceBuffer.Get());
 
-		//// Transition back
-		//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_TemporalRadianceBuffer.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-		//barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_AccumulationHistoryBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-		//m_CommandList->ResourceBarrier(2, barriers);
+	//	//// Transition back
+	//	//barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(m_TemporalRadianceBuffer.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	//	//barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(m_AccumulationHistoryBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	//	//m_CommandList->ResourceBarrier(2, barriers);
 
 
-	//// Transition  back to UAV state for the next frame's RayGen
-	//m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-	//	m_AccumulationBuffer.Get(),
-	//	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-	//	D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	////// Transition  back to UAV state for the next frame's RayGen
+	////m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+	////	m_AccumulationBuffer.Get(),
+	////	D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+	////	D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 
-		D3D12_RESOURCE_BARRIER barriers2[2];
-		barriers2[0] = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_FinalDenoiseBuffer,
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-		barriers2[1] = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_TemporalRadianceBuffer.Get(),
-			D3D12_RESOURCE_STATE_COPY_SOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-		m_CommandList->ResourceBarrier(_countof(barriers2), barriers2);
+	//	D3D12_RESOURCE_BARRIER barriers2[2];
+	//	barriers2[0] = CD3DX12_RESOURCE_BARRIER::Transition(
+	//		m_FinalDenoiseBuffer,
+	//		D3D12_RESOURCE_STATE_COPY_DEST,
+	//		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	//	barriers2[1] = CD3DX12_RESOURCE_BARRIER::Transition(
+	//		m_TemporalRadianceBuffer.Get(),
+	//		D3D12_RESOURCE_STATE_COPY_SOURCE,
+	//		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	//	m_CommandList->ResourceBarrier(_countof(barriers2), barriers2);
 	}
 	else if (!m_UseTemporal && m_UseDenoiser)
 	{
