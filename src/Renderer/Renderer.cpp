@@ -144,7 +144,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 		break;
 	}
 
-	d3dUtil::LoadObjModel("Models/sponza.obj", m_SponzaModel);
+	d3dUtil::LoadObjModel("Models/exterior.obj", m_SponzaModel);
 	d3dUtil::LoadObjModel("Models/dragon.obj", m_DragonModel);
 	LoadTextures(m_SponzaModel);
 		//LoadTextures(m_DragonModel);
@@ -255,11 +255,11 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateCameraBuffer();
 	CreateFrameIndexRNGCBuffer();
 	m_RLQTable.resize(NumStates * NumActions);
-	CreateReadbackBuffer();
+	/*CreateReadbackBuffer();
 	CreateRLQTableBuffer();
 	CreateRLQTableUploadBuffer();
 	CreateRLTransitionBuffer(m_ClientWidth, m_ClientHeight);
-	CreateRLTransitionReadbackBuffer();
+	CreateRLTransitionReadbackBuffer();*/
 	CreateDenoisingResources();
 
 
@@ -272,7 +272,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRaytracingOutputBuffer();
 	CreatePresentUAV();
 	CreateAccumulationBuffer();
-	LoadTextureFromFileToSRV(m_Device.Get(), m_CommandList.Get(), "C:\dev\NocteEngine\out\build\x64-Release\bin\RelWithDebInfo\experiments\runs\2026-04-05_16-03-33Diffuse_Alcove\GT8192SPP.png");
+//	LoadTextureFromFileToSRV(m_Device.Get(), m_CommandList.Get(), "C:\dev\NocteEngine\out\build\x64-Release\bin\RelWithDebInfo\experiments\runs\2026-04-05_16-03-33Diffuse_Alcove\GT8192SPP.png");
 	CreateShaderResourceHeap();
 	CreateShaderResourceCPUHeap();
 	CreateSamplerHeap();
@@ -2661,9 +2661,9 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
 		{ 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 6},
 		{ 4, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 9},
 		{ 1, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 26},
-		{ 5, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 29},
-		{ 2, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 30},
-		{ 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 31}
+//		{ 5, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 29},
+		//{ 2, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 30},
+		//{ 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 31}
 		}
 	);
 	rsc.AddHeapRangesParameter(
@@ -2692,7 +2692,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 		{ 4, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 15},
 		{ 5, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 27},
 		{ 0, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 28},
-		{ 6, (UINT)m_Textures.size(), 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 32},
+		{ 6, (UINT)m_Textures.size(), 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 30},
 
 		});
 	rsc.AddHeapRangesParameter(
@@ -2847,7 +2847,7 @@ void Renderer::CreateSamplerHeap()
 
 void Renderer::CreateShaderResourceHeap()
 {
-	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 32 + m_Textures.size(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 30 + m_Textures.size(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -3098,46 +3098,6 @@ void Renderer::CreateShaderResourceHeap()
 	srvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 	m_AlbedoTex->SetName(L"Albedo Texture SRV");
 	m_Device->CreateShaderResourceView(m_AlbedoTex.Get(), &srvDesc, srvHandle);
-
-	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-	uavDesc = {};
-	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
-	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
-	uavDesc.Buffer.FirstElement = 0;
-	uavDesc.Buffer.NumElements =
-		static_cast<size_t>(m_ClientWidth) *
-		static_cast<size_t>(m_ClientHeight) *
-		static_cast<size_t>(m_SPP) *
-		static_cast<size_t>(12);
-	uavDesc.Buffer.StructureByteStride = sizeof(RLTransitionGPU);
-	uavDesc.Buffer.CounterOffsetInBytes = 0;
-	uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
-	m_RLTransitionBuffer->SetName(L"RL Transition Buffer UAV");
-
-	m_Device->CreateUnorderedAccessView(
-		m_RLTransitionBuffer.Get(),
-		nullptr,
-		&uavDesc,
-		srvHandle);
-
-	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-
-	srvDesc = {};
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = DXGI_FORMAT_UNKNOWN;
-	srvDesc.Buffer.FirstElement = 0;
-	srvDesc.Buffer.NumElements = NumStates * NumActions;
-	srvDesc.Buffer.StructureByteStride = sizeof(RLQValue);
-	srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-	m_RLQTableBuffer->SetName(L"RL Q Table Buffer SRV");
-
-	m_Device->CreateShaderResourceView(
-		m_RLQTableBuffer.Get(),
-		&srvDesc,
-		srvHandle);
 
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
@@ -4448,27 +4408,104 @@ void Renderer::LoadTextures(Model& model)
 			if (textureCache.count(path))
 				return textureCache[path];
 
-			OutputDebugStringA(("Loading texture: " + path + "\n").c_str());
+			std::filesystem::path texturePath(path);
 
-			std::wstring wPath = AnsiToWString(path);
-
-			if (GetFileAttributesW(wPath.c_str()) == INVALID_FILE_ATTRIBUTES)
+			if (!texturePath.is_absolute())
 			{
-				OutputDebugStringA(("Missing texture: " + path + "\n").c_str());
-				return -1;
+				std::filesystem::path basePath = "C:/dev/NocteEngine/Models";
+				texturePath = basePath / texturePath.lexically_normal();
 			}
+
+			OutputDebugStringA(("Loading texture: " + texturePath.string() + "\n").c_str());
+
+			std::wstring wPath = texturePath.wstring();
+			std::string pathStr = texturePath.string();
 
 			auto tex = std::make_unique<Texture>();
 			tex->Filename = wPath;
 
-			HRESULT hr = DirectX::CreateDDSTextureFromFile12(
-				m_Device.Get(),
-				m_CommandList.Get(),
-				tex->Filename.c_str(),
-				tex->Resource,
-				tex->UploadHeap);
+			// Check file extension
+			std::string ext = texturePath.extension().string();
+			std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
-			if (FAILED(hr))
+			HRESULT hr = E_FAIL;
+
+			if (ext == ".dds")
+			{
+				// Load DDS directly
+				hr = DirectX::CreateDDSTextureFromFile12(
+					m_Device.Get(),
+					m_CommandList.Get(),
+					tex->Filename.c_str(),
+					tex->Resource,
+					tex->UploadHeap);
+			}
+			else if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".tga" || ext == ".bmp")
+			{
+				// Load using stb_image
+				int width = 0, height = 0, channels = 0;
+				stbi_uc* pixels = stbi_load(pathStr.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+
+				if (pixels)
+				{
+					D3D12_RESOURCE_DESC texDesc = {};
+					texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+					texDesc.Width = static_cast<UINT64>(width);
+					texDesc.Height = static_cast<UINT>(height);
+					texDesc.DepthOrArraySize = 1;
+					texDesc.MipLevels = 1;
+					texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+					texDesc.SampleDesc.Count = 1;
+					texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+
+					CD3DX12_HEAP_PROPERTIES defaultHeap(D3D12_HEAP_TYPE_DEFAULT);
+
+					hr = m_Device->CreateCommittedResource(
+						&defaultHeap,
+						D3D12_HEAP_FLAG_NONE,
+						&texDesc,
+						D3D12_RESOURCE_STATE_COPY_DEST,
+						nullptr,
+						IID_PPV_ARGS(&tex->Resource));
+
+					if (SUCCEEDED(hr))
+					{
+						UINT64 uploadSize = GetRequiredIntermediateSize(tex->Resource.Get(), 0, 1);
+
+						CD3DX12_HEAP_PROPERTIES uploadHeap(D3D12_HEAP_TYPE_UPLOAD);
+						CD3DX12_RESOURCE_DESC uploadDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadSize);
+
+						hr = m_Device->CreateCommittedResource(
+							&uploadHeap,
+							D3D12_HEAP_FLAG_NONE,
+							&uploadDesc,
+							D3D12_RESOURCE_STATE_GENERIC_READ,
+							nullptr,
+							IID_PPV_ARGS(&tex->UploadHeap));
+
+						if (SUCCEEDED(hr))
+						{
+							D3D12_SUBRESOURCE_DATA subresource = {};
+							subresource.pData = pixels;
+							subresource.RowPitch = static_cast<LONG_PTR>(width * 4);
+							subresource.SlicePitch = subresource.RowPitch * height;
+
+							UpdateSubresources(m_CommandList.Get(), tex->Resource.Get(),
+								tex->UploadHeap.Get(), 0, 0, 1, &subresource);
+
+							auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+								tex->Resource.Get(),
+								D3D12_RESOURCE_STATE_COPY_DEST,
+								D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+							m_CommandList->ResourceBarrier(1, &barrier);
+						}
+
+					}
+					stbi_image_free(pixels);
+				}
+			}
+
+			if (FAILED(hr) || !tex->Resource)
 			{
 				OutputDebugStringA(("Failed to load: " + path + "\n").c_str());
 				return -1;
@@ -4476,7 +4513,6 @@ void Renderer::LoadTextures(Model& model)
 
 			int index = static_cast<int>(m_Textures.size());
 			textureCache[path] = index;
-
 			m_Textures.push_back(std::move(tex));
 			return index;
 		};
@@ -4824,7 +4860,7 @@ void Renderer::CreateRLQTableUploadBuffer()
 
 void Renderer::CreateRLTransitionBuffer(uint32_t width, uint32_t height)
 {
-	m_RLTransitionCount = width * height * m_SPP * 12;
+	m_RLTransitionCount = 1;
 	m_RLTransitionBufferSize = static_cast<uint64_t>(m_RLTransitionCount) * sizeof(RLTransitionGPU);
 
 	if (m_RLTransitionCount == 0)

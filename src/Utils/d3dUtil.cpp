@@ -268,30 +268,46 @@ void d3dUtil::LoadObjModel(const std::string& filepath, Model& model)
 
 				VertexObj vertex = {};
 
-				vertex.Pos =
+				if (idx.vertex_index >= 0 && (3 * idx.vertex_index + 2) < attrib.vertices.size())
 				{
-					attrib.vertices[3 * idx.vertex_index + 2],
-					attrib.vertices[3 * idx.vertex_index + 1],
-					attrib.vertices[3 * idx.vertex_index + 0]
-				};
-
-				vertex.Normal =
+					vertex.Pos =
+					{
+						attrib.vertices[3 * idx.vertex_index + 2],
+						attrib.vertices[3 * idx.vertex_index + 1],
+						attrib.vertices[3 * idx.vertex_index + 0]
+					};
+				}
+				else
 				{
-					attrib.normals[3 * idx.normal_index + 2],
-					attrib.normals[3 * idx.normal_index + 1],
-					attrib.normals[3 * idx.normal_index + 0]
-				};
+					throw std::runtime_error("Invalid vertex index in OBJ");
+				}
 
-				if (attrib.texcoords.size() == 0)
+				if (idx.normal_index >= 0 && (3 * idx.normal_index + 2) < attrib.normals.size())
+				{
+					vertex.Normal =
+					{
+						attrib.normals[3 * idx.normal_index + 2],
+						attrib.normals[3 * idx.normal_index + 1],
+						attrib.normals[3 * idx.normal_index + 0]
+					};
+				}
+				else
+				{
+					vertex.Normal = { 0.0f, 0.0f, 0.0f };
+				}
+
+				if (idx.texcoord_index >= 0 && (2 * idx.texcoord_index + 1) < attrib.texcoords.size())
+				{
+					vertex.UV =
+					{
+						attrib.texcoords[2 * idx.texcoord_index + 0],
+						1.0f - attrib.texcoords[2 * idx.texcoord_index + 1]
+					};
+				}
+				else
 				{
 					vertex.UV = { 0.0f, 0.0f };
 				}
-				else
-				vertex.UV =
-				{
-					attrib.texcoords[2 * idx.texcoord_index + 0],
-					1.0f - attrib.texcoords[2 * idx.texcoord_index + 1]
-				};
 
 				// Deduplicate vertices
 				auto it = uniqueVertices.find(vertex);
