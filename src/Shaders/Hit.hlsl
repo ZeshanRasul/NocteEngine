@@ -169,6 +169,7 @@ void HandleRefractiveHit(
     payload.pdf = 1.0f; // implicit delta BSDF
     payload.lastBounceWasDelta = 1;
     payload.prevBsdfPdf = 1.0f;
+    payload.prevHitPos = pW;
     
     // Glass itself does not emit
     payload.emission = 0.0f;
@@ -252,7 +253,7 @@ bool IsOccluded(float3 origin, float3 dir, float maxDistance)
     RayDesc shadowRay;
     shadowRay.Origin = origin;
     shadowRay.Direction = dir;
-    shadowRay.TMin = 0.01f;
+    shadowRay.TMin = 0.001f;
     shadowRay.TMax = maxDistance - 0.001f;
     
     TraceRay(
@@ -312,8 +313,10 @@ LightSample SampleAreaLight(float3 p, float3 n, inout uint seed)
     s.dir = L;
     s.dist = d;
     s.Li = gAreaLights[0].Radiance;
-//    s.pdf = pdf;
-    s.pdf = max(pdf, 1e-6f);
+    
+    if (pdf <= 0.0f)
+        return s;
+    s.pdf = pdf;
     
     return s;
 }
@@ -327,6 +330,10 @@ void ShadowClosestHit(inout ShadowPayload hit, Attributes attrib)
 [shader("closesthit")]
 void ClosestHit(inout PathPayload payload, Attributes attrib)
 {
+    uint prevWasDelta = payload.lastBounceWasDelta;
+    float prevSegmentPdf = payload.prevBsdfPdf;
+    float3 prevSegmentOrigin = payload.prevHitPos;
+    
     // Triangle index and vertices
     const uint triIndex = PrimitiveIndex();
     const uint vbase = triIndex * 3;
@@ -365,7 +372,11 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     payload.hitPos = pW;
     payload.normal = N;
     payload.depth++;
+    payload.hitSomething = 1;
+    payload.tHit = RayTCurrent();
 
+    float3 selfEmit = 0.0f;
+    
     Material mat;
     
     if (InstanceID() >= 1)
@@ -377,7 +388,8 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         mat = materials[materialIndex];
     }
     payload.emission = 0.0f;
-    
+    payload.isEmissive = 0;
+
     if (mat.TexIndex >= 0)
         mat.DiffuseAlbedo = textures[mat.TexIndex].SampleLevel(sampAniso, uv, 0);
     
@@ -391,20 +403,55 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     // Sample BSDF
     float2 xi = Rand2(payload.seed);
 
-    float3 wi;
-    float pdf;
-    
     float3x3 frame = BuildTangentFrame(N);
     float3 VLocal = mul(V, transpose(frame));
     
-    float3 LdDir = 0.0f;
+    bool isEmitter = any(mat.EmissiveColor.rgb > 0.0f);
+
+    if (isEmitter)
+    {
+        payload.isEmissive = 1;
+        float3 Le = mat.EmissiveColor.rgb;
+
+        if (prevWasDelta != 0 || payload.depth == 1)
+        {
+        // No MIS against NEE for primary hits or after delta events
+            selfEmit = Le;
+        }
+        else
+        {
+        // Compute light pdf for having sampled this exact point via NEE
+            float3 toLight = pW - prevSegmentOrigin;
+            float dist2 = dot(toLight, toLight);
+            float dist = sqrt(max(dist2, 1e-8f));
+            float3 wiToLight = toLight / dist;
+
+            float3 nLight = N; // for a flat emissive area light this is fine
+            float cosOnLight = saturate(dot(nLight, -wiToLight));
+
+            float pdfLight = 0.0f;
+            if (cosOnLight > 0.0f)
+            {
+                float pdfArea = 1.0f / max(gAreaLights[0].Area, 1e-8f);
+                pdfLight = pdfArea * dist2 / max(cosOnLight, 1e-8f);
+            }
+
+            float pdfBSDF = max(prevSegmentPdf, 0.0f);
+
+            float wBsdf = (pdfBSDF * pdfBSDF) /
+                      max(pdfBSDF * pdfBSDF + pdfLight * pdfLight, 1e-8f);
+
+            selfEmit = Le * wBsdf;
+        }
+    }
+    
     float3 LdContrib = 0.0f;
     
     LightSample lightSample = SampleAreaLight(pW, N, payload.seed);
     
     if (lightSample.pdf > 0.0f)
     {
-        bool occluded = IsOccluded(pW + N * 0.1f, lightSample.dir, lightSample.dist - 1e-4f);
+        bool occluded = IsOccluded(pW + N * 0.001f, lightSample.dir, lightSample.dist - 1e-4f);
  
         if (!occluded)
         {
@@ -432,75 +479,23 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         }
     }
       
-    //float3 ambient = float3(0.04, 0.04, 0.04);
-    //payload.emission += ambient;
-    
     BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);
     
-    if (!bsdf.valid || all(bsdf.fOverPdf == 0.0f))
+    if (!bsdf.valid || all(bsdf.fOverPdf == 0.0f) || bsdf.pdf <= 0.0f)
     {
+        payload.emission = selfEmit + LdContrib;
         payload.done = 1;
+        payload.bsdfOverPdf = 0.0f;
         return;
     }
-
-    float3 fOverPdf = bsdf.fOverPdf;
 
     payload.wi = bsdf.wi;
     payload.bsdfOverPdf = bsdf.fOverPdf;
     payload.pdf = bsdf.pdf;
-    
+        
+    payload.emission = selfEmit + LdContrib;
+    payload.prevHitPos = pW;
     payload.lastBounceWasDelta = (bsdf.delta == 1) ? 1 : 0;
     payload.prevBsdfPdf = bsdf.pdf;
-    
-    float3 selfEmit = 0.0f;
-
-// Replace this with your real emissive test / emissive field
-    bool isEmitter = any(mat.EmissiveColor.rgb > 0.0f);
-
-    if (isEmitter)
-    {
-        float3 Le = mat.EmissiveColor.rgb;
-
-        if (payload.lastBounceWasDelta != 0 || payload.depth == 1)
-        {
-        // No MIS against NEE for primary hits or after delta events
-            selfEmit = Le;
-        }
-        else
-        {
-        // Compute light pdf for having sampled this exact point via NEE
-            float3 toLight = pW - payload.prevHitPos;
-            float dist2 = dot(toLight, toLight);
-            float dist = sqrt(max(dist2, 1e-8f));
-            float3 wiToLight = toLight / dist;
-
-            float3 nLight = N; // for a flat emissive area light this is fine
-            float cosOnLight = saturate(dot(nLight, -wiToLight));
-
-            float pdfLight = 0.0f;
-            if (cosOnLight > 0.0f)
-            {
-                float pdfArea = 1.0f / max(gAreaLights[0].Area, 1e-8f);
-                pdfLight = pdfArea * dist2 / max(cosOnLight, 1e-8f);
-            }
-
-            float pdfBSDF = max(payload.prevBsdfPdf, 0.0f);
-
-            float wBsdf = (pdfBSDF * pdfBSDF) /
-                      max(pdfBSDF * pdfBSDF + pdfLight * pdfLight, 1e-8f);
-
-            selfEmit = Le * wBsdf;
-        }
-    }
-
-    payload.emission = selfEmit + LdContrib;
-    // Stop if pdf is invalid or if throughput will be zero
-    if (all(bsdf.fOverPdf == 0.0f) || bsdf.pdf <= 0.0f)
-    {
-        payload.done = 1;
-    }
-    else
-    {
-        payload.done = 0;
-    }
+    payload.done = 0;
 }

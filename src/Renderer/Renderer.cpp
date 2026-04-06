@@ -1267,7 +1267,7 @@ bool Renderer::Draw(bool useRaster)
 		m_MaxIterations = 8192;
 	}
 
-	if (!m_UseTemporal && (m_FrameIndex == m_MaxIterations || m_FrameIndex == 1 || m_FrameIndex == 4 || m_FrameIndex == 16 || m_FrameIndex == 32 || m_FrameIndex == 64 || m_FrameIndex == 128 || m_FrameIndex == 256))
+	if (m_FrameIndex == m_MaxFrames)
 	{
 		m_TargetCaptureSPP = m_FrameIndex;
 		m_SaveImage = true;
@@ -4254,8 +4254,8 @@ void Renderer::CreateAreaLightConstantBuffer()
 	AreaLight areaLight{};
 	areaLight.Position = XMFLOAT3(0.0f, 1038.0f, 0.0f);
 	areaLight.Radiance = XMFLOAT3(50.0f, 50.0f, 50.0f);
-	areaLight.U = XMFLOAT3(1000.0f, 0.0f, 0.0f);
-	areaLight.V = XMFLOAT3(0.0f, 0.0f, 1000.0f);
+	areaLight.U = XMFLOAT3(400.0f, 0.0f, 0.0f);
+	areaLight.V = XMFLOAT3(0.0f, 0.0f, 400.0f);
 
 	XMVECTOR U = XMLoadFloat3(&areaLight.U);
 	XMVECTOR V = XMLoadFloat3(&areaLight.V);

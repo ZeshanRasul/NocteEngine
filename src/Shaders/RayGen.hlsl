@@ -224,39 +224,6 @@ uint ComputeStateIndex(
          + 243 * sppBucket;
 }
 
-SamplingModeParams GetSamplingParams(uint actionIndex)
-{
-    SamplingModeParams p;
-
-    if (actionIndex == 0)
-    {
-        p.bsdfProb = 0.9f;
-        p.lightProb = 0.1f;
-    }
-    else if (actionIndex == 1)
-    {
-        p.bsdfProb = 0.7f;
-        p.lightProb = 0.3f;
-    }
-    else if (actionIndex == 2)
-    {
-        p.bsdfProb = 0.3;
-        p.lightProb = 0.7;
-    }
-    else if (actionIndex == 3)
-    {
-        p.bsdfProb = 0.1f;
-        p.lightProb = 0.9f;
-    }
-    else
-    {
-        p.bsdfProb = 0.5f;
-        p.lightProb = 0.5f;
-    }
-
-    return p;
-}
-
 [numthreads(8, 8, 1)]
 [shader("raygeneration")]
 void RayGen()
@@ -268,8 +235,6 @@ void RayGen()
 
     float3 refColor = gGroundTruth.Load(int3(launchIndex, 0)).rgb;
     
-    SamplingModeParams params;
-
     float2 pixel = (float2) DispatchRaysIndex() + 0.5f;
     float2 ndc = pixel / float2(DispatchRaysDimensions().xy);
     ndc = ndc * 2.0f - 1.0f;
@@ -318,7 +283,7 @@ void RayGen()
         payload.done = 0;
         payload.seed = Hash(seed + s * 9781u);
         payload.lastBounceWasDelta = 0;
-        payload.prevBsdfPdf = 0.0f;
+        payload.prevBsdfPdf = 1.0f;
         payload.prevHitPos = originWS;
         payload.hitPos = originWS;
         payload.normal = float3(0.0f, 0.0f, 1.0f);
@@ -330,7 +295,7 @@ void RayGen()
         RayDesc ray;
         ray.Origin = originWS;
         ray.Direction = dirWS;
-        ray.TMin = 0.1f;
+        ray.TMin = 0.001f;
         ray.TMax = 1e38f;
 
         float3 finalRadiance = 0.0f;
@@ -367,23 +332,16 @@ void RayGen()
             
             record.StateIndex = currentState;
             
-            uint actionSeed = linearIndex ^ (bounce * 16777619u) ^ (s * 374761393u) ^ (frameIndex * 2246822519u);
-            
             record.ActionIndex = 999;
-            
-            payload.prms = params;
             
             payload.isReflective = 0;
             payload.isRefractive = 0;
             payload.matRoughness = 0.5f;
             payload.cosTheta = 1.0f;
-            //payload.prms.bsdfProb = 0.5f;
-            //payload.prms.lightProb = 0.5f;
             payload.done = 0;
             payload.emission = 0.0f;
             payload.bsdfOverPdf = 0.0f;
             payload.pdf = 1.0f;
-            payload.prevHitPos = ray.Origin;
             
             
             TraceRay(
@@ -415,8 +373,6 @@ void RayGen()
                 primaryDepth = length(payload.hitPos - gEyePosW); // world units
                 primarySet = true;
             }
-            
-            float3 bounceContrib = payload.throughput * payload.emission;
             
             float3 nextThroughput = payload.throughput;
             
@@ -497,8 +453,6 @@ void RayGen()
 
         }
         sppSum += finalRadiance;
-        float3 viewPos = mul(float4(payload.hitPos, 1.0f), gView).xyz;
-        primaryDepth = viewPos.z;
      //   finalColor = payload.emission;
         
         if (payload.isEmissive == 1)

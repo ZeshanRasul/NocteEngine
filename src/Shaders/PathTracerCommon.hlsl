@@ -37,7 +37,6 @@ struct PathPayload
     uint isReflective;
     float matRoughness;
     float cosTheta;
-    SamplingModeParams prms;
 };
 
 struct Attributes
