@@ -611,7 +611,7 @@ bool Renderer::Draw(bool useRaster)
 	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
 	m_CommandList->DispatchRays(&desc);
 
-	if (!m_UseQTable && m_UseRL)
+	if (m_UseQTable || m_UseRL)
 	{
 
 		CopyRLTransitionsToReadback();
@@ -670,7 +670,8 @@ bool Renderer::Draw(bool useRaster)
 					m_RLQTable[idx].Value += m_Alpha * (target - m_RLQTable[idx].Value);
 					m_RLQTable[idx].Value = std::clamp(m_RLQTable[idx].Value, -10.0f, 10.0f);
 
-					file << i << ","
+					file << m_FrameIndex << ","
+						<< GetSceneSetUpName(m_SceneID) << ","
 						<< std::to_string(m_UseRL) << ","
 						<< t.StateIndex << ","
 						<< t.ActionIndex << ","
