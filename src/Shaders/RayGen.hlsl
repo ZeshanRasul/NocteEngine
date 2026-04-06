@@ -53,7 +53,7 @@ cbuffer cbPass : register(b0)
     float gFarZ;
     float cbPerObjectPad2;
     float cbPerObjectPad3;
-    float4 gAmbientLight;
+    float4 gSunDir;
     int directPresent;
     int SamplingMode;
     float BSDFSampleProbability;

@@ -6,6 +6,12 @@
 #define NumLights 1
 #define MAX_AREA_LIGHTS 1
 
+struct DirectionalLight
+{
+    float3 direction; // *towards* the surface
+    float3 radiance; 
+};
+
 struct ShadowHitInfo
 {
     bool isHit;
@@ -56,15 +62,28 @@ cbuffer cbPass : register(b0)
     float4x4 gInvProj;
     float4x4 gViewProj;
     float4x4 gInvViewProj;
+    float4x4 gPrevViewProj;
     float3 gEyePosW;
-    float cbPerObjectPad1;
+    uint SPP;
     float2 gRenderTargetSize;
     float2 gInvRenderTargetSize;
     float gNearZ;
     float gFarZ;
     float cbPerObjectPad2;
     float cbPerObjectPad3;
-    float4 gAmbientLight;
+    float4 gSunDir;
+    int directPresent;
+    int SamplingMode;
+    float BSDFSampleProbability;
+    float LightSampleProbability;
+
+    int MaxBounces;
+    int FrameIndex;
+    int UseNEE;
+    int gUseRL;
+
+    int UseQTable;
+    float3 padding2;
     
     Light gLights[MaxLights];
 };
@@ -93,6 +112,16 @@ cbuffer AreaLights : register(b4)
 cbuffer FrameData : register(b5)
 {
     uint frameIndex;
+}
+
+float3 EvaluateDirectionalDiffuse(
+    float3 normal,
+    float3 albedo,
+    float3 lightDir, // direction TO light
+    float3 lightRadiance)
+{
+    float NdotL = saturate(dot(normal, lightDir));
+    return (albedo / PI) * lightRadiance * NdotL;
 }
 
 // Handles a refractive material (glass) as a specular BSDF
@@ -269,6 +298,7 @@ bool IsOccluded(float3 origin, float3 dir, float maxDistance)
 
     return spayload.isHit;
 }
+
 struct LightSample
 {
     float3 dir; // from hit point to light (normalized)
@@ -470,6 +500,23 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     float3 LdContrib = 0.0f;
     
+    DirectionalLight sun;
+    sun.direction = normalize(float3(gSunDir.rgb));
+    sun.radiance = float3(3.5f, 3.5f, 3.5f);
+
+    float3 L = normalize(-sun.direction);
+
+    float3 lighting = EvaluateDirectionalDiffuse(
+    N,
+    mat.DiffuseAlbedo.rgb,
+    L,
+    sun.radiance);
+
+    bool inShadow = IsOccluded(pW + N * 0.001f, L, 100000.0f);
+
+    if (inShadow)
+        lighting = 0;
+    
     LightSample lightSample = SampleAreaLight(pW, N, payload.seed);
     
     if (lightSample.pdf > 0.0f)
@@ -506,7 +553,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     if (!bsdf.valid || all(bsdf.fOverPdf == 0.0f) || bsdf.pdf <= 0.0f)
     {
-        payload.emission = selfEmit + LdContrib;
+        payload.emission = selfEmit + LdContrib + lighting;
         payload.done = 1;
         payload.bsdfOverPdf = 0.0f;
         return;
@@ -516,7 +563,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     payload.bsdfOverPdf = bsdf.fOverPdf;
     payload.pdf = bsdf.pdf;
         
-    payload.emission = selfEmit + LdContrib;
+    payload.emission = selfEmit + LdContrib + lighting;
     payload.prevHitPos = pW;
     payload.lastBounceWasDelta = (bsdf.delta == 1) ? 1 : 0;
     payload.prevBsdfPdf = bsdf.pdf;

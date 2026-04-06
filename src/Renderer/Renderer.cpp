@@ -2582,7 +2582,7 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.FarZ = 1000.0f;
 	m_MainPassCB.cbPerObjectPad2 = 0.5f;
 	m_MainPassCB.cbPerObjectPad3 = 0.5f;
-	m_MainPassCB.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
+	m_MainPassCB.AmbientLight = m_SunDirection;
 	m_MainPassCB.directPresent = (m_UseDenoiser || m_UseTemporal) ? 0 : 1;
 
 	m_MainPassCB.SamplingMode = static_cast<int>(m_RenderSettings.SamplingStrategy);
@@ -4248,10 +4248,10 @@ void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 void Renderer::CreateAreaLightConstantBuffer()
 {
 	AreaLight areaLight{};
-	areaLight.Position = XMFLOAT3(0.0f, 1038.0f, 0.0f);
-	areaLight.Radiance = XMFLOAT3(50.0f, 50.0f, 50.0f);
-	areaLight.U = XMFLOAT3(400.0f, 0.0f, 0.0f);
-	areaLight.V = XMFLOAT3(0.0f, 0.0f, 100.0f);
+	areaLight.Position = XMFLOAT3(0.0f, 900.0f, 0.0f);
+	areaLight.Radiance = XMFLOAT3(10.0f, 10.0f, 10.0f);
+	areaLight.U = XMFLOAT3(30.0f, 0.0f, 0.0f);
+	areaLight.V = XMFLOAT3(0.0f, 0.0f, 30.0f);
 
 	XMVECTOR U = XMLoadFloat3(&areaLight.U);
 	XMVECTOR V = XMLoadFloat3(&areaLight.V);
@@ -4672,6 +4672,11 @@ void Renderer::RenderImGuiDebugWindow()
 	ImGui::InputFloat("Area Light U", &m_AreaLights.gAreaLights[0].U.x);
 	ImGui::Text("Area Light V Vector");
 	ImGui::InputFloat("Area Light V", &m_AreaLights.gAreaLights[0].V.z);
+	ImGui::InputFloat("Sun DirectionR", &m_SunDirection.x, 0.1f);
+	ImGui::InputFloat("Sun DirectionG", &m_SunDirection.y, 0.1f);
+	ImGui::InputFloat("Sun DirectionB", &m_SunDirection.z, 0.1f);
+	ImGui::InputFloat("Sun DirectionA", &m_SunDirection.w, 0.1f);
+
 	ImGui::End();
 
 	ImGui::Begin("RL Settings");
