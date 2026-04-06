@@ -134,7 +134,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	switch (m_SceneID)
 	{
 	case SceneSetUp::DIFFUSE_SPHERE:
-		m_PerInstanceCBCount = 8;
+		m_PerInstanceCBCount = 1;
 		break;
 	case SceneSetUp::DIFFUSE_CORNELL_BOX:
 		m_PerInstanceCBCount = 8;
@@ -2042,18 +2042,18 @@ void Renderer::BuildMaterials()
 	//	dragon->Ior = 1.5f;
 
 
-	m_Materials.push_back(std::move(boxMat));
-	m_Materials.push_back(std::move(bricks0));
-	m_Materials.push_back(std::move(stone0));
-	m_Materials.push_back(std::move(tile0));
-	m_Materials.push_back(std::move(skullMat));
-	m_Materials.push_back(std::move(sphereMat));
-	m_Materials.push_back(std::move(tile1));
-	m_Materials.push_back(std::move(tile2));
-	m_Materials.push_back(std::move(tile3));
-	m_Materials.push_back(std::move(tile4));
-	m_Materials.push_back(std::move(tile5));
-	m_Materials.push_back(std::move(dragon));
+	//m_Materials.push_back(std::move(boxMat));
+	//m_Materials.push_back(std::move(bricks0));
+	//m_Materials.push_back(std::move(stone0));
+	//m_Materials.push_back(std::move(tile0));
+	//m_Materials.push_back(std::move(skullMat));
+	//m_Materials.push_back(std::move(sphereMat));
+	//m_Materials.push_back(std::move(tile1));
+	//m_Materials.push_back(std::move(tile2));
+	//m_Materials.push_back(std::move(tile3));
+	//m_Materials.push_back(std::move(tile4));
+	//m_Materials.push_back(std::move(tile5));
+	//m_Materials.push_back(std::move(dragon));
 
 	//m_Materials.push_back(std::move(boxMat));    // 0
 	//m_Materials.push_back(std::move(bricks0));   // 1
@@ -2509,7 +2509,7 @@ void Renderer::BuildFrameResources()
 {
 	for (int i = 0; i < NumFrameResources; ++i)
 	{
-		m_FrameResources.push_back(std::make_unique<FrameResource>(m_Device.Get(), 1, (UINT)m_PerInstanceCBCount));
+		m_FrameResources.push_back(std::make_unique<FrameResource>(m_Device.Get(), 1, (UINT)1));
 	}
 }
 void Renderer::UpdateObjectCBs()
@@ -3628,8 +3628,8 @@ void Renderer::CreateShaderBindingTable()
 
 		if (m_SceneID == SceneSetUp::DIFFUSE_SPHERE)
 		{
-			m_PerInstanceCBCount = 8;
-			if (i < 6)
+			m_PerInstanceCBCount = 1;
+	/*		if (i < 6)
 			{
 				vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
 				ib = m_PlaneIndexBuffer->GetGPUVirtualAddress();
@@ -3640,7 +3640,8 @@ void Renderer::CreateShaderBindingTable()
 				ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 
 			}
-			else if (i == 7)
+			else */
+			if (i == 0)
 			{
 				vb = m_SponzaVertexBuffer->GetGPUVirtualAddress();
 				ib = m_SponzaIndexBuffer->GetGPUVirtualAddress();
@@ -3820,49 +3821,49 @@ void Renderer::CreateAccelerationStructures()
 	{
 		m_Instances =
 		{
-			// Floor (y = 0)
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			  XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
+			//// Floor (y = 0)
+			//{ planeBottomLevelBuffers.pResult,
+			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			//  XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
 
-			// Ceiling (y = 40)
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
-			  XMMatrixTranslation(0.0f, 40.0f, 0.0f) },
+			//// Ceiling (y = 40)
+			//{ planeBottomLevelBuffers.pResult,
+			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+			//  XMMatrixTranslation(0.0f, 40.0f, 0.0f) },
 
-			// AreaLight
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
-			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
-			  XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z)},
+			//// AreaLight
+			//{ planeBottomLevelBuffers.pResult,
+			//  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
+			//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+			//  XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z)},
 
-			// Back wall (z = +20), normal pointing into the box (-Z)
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
-			  XMMatrixTranslation(0.0f, 20.0f, 40.0f) },
+			//// Back wall (z = +20), normal pointing into the box (-Z)
+			//{ planeBottomLevelBuffers.pResult,
+			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
+			//  XMMatrixTranslation(0.0f, 20.0f, 40.0f) },
 
-			// Left wall (x = -20), normal pointing into the box (+X)
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
-			  XMMatrixTranslation(-40.0f, 20.0f, 0.0f) },
+			//// Left wall (x = -20), normal pointing into the box (+X)
+			//{ planeBottomLevelBuffers.pResult,
+			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			//  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
+			//  XMMatrixTranslation(-40.0f, 20.0f, 0.0f) },
 
-			// Right wall (x = +20), normal pointing into the box (-X)
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
-			  XMMatrixTranslation(40.0f, 20.0f, 0.0f) },
+			//// Right wall (x = +20), normal pointing into the box (-X)
+			//{ planeBottomLevelBuffers.pResult,
+			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			//  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
+			//  XMMatrixTranslation(40.0f, 20.0f, 0.0f) },
 
-			// ----------------------------------------------------
-			// Objects on the floor: sphere
-			// ----------------------------------------------------
+			//// ----------------------------------------------------
+			//// Objects on the floor: sphere
+			//// ----------------------------------------------------
 
-			// Sphere in center: radius ~12.5 at y = 12.5
-			{ sphereBottomLevelBuffers.pResult,
-			XMMatrixScaling(25.0f, 25.0f, 25.0f) *
-			XMMatrixTranslation(0.0f, 12.5f, 0.0f) },
+			//// Sphere in center: radius ~12.5 at y = 12.5
+			//{ sphereBottomLevelBuffers.pResult,
+			//XMMatrixScaling(25.0f, 25.0f, 25.0f) *
+			//XMMatrixTranslation(0.0f, 12.5f, 0.0f) },
 		
 			{sponzaBottomLevelBuffer.pResult,
 			XMMatrixScaling(1.0f, 1.0f, 1.0f) *
@@ -3876,49 +3877,49 @@ void Renderer::CreateAccelerationStructures()
 	{
 		m_Instances =
 		{
-			// Floor (y = 0)
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			  XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
+			//// Floor (y = 0)
+			//{ planeBottomLevelBuffers.pResult,
+			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			//  XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
 
-			// Ceiling (y = 40)
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
-			  XMMatrixTranslation(0.0f, 40.0f, 0.0f) },
+			//// Ceiling (y = 40)
+			//{ planeBottomLevelBuffers.pResult,
+			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+			//  XMMatrixTranslation(0.0f, 40.0f, 0.0f) },
 
-			// AreaLight
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
-			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
-			  XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z)},
+			//// AreaLight
+			//{ planeBottomLevelBuffers.pResult,
+			//  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
+			//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+			//  XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z)},
 
-			// Back wall (z = +20), normal pointing into the box (-Z)
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
-			  XMMatrixTranslation(0.0f, 40.0f, 40.0f) },
+			//// Back wall (z = +20), normal pointing into the box (-Z)
+			//{ planeBottomLevelBuffers.pResult,
+			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
+			//  XMMatrixTranslation(0.0f, 40.0f, 40.0f) },
 
-			// Left wall (x = -20), normal pointing into the box (+X)
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
-			  XMMatrixTranslation(-40.0f, 40.0f, 0.0f) },
+			//// Left wall (x = -20), normal pointing into the box (+X)
+			//{ planeBottomLevelBuffers.pResult,
+			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			//  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
+			//  XMMatrixTranslation(-40.0f, 40.0f, 0.0f) },
 
-			// Right wall (x = +20), normal pointing into the box (-X)
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
-			  XMMatrixTranslation(40.0f, 40.0f, 0.0f) },
+			//// Right wall (x = +20), normal pointing into the box (-X)
+			//{ planeBottomLevelBuffers.pResult,
+			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+			//  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
+			//  XMMatrixTranslation(40.0f, 40.0f, 0.0f) },
 
-			// ----------------------------------------------------
-			// Objects on the floor: sphere (left) + skull (right)
-			// ----------------------------------------------------
+			//// ----------------------------------------------------
+			//// Objects on the floor: sphere (left) + skull (right)
+			//// ----------------------------------------------------
 
-			// Sphere in center: radius ~12.5 at y = 12.5
-			{ sphereBottomLevelBuffers.pResult,
-			XMMatrixScaling(25.0f, 25.0f, 25.0f) *
-			XMMatrixTranslation(10.0f, 12.5f, 0.0f) },
+			//// Sphere in center: radius ~12.5 at y = 12.5
+			//{ sphereBottomLevelBuffers.pResult,
+			//XMMatrixScaling(25.0f, 25.0f, 25.0f) *
+			//XMMatrixTranslation(10.0f, 12.5f, 0.0f) },
 
 			// Skull on the left
 			{ skull0BottomLevelBuffers.pResult,
@@ -4295,7 +4296,7 @@ void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 void Renderer::CreateAreaLightConstantBuffer()
 {
 	m_AreaLightData.Position = XMFLOAT3(0.0f, 638.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(55.0f, 55.0f, 55.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(85.0f, 85.0f, 85.0f);
 	m_AreaLightData.U = XMFLOAT3(406.0f, 0.0f, 0.0f);
 	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 106.0f);
 
@@ -4353,30 +4354,30 @@ void Renderer::CreatePerInstanceBuffers()
 		m_PerInstanceCBs[i]->Unmap(0, nullptr);
 	}
 
-	m_MaterialsGPU.reserve(m_PerInstanceCBCount + m_SponzaModel.materials.size());
+	m_MaterialsGPU.reserve(m_SponzaModel.materials.size());
 	//m_MaterialsGPU.reserve(m_PerInstanceCBCount);
 
-	for (auto& m : m_Materials)
-	{
-		MaterialDataGPU matGpu{};
-		Material* mat = m.get();
-		matGpu.DiffuseAlbedo = mat->DiffuseAlbedo;
-		matGpu.FresnelR0 = mat->FresnelR0;
-		matGpu.Ior = mat->Ior;
-		matGpu.Reflectivity = mat->Reflectivity;
-		matGpu.Absorption = mat->Absorption;
-		matGpu.Roughness = mat->Roughness;
-		matGpu.pad = 1.0f;
-		matGpu.pad2 = 1.0f;
-		matGpu.metallic = mat->metallic;
-		matGpu.isReflective = mat->IsReflective;
-		matGpu.isRefractive = mat->IsRefractive;
-		matGpu.pad3 = 0.0f;
-		matGpu.TexIndex = mat->DiffuseSrvHeapIndex;
-		matGpu.isEmissive = mat->isEmissive;
-		matGpu.Emission = mat->emission;
-		m_MaterialsGPU.push_back(std::move(matGpu));
-	}
+	//for (auto& m : m_Materials)
+	//{
+	//	MaterialDataGPU matGpu{};
+	//	Material* mat = m.get();
+	//	matGpu.DiffuseAlbedo = mat->DiffuseAlbedo;
+	//	matGpu.FresnelR0 = mat->FresnelR0;
+	//	matGpu.Ior = mat->Ior;
+	//	matGpu.Reflectivity = mat->Reflectivity;
+	//	matGpu.Absorption = mat->Absorption;
+	//	matGpu.Roughness = mat->Roughness;
+	//	matGpu.pad = 1.0f;
+	//	matGpu.pad2 = 1.0f;
+	//	matGpu.metallic = mat->metallic;
+	//	matGpu.isReflective = mat->IsReflective;
+	//	matGpu.isRefractive = mat->IsRefractive;
+	//	matGpu.pad3 = 0.0f;
+	//	matGpu.TexIndex = mat->DiffuseSrvHeapIndex;
+	//	matGpu.isEmissive = mat->isEmissive;
+	//	matGpu.Emission = mat->emission;
+	//	m_MaterialsGPU.push_back(std::move(matGpu));
+	//}
 
 	for (auto& m : m_SponzaModel.materials)
 	{
@@ -4394,7 +4395,9 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.isReflective = m->IsReflective;
 		matGpu.isRefractive = m->IsRefractive;
 		matGpu.pad3 = 0.0f;
-		matGpu.TexIndex = m->DiffuseSrvHeapIndex;
+		matGpu.TexIndex = m->DiffuseSrvHeapIndex - 1;
+		matGpu.isEmissive = m->isEmissive;
+		matGpu.Emission = m->emission;
 		m_MaterialsGPU.push_back(std::move(matGpu));
 	}
 
@@ -4409,7 +4412,7 @@ void Renderer::CreatePerInstanceBuffers()
 
 	for (int idx : m_SponzaModel.meshMaterialIndices)
 	{
-		matIndices.push_back(7 + idx);
+		matIndices.push_back(idx);
 	}
 
 	const uint32_t matIdxBufferSize = sizeof(int) * matIndices.size();

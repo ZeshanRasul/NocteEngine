@@ -462,7 +462,7 @@ private:
 		float windowLogVars[8];
 		int windowCount;
 
-		bool m_UseTemporal = true;
+		bool m_UseTemporal = false;
 		bool m_UseRL = false;
 		bool m_RLQTableInSRVState = false;
 		bool m_UseQTable = false;

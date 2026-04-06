@@ -1,4 +1,4 @@
-﻿#include "Common.hlsl"
+﻿﻿#include "Common.hlsl"
 #include "MicrofacetBRDFUtils.hlsl"
 #include "PathTracerCommon.hlsl"
 #include "BSDF.hlsl"
@@ -42,8 +42,8 @@ RaytracingAccelerationStructure SceneBVH : register(t2);
 StructuredBuffer<Material> materials : register(t3);
 StructuredBuffer<int> matIndices : register(t4);
 Texture2D<float4> gAlbedoHistory : register(t5);
+
 Texture2D textures[] : register(t6);
-RWTexture2D<float4> gAlbedo : register(u0);
 
 SamplerState sampAniso : register(s0);
 
@@ -55,7 +55,6 @@ cbuffer cbPass : register(b0)
     float4x4 gInvProj;
     float4x4 gViewProj;
     float4x4 gInvViewProj;
-    float4x4 gPrevViewProj;
     float3 gEyePosW;
     float cbPerObjectPad1;
     float2 gRenderTargetSize;
@@ -65,18 +64,9 @@ cbuffer cbPass : register(b0)
     float cbPerObjectPad2;
     float cbPerObjectPad3;
     float4 gAmbientLight;
-    int directPresent;
-    int SamplingMode;
-    float BSDFSampleProbability;
-    float LightSampleProbability;
-
-    int MaxBounces;
-    int FrameIndex;
-    int UseNEE;
-    int cbPerObjectPad4;
-
+    
     Light gLights[MaxLights];
-}
+};
 
 cbuffer Colors : register(b1)
 {
@@ -147,7 +137,6 @@ void HandleRefractiveHit(
             // Reflection branch
             dir = reflect(-V, Nn);
             weight = F / max(reflProb, 1e-4f);
-            payload.isReflective = 1;
         }
         else
         {
@@ -163,8 +152,7 @@ void HandleRefractiveHit(
             float thickness = 0.1f;
             float3 sigmaA = float3(0.02, 0.01, 0.01);
             weight *= exp(-sigmaA * thickness);
-            
-            payload.isRefractive = 1;
+
             // float eta2 = eta * eta;
             // weight *= eta2;
         }
@@ -186,10 +174,7 @@ void HandleRefractiveHit(
 
     // Glass itself does not emit
     payload.emission = 0.0f;
-    
-    payload.prevBsdfPdf = 1.0f; // for MIS at next hit
-    payload.prevHitPos = payload.hitPos;
-    payload.lastBounceWasDelta = 1;
+
     // If we somehow ended with zero weight, terminate
     if (all(weight <= 0.0f))
         payload.done = 1;
@@ -245,8 +230,7 @@ bool BuildLightSample(
     NdotL = saturate(dot(N, L));
     if (NdotL <= 0)
         return false;
-    
-    
+
     // Inverse-square attenuation
     float invSq = 1.0 / distSq;
 
@@ -346,55 +330,6 @@ LightSample SampleAreaLight(float3 p, float3 n, inout uint seed)
     return s;
 }
 
-float RectAreaLightPdf(float3 p, float3 wi)
-{
-    float3 U = gAreaLight.U;
-    float3 V = gAreaLight.V;
-    float3 center = gAreaLight.Position;
-
-    float3 nL = normalize(cross(U, V));
-    float area = max(gAreaLight.Area, 1e-8f);
-
-    float cosLight = dot(nL, -wi);
-    if (cosLight <= 0.0f)
-        return 0.0f;
-
-    float denom = dot(wi, nL);
-    if (abs(denom) < 1e-8f)
-        return 0.0f;
-
-    float t = dot(center - p, nL) / denom;
-    if (t <= 0.0f)
-        return 0.0f;
-
-    float3 hitPos = p + t * wi;
-    float3 local = hitPos - center;
-
-    float uLenSq = dot(U, U);
-    float vLenSq = dot(V, V);
-
-    float uCoord = dot(local, U) / max(uLenSq, 1e-8f);
-    float vCoord = dot(local, V) / max(vLenSq, 1e-8f);
-
-    if (uCoord < -0.5f || uCoord > 0.5f || vCoord < -0.5f || vCoord > 0.5f)
-        return 0.0f;
-
-    float3 d = hitPos - p;
-    float distSq = dot(d, d);
-
-    float pdfArea = 1.0f / area;
-    float pdfSolidAngle = pdfArea * distSq / max(cosLight, 1e-8f);
-
-    return pdfSolidAngle;
-}
-
-float PowerHeuristic(float pdfA, float pdfB)
-{
-    float a2 = pdfA * pdfA;
-    float b2 = pdfB * pdfB;
-    return a2 / max(a2 + b2, 1e-8f);
-}
-
 [shader("closesthit")]
 void ShadowClosestHit(inout ShadowPayload hit, Attributes attrib)
 {
@@ -404,9 +339,6 @@ void ShadowClosestHit(inout ShadowPayload hit, Attributes attrib)
 [shader("closesthit")]
 void ClosestHit(inout PathPayload payload, Attributes attrib)
 {
-    payload.hitSomething = 1;
-    payload.tHit = RayTCurrent();
-    
     // Triangle index and vertices
     const uint triIndex = PrimitiveIndex();
     const uint vbase = triIndex * 3;
@@ -448,8 +380,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
 
     Material mat;
     
-
-    if (InstanceID() >= 7)
+    if (InstanceID() >= 0)
     {
         mat = materials[materialIndex + matIndices[triIndex]];
     }
@@ -457,54 +388,15 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     {
         mat = materials[materialIndex];
     }
+    payload.emission = 0.0f;
     
     if (mat.TexIndex >= 0)
         mat.DiffuseAlbedo = textures[mat.TexIndex].SampleLevel(sampAniso, uv, 0);
-
-    payload.matRoughness = mat.Roughness;
-    
-    payload.emission = 0.0f;
-    payload.isEmissive = 0.0f;
-
-    payload.hitSomething = 1;
-    
-    if (payload.depth == 1)
-    {
-        gAlbedo[DispatchRaysIndex().xy] = float4(mat.DiffuseAlbedo.rgb, 1.0f);
-        payload.firstHitValid = 1;
-    }
-    
-    if (mat.isEmissive)
-    {
-        float3 Le = mat.EmissiveColor;
-        if (payload.depth == 1)
-        {
-            payload.isEmissive = 1;
-            payload.emission = Le;
-        }
-        else if (payload.lastBounceWasDelta != 0)
-        {
-            payload.emission = Le;
-        }
-        else
-        {
-            float3 wi = normalize(payload.hitPos - payload.prevHitPos);
-            float pdfLight = RectAreaLightPdf(payload.prevHitPos, wi);
-            float pdfBSDF = payload.prevBsdfPdf;
-            
-            float wBSDF = PowerHeuristic(pdfBSDF, pdfLight);
-            payload.emission = wBSDF * Le;
-        }
-        
-        payload.done = 1;
-        return;
-    }
     
     // Refractive materials (glass) – handle with dedicated BSDF
     if (mat.IsRefractive != 0)
     {
         HandleRefractiveHit(mat, pW, N, V, frontFace, payload);
-        
         return;
     }
     
@@ -520,112 +412,79 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     float3 LdDir = 0.0f;
     float3 LdContrib = 0.0f;
     
-    float xi2 = Rand(payload.seed);
-
-    float p_bsdf = payload.prms.bsdfProb;
-    float p_light = payload.prms.lightProb;
-
-    float sumP = max(p_bsdf + p_light, 1e-6f);
-    p_bsdf /= sumP;
-    p_light /= sumP;
-
-    bool chooseLight = (xi2 < p_light);
+    LightSample lightSample = SampleAreaLight(pW, N, payload.seed);
     
-    if (chooseLight)
+    if (lightSample.pdf > 0.0f)
     {
-        LightSample lightSample = SampleAreaLight(pW, N, payload.seed);
-        float3 L = lightSample.dir;
-
-        payload.cosTheta = dot(N, L);
-        
-        const float shadowEpsilon = 1e-3f;
-    
-        float pdfLight = max(lightSample.pdf, 1e-6f);
-        float pdfBSDF = PdfDisneyBRDF(mat, N, V, L);
-                
-        pdfBSDF = max(pdfBSDF, 0.0f);
-
-        bool occluded = IsOccluded(pW + N * shadowEpsilon, lightSample.dir, lightSample.dist - 1e-4f);
-        float wLight = 0.0f;
+        bool occluded = IsOccluded(pW + N * 0.1f, lightSample.dir, lightSample.dist - 1e-4f);
+ 
         if (!occluded)
         {
+            float3 L = lightSample.dir;
             
             float NdotL = saturate(dot(N, L));
             
             if (NdotL > 0.0f)
             {
                 float3 f = EvaluateDisneyBRDF(mat, N, V, L);
-                f *= mat.DiffuseAlbedo.rgb;
+                float pdfBSDF = PdfDisneyBRDF(mat, N, V, L);
                 
+                if (pdfBSDF <= 0.0f)
+                {
+                    pdfBSDF = 0.0f;
+                }
                 if (pdfBSDF > 0.0f)
                 {
+                    // Multiple importance sampling weight (balance heuristic)
+                    float pdfLight = lightSample.pdf;
                     float pdfL2 = pdfLight * pdfLight;
                     float pdfBSDF2 = pdfBSDF * pdfBSDF;
                 
-                    wLight = pdfL2 / max(pdfL2 + pdfBSDF2, 1e-8f);
+                    float wLight = pdfL2 / max(pdfL2 + pdfBSDF2, 1e-4f);
                 
-                                    
-
+                    wLight = saturate(wLight);
+                    wLight = lerp(0.01f, 0.99f, wLight);
+                
+                    LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
                 }
-                LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
-                LdContrib = LdContrib / max(p_light, 1e-6f);
-                
-                float3 selfEmit = 0.0f;
-
-                payload.emission = selfEmit + LdContrib;
-
             }
-         
         }
+    }
+      
+    //float3 ambient = float3(0.04, 0.04, 0.04);
+    //payload.emission += ambient;
+    
+    BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);
+    
+    if (!bsdf.valid || all(bsdf.fOverPdf == 0.0f))
+    {
+        payload.done = 1;
+        return;
+    }
 
+    float3 fOverPdf = bsdf.fOverPdf;
+    float maxBsdfLum = 20.0f; // try 10–50, tweak later
+
+    float lum = dot(fOverPdf, float3(0.2126, 0.7152, 0.0722));
+    if (lum > maxBsdfLum)
+    {
+        fOverPdf *= maxBsdfLum / lum;
+    }
+    
+    payload.wi = bsdf.wi;
+    payload.bsdfOverPdf = bsdf.fOverPdf;
+    payload.pdf = bsdf.pdf;
+    
+    float3 selfEmit = 0.0f;
+    payload.emission = selfEmit + LdContrib;
+    
+    // Stop if pdf is invalid or if throughput will be zero
+    if (all(bsdf.fOverPdf == 0.0f) || bsdf.pdf <= 0.0f)
+    {
+        payload.done = 1;
     }
     else
     {
- 
-        BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);
-   
-        if (!bsdf.valid || all(bsdf.fOverPdf == 0.0f))
-        {
-            payload.done = 1;
-            return;
-        }
-    
-        float3 fOverPdf = bsdf.fOverPdf;
-        float maxBsdfLum = 20.0f; // try 10–50, tweak later
-
-        float lum = dot(fOverPdf, float3(0.2126, 0.7152, 0.0722));
-        if (lum > maxBsdfLum)
-        {
-            fOverPdf *= maxBsdfLum / lum;
-        }
-    
-        payload.wi = bsdf.wi;
-        payload.bsdfOverPdf = fOverPdf;
-        payload.bsdfOverPdf /= max(p_bsdf, 1e-6f);
-        payload.pdf = bsdf.pdf;
-        
-        payload.prevBsdfPdf = bsdf.pdf;
-        payload.prevHitPos = payload.hitPos;
-        payload.lastBounceWasDelta = bsdf.delta ? 1 : 0;
-        payload.cosTheta = dot(N, payload.wi);
-        
-        float3 selfEmit = 0.0f;
-
-        payload.emission = selfEmit + LdContrib;
-        
-        if (all(fOverPdf == 0.0f) || bsdf.pdf <= 0.0f)
-        {
-            payload.done = 1;
-        }
-        else
-        {
-            payload.done = 0;
-        }
-      
-        float3 ambient = float3(0.04, 0.04, 0.04);
-    
-        if (mat.isEmissive)
-        {
-        }
+        payload.done = 0;
     }
 }
