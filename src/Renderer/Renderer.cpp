@@ -1981,12 +1981,12 @@ void Renderer::BuildMaterials()
 	tile1->Name = "tile1";
 	tile1->MatCBIndex = 6;
 	tile1->DiffuseSrvHeapIndex = 2;
-	tile1->DiffuseAlbedo = XMFLOAT4(m_AreaLightData.Radiance.x, m_AreaLightData.Radiance.y, m_AreaLightData.Radiance.z, 1.0f);
+	tile1->DiffuseAlbedo = XMFLOAT4(m_AreaLights.gAreaLights[0].Radiance.x, m_AreaLights.gAreaLights[0].Radiance.y, m_AreaLights.gAreaLights[0].Radiance.z, 1.0f);
 	tile1->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile1->Roughness = 0.8f;
 	tile1->metallic = 0.05f;
 	tile1->IsReflective = false;
-	tile1->emission = m_AreaLightData.Radiance;
+	tile1->emission = m_AreaLights.gAreaLights[0].Radiance;
 	tile1->isEmissive = 1;
 
 	auto tile2 = std::make_unique<Material>();
@@ -3818,9 +3818,9 @@ void Renderer::CreateAccelerationStructures()
 		{
 			// AreaLight
 			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
+			  XMMatrixScaling(m_AreaLights.gAreaLights[0].U.x, 1.0f, m_AreaLights.gAreaLights[0].V.z) *
 			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
-			  XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z)},
+			  XMMatrixTranslation(m_AreaLights.gAreaLights[0].Position.x, m_AreaLights.gAreaLights[0].Position.y, m_AreaLights.gAreaLights[0].Position.z)},
 		
 			{sponzaBottomLevelBuffer.pResult,
 			XMMatrixScaling(1.0f, 1.0f, 1.0f) *
@@ -3902,11 +3902,11 @@ void Renderer::CreateAccelerationStructures()
 
 			// Area light near ceiling
 			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
+			  XMMatrixScaling(m_AreaLights.gAreaLights[0].U.x, 1.0f, m_AreaLights.gAreaLights[0].V.z)*
 			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
-			  XMMatrixTranslation(m_AreaLightData.Position.x,
-								  m_AreaLightData.Position.y,
-								  m_AreaLightData.Position.z) },
+			  XMMatrixTranslation(m_AreaLights.gAreaLights[0].Position.x,
+								  m_AreaLights.gAreaLights[0].Position.y,
+								  m_AreaLights.gAreaLights[0].Position.z) },
 
 			// Main back wall
 			{ planeBottomLevelBuffers.pResult,
@@ -4235,8 +4235,6 @@ void Renderer::CreatePostProcessConstantBuffer()
 
 void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 {
-
-
 	m_PostProcessData[pass].Exposure = m_Exposure;
 	m_PostProcessData[pass].ToneMapMode = m_ToneMapMode;
 	m_PostProcessData[pass].DebugMode = m_DebugMode;
@@ -4252,25 +4250,34 @@ void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 1238.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(50.0f, 50.0f, 50.0f);
-	m_AreaLightData.U = XMFLOAT3(1000.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 1000.0f);
+	AreaLight areaLight{};
+	areaLight.Position = XMFLOAT3(0.0f, 1238.0f, 0.0f);
+	areaLight.Radiance = XMFLOAT3(50.0f, 50.0f, 50.0f);
+	areaLight.U = XMFLOAT3(1000.0f, 0.0f, 0.0f);
+	areaLight.V = XMFLOAT3(0.0f, 0.0f, 1000.0f);
 
-	XMVECTOR U = XMLoadFloat3(&m_AreaLightData.U);
-	XMVECTOR V = XMLoadFloat3(&m_AreaLightData.V);
+	XMVECTOR U = XMLoadFloat3(&areaLight.U);
+	XMVECTOR V = XMLoadFloat3(&areaLight.V);
 
 	XMVECTOR crossUV = (XMVector3Cross(U, V));
 	float area = XMVectorGetX(XMVector3Length(crossUV));
-	m_AreaLightData.Area = area;
+	areaLight.Area = area;
+
+	m_AreaLights.gAreaLights[0] = areaLight;
+	m_AreaLights.gNumAreaLights = 1;
+	m_AreaLights.gAreaLightPadding = XMFLOAT3(0.0f, 0.0f, 0.0f);
+
+	UINT rawSize = static_cast<UINT>(sizeof(m_AreaLights));
+	UINT bufferSize = (rawSize + 255) & ~255; // CBV alignment
+
 
 	m_AreaLightConstantBuffer = nv_helpers_dx12::CreateBuffer(
-		m_Device.Get(), sizeof(m_AreaLightData), D3D12_RESOURCE_FLAG_NONE,
+		m_Device.Get(), bufferSize, D3D12_RESOURCE_FLAG_NONE,
 		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
 
 	uint8_t* pData;
 	ThrowIfFailed(m_AreaLightConstantBuffer->Map(0, nullptr, (void**)&pData));
-	memcpy(pData, (void*)&m_AreaLightData, sizeof(m_AreaLightData));
+	memcpy(pData, (void*)&m_AreaLights, rawSize);
 	m_AreaLightConstantBuffer->Unmap(0, nullptr);
 
 }
@@ -4278,16 +4285,22 @@ void Renderer::CreateAreaLightConstantBuffer()
 void Renderer::UpdateAreaLightConstantBuffer()
 {
 	//	m_AreaLightData.Area = lenU * lenV;
-	XMVECTOR U = XMLoadFloat3(&m_AreaLightData.U);
-	XMVECTOR V = XMLoadFloat3(&m_AreaLightData.V);
+	XMVECTOR U = XMLoadFloat3(&m_AreaLights.gAreaLights[0].U);
+	XMVECTOR V = XMLoadFloat3(&m_AreaLights.gAreaLights[0].V);
+
+	m_Instances[0].second = XMMatrixScaling(m_AreaLights.gAreaLights[0].U.x, 1.0f, m_AreaLights.gAreaLights[0].V.z) *
+		XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+		XMMatrixTranslation(m_AreaLights.gAreaLights[0].Position.x, m_AreaLights.gAreaLights[0].Position.y, m_AreaLights.gAreaLights[0].Position.z);
 
 	XMVECTOR crossUV = (XMVector3Cross(U, V));
 	float area = XMVectorGetX(XMVector3Length(crossUV));
-	m_AreaLightData.Area = area;
+	m_AreaLights.gAreaLights[0].Area = area;
+
+	UINT rawSize = static_cast<UINT>(sizeof(m_AreaLights));
 
 	uint8_t* pData;
 	ThrowIfFailed(m_AreaLightConstantBuffer->Map(0, nullptr, (void**)&pData));
-	memcpy(pData, (void*)&m_AreaLightData, sizeof(m_AreaLightData));
+	memcpy(pData, (void*)&m_AreaLights, rawSize);
 	m_AreaLightConstantBuffer->Unmap(0, nullptr);
 }
 
@@ -4579,17 +4592,17 @@ void Renderer::RenderImGuiDebugWindow()
 
 	ImGui::Begin("Area Light Settings");
 	ImGui::Text("Area Light Position");
-	ImGui::InputFloat("Area Light Position X", &m_AreaLightData.Position.x);
-	ImGui::InputFloat("Area Light Position Y", &m_AreaLightData.Position.y);
-	ImGui::InputFloat("Area Light Position Z", &m_AreaLightData.Position.z);
+	ImGui::InputFloat("Area Light Position X", &m_AreaLights.gAreaLights[0].Position.x);
+	ImGui::InputFloat("Area Light Position Y", &m_AreaLights.gAreaLights[0].Position.y);
+	ImGui::InputFloat("Area Light Position Z", &m_AreaLights.gAreaLights[0].Position.z);
 	ImGui::Text("Area Light Radiance");
-	ImGui::InputFloat("Area Light Radiance R", &m_AreaLightData.Radiance.x);
-	ImGui::InputFloat("Area Light Radiance G", &m_AreaLightData.Radiance.y);
-	ImGui::InputFloat("Area Light Radiance B", &m_AreaLightData.Radiance.z);
+	ImGui::InputFloat("Area Light Radiance R", &m_AreaLights.gAreaLights[0].Radiance.x);
+	ImGui::InputFloat("Area Light Radiance G", &m_AreaLights.gAreaLights[0].Radiance.y);
+	ImGui::InputFloat("Area Light Radiance B", &m_AreaLights.gAreaLights[0].Radiance.z);
 	ImGui::Text("Area Light U Vector");
-	ImGui::InputFloat("Area Light U", &m_AreaLightData.U.x);
+	ImGui::InputFloat("Area Light U", &m_AreaLights.gAreaLights[0].U.x);
 	ImGui::Text("Area Light V Vector");
-	ImGui::InputFloat("Area Light V", &m_AreaLightData.V.z);
+	ImGui::InputFloat("Area Light V", &m_AreaLights.gAreaLights[0].V.z);
 	ImGui::End();
 
 	ImGui::Begin("RL Settings");

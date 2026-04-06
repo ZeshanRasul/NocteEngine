@@ -61,6 +61,25 @@ struct PassConstants
 	Light Lights[MaxLights];
 };
 
+struct AreaLight
+{
+	XMFLOAT3 Position;
+	float Pad = 0.0f;
+	XMFLOAT3 U;
+	float Pad2 = 0.0f;
+	XMFLOAT3 V;
+	float Pad3 = 0.0f;
+	XMFLOAT3 Radiance = { 65.0f, 35.0f, 48.0f };
+	float Area;
+};
+
+struct AreaLights
+{
+	AreaLight gAreaLights[14];
+	int gNumAreaLights;
+	XMFLOAT3 gAreaLightPadding;
+};
+
 struct MediumParams
 {
 	float gSigmaA = 0.0f;
@@ -103,18 +122,6 @@ struct PostProcessData
 	int ToneMapMode = 2;
 	int DebugMode = 0;
 	int IsLastPass = 0;
-};
-
-struct AreaLight
-{
-	XMFLOAT3 Position;
-	float Pad = 0.0f;
-	XMFLOAT3 U;
-	float Pad2 = 0.0f;
-	XMFLOAT3 V;
-	float Pad3 = 0.0f;
-	XMFLOAT3 Radiance = { 65.0f, 35.0f, 48.0f };
-	float Area;
 };
 
 struct MaterialDataGPU

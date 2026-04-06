@@ -4,6 +4,7 @@
 #include "BSDF.hlsl"
 
 #define NumLights 1
+#define MAX_AREA_LIGHTS 1
 
 struct ShadowHitInfo
 {
@@ -84,7 +85,9 @@ cbuffer PerInstance : register(b2)
 
 cbuffer AreaLights : register(b4)
 {
-    AreaLight gAreaLight;
+    AreaLight gAreaLights[MAX_AREA_LIGHTS];
+    uint gNumAreaLights;
+    float3 gAreaLightPadding;
 }
 
 cbuffer FrameData : register(b5)
@@ -284,9 +287,9 @@ LightSample SampleAreaLight(float3 p, float3 n, inout uint seed)
     // Sample a point on the rect with [0,1]^2
     float2 xi = Rand2(seed);
 
-    float3 pL = gAreaLight.Position +
-                (xi.x - 0.5f) * gAreaLight.U +
-                (xi.y - 0.5f) * gAreaLight.V;
+    float3 pL = gAreaLights[0].Position +
+                (xi.x - 0.5f) * gAreaLights[0].U +
+                (xi.y - 0.5f) * gAreaLights[0].V;
 
     float3 L = pL - p;
     float d = length(L);
@@ -296,19 +299,19 @@ LightSample SampleAreaLight(float3 p, float3 n, inout uint seed)
     L /= d;
 
     // Light normal (assuming U,V define the rect plane)
-    float3 nL = normalize(cross(gAreaLight.U, gAreaLight.V));
+    float3 nL = normalize(cross(gAreaLights[0].U, gAreaLights[0].V));
 
     float cosOnLight = dot(nL, -L);
     if (cosOnLight <= 0.0f)
         return s; // back side
 
     // Area pdf -> solid angle pdf
-    float pdfArea = 1.0f / max(gAreaLight.Area, 1e-4f);
+    float pdfArea = 1.0f / max(gAreaLights[0].Area, 1e-4f);
     float pdf = pdfArea * (d * d) / max(cosOnLight, 1e-4f);
 
     s.dir = L;
     s.dist = d;
-    s.Li = gAreaLight.Radiance;
+    s.Li = gAreaLights[0].Radiance;
 //    s.pdf = pdf;
     s.pdf = max(pdf, 1e-6f);
     
@@ -477,7 +480,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
             float pdfLight = 0.0f;
             if (cosOnLight > 0.0f)
             {
-                float pdfArea = 1.0f / max(gAreaLight.Area, 1e-8f);
+                float pdfArea = 1.0f / max(gAreaLights[0].Area, 1e-8f);
                 pdfLight = pdfArea * dist2 / max(cosOnLight, 1e-8f);
             }
 

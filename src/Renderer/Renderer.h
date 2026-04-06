@@ -332,7 +332,7 @@ private:
 
 	void CreateAreaLightConstantBuffer();
 	void UpdateAreaLightConstantBuffer();
-	AreaLight m_AreaLightData;
+	AreaLights m_AreaLights;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_AreaLightConstantBuffer;
 
 	uint32_t m_AnimationCounter = 0;
