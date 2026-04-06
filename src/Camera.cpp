@@ -8,7 +8,7 @@ using namespace DirectX;
 
 Camera::Camera()
 {
-	SetLens(0.25f * MathHelper::Pi, 1920.0f/1080.0f, 0.01f, 800.0f);
+	SetLens(0.25f * MathHelper::Pi, 1920.0f/1080.0f, 1.00f, 1000.0f);
 }
 
 Camera::~Camera()

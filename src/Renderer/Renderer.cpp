@@ -1266,7 +1266,7 @@ bool Renderer::Draw(bool useRaster)
 		m_MaxIterations = 8192;
 	}
 
-	if (!m_UseTemporal && m_FrameIndex == m_MaxIterations || m_FrameIndex == 1 || m_FrameIndex == 4 || m_FrameIndex == 16 || m_FrameIndex == 32 || m_FrameIndex == 64 || m_FrameIndex == 128 || m_FrameIndex == 256)
+	if (!m_UseTemporal && (m_FrameIndex == m_MaxIterations || m_FrameIndex == 1 || m_FrameIndex == 4 || m_FrameIndex == 16 || m_FrameIndex == 32 || m_FrameIndex == 64 || m_FrameIndex == 128 || m_FrameIndex == 256))
 	{
 		m_TargetCaptureSPP = m_FrameIndex;
 		m_SaveImage = true;
@@ -2875,7 +2875,7 @@ void Renderer::CreateSamplerHeap()
 
 void Renderer::CreateShaderResourceHeap()
 {
-	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 55, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 56, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -3892,8 +3892,8 @@ void Renderer::CreateAccelerationStructures()
 			XMMatrixTranslation(0.0f, 12.5f, 0.0f) },
 		
 			{sponzaBottomLevelBuffer.pResult,
-			XMMatrixScaling(0.05f, 0.05f, 0.05f) *
-			XMMatrixTranslation(0.0f, 0.0f, 0.0f) }
+			XMMatrixScaling(1.0f, 1.0f, 1.0f) *
+			XMMatrixTranslation(0.0f, 0.0f, -25.0f) }
 		};
 
 	};
@@ -4321,10 +4321,10 @@ void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 38.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(5.0f, 5.0f, 5.0f);
-	m_AreaLightData.U = XMFLOAT3(16.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 16.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 638.0f, 0.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(55.0f, 55.0f, 55.0f);
+	m_AreaLightData.U = XMFLOAT3(406.0f, 0.0f, 0.0f);
+	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 106.0f);
 
 	XMVECTOR U = XMLoadFloat3(&m_AreaLightData.U);
 	XMVECTOR V = XMLoadFloat3(&m_AreaLightData.V);
