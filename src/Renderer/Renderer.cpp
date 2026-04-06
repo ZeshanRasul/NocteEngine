@@ -3816,49 +3816,11 @@ void Renderer::CreateAccelerationStructures()
 	{
 		m_Instances =
 		{
-			//// Floor (y = 0)
-			//{ planeBottomLevelBuffers.pResult,
-			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			//  XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
-
-			//// Ceiling (y = 40)
-			//{ planeBottomLevelBuffers.pResult,
-			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
-			//  XMMatrixTranslation(0.0f, 40.0f, 0.0f) },
-
 			// AreaLight
 			{ planeBottomLevelBuffers.pResult,
 			  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
 			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
 			  XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z)},
-
-			//// Back wall (z = +20), normal pointing into the box (-Z)
-			//{ planeBottomLevelBuffers.pResult,
-			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
-			//  XMMatrixTranslation(0.0f, 20.0f, 40.0f) },
-
-			//// Left wall (x = -20), normal pointing into the box (+X)
-			//{ planeBottomLevelBuffers.pResult,
-			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			//  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
-			//  XMMatrixTranslation(-40.0f, 20.0f, 0.0f) },
-
-			//// Right wall (x = +20), normal pointing into the box (-X)
-			//{ planeBottomLevelBuffers.pResult,
-			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			//  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
-			//  XMMatrixTranslation(40.0f, 20.0f, 0.0f) },
-
-			//// ----------------------------------------------------
-			//// Objects on the floor: sphere
-			//// ----------------------------------------------------
-
-			//// Sphere in center: radius ~12.5 at y = 12.5
-			//{ sphereBottomLevelBuffers.pResult,
-			//XMMatrixScaling(25.0f, 25.0f, 25.0f) *
-			//XMMatrixTranslation(0.0f, 12.5f, 0.0f) },
 		
 			{sponzaBottomLevelBuffer.pResult,
 			XMMatrixScaling(1.0f, 1.0f, 1.0f) *
@@ -4290,10 +4252,10 @@ void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 
 void Renderer::CreateAreaLightConstantBuffer()
 {
-	m_AreaLightData.Position = XMFLOAT3(0.0f, 638.0f, 0.0f);
-	m_AreaLightData.Radiance = XMFLOAT3(85.0f, 85.0f, 85.0f);
-	m_AreaLightData.U = XMFLOAT3(406.0f, 0.0f, 0.0f);
-	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 106.0f);
+	m_AreaLightData.Position = XMFLOAT3(0.0f, 1238.0f, 0.0f);
+	m_AreaLightData.Radiance = XMFLOAT3(50.0f, 50.0f, 50.0f);
+	m_AreaLightData.U = XMFLOAT3(1000.0f, 0.0f, 0.0f);
+	m_AreaLightData.V = XMFLOAT3(0.0f, 0.0f, 1000.0f);
 
 	XMVECTOR U = XMLoadFloat3(&m_AreaLightData.U);
 	XMVECTOR V = XMLoadFloat3(&m_AreaLightData.V);

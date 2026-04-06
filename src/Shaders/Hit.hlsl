@@ -177,16 +177,6 @@ void HandleRefractiveHit(
         payload.done = 0;
 }
 
-
-float3 SampleAreaLight(uint index, float2 xi)
-{
-    AreaLight L = gAreaLight;
-    
-    float3 p = L.Position + (2.0f * xi.x - 1.0f) * L.U + (2.0f * xi.y - 1.0f) * L.V;
-    return p;
-
-}
-
 bool BuildLightSample(
     int lightIndex,
     float3 P,

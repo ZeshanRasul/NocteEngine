@@ -14,8 +14,8 @@ void Miss(inout PathPayload payload)
 {
     float3 dir = normalize(WorldRayDirection());
 
-  //  float3 envColor = SampleEnvironment(dir);
-    float3 envColor = float3(0.0f, 0.0f, 0.0f);
+    float3 envColor = SampleEnvironment(dir);
+    //float3 envColor = float3(0.0f, 0.0f, 0.0f);
 
     //float maxEnvLum = 22.0f;
     //float lum = dot(envColor, float3(0.2126, 0.7152, 0.0722));
@@ -27,8 +27,8 @@ void Miss(inout PathPayload payload)
     
     payload.hitSomething = 0;
     payload.tHit = 1e20f;
-    payload.isEmissive = 0;
-//   payload.emission = envColor;
+    payload.isEmissive = 1;
+    payload.emission = envColor;
     payload.hitSomething = 0;
     payload.firstHitAlbedo = 0.0f;
     payload.bsdfOverPdf = 0.0f;
