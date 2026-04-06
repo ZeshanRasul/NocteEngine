@@ -4308,31 +4308,36 @@ void Renderer::UpdateAreaLightConstantBuffer()
 
 void Renderer::CreatePerInstanceBuffers()
 {
-
 	m_PerInstanceCBs.resize(m_PerInstanceCBCount);
 
 	for (int i = 0; i < m_PerInstanceCBCount; i++)
 	{
 		const uint32_t bufferSize = sizeof(PerInstanceData);
 
-		m_PerInstanceCBs[i] = nv_helpers_dx12::CreateBuffer(m_Device.Get(), bufferSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+		m_PerInstanceCBs[i] = nv_helpers_dx12::CreateBuffer(
+			m_Device.Get(),
+			bufferSize,
+			D3D12_RESOURCE_FLAG_NONE,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nv_helpers_dx12::kUploadHeapProps);
 
 		PerInstanceData data{};
 		data.materialIndex = i;
 
-		uint8_t* pData;
+		uint8_t* pData = nullptr;
 		ThrowIfFailed(m_PerInstanceCBs[i]->Map(0, nullptr, (void**)&pData));
 		memcpy(pData, &data, bufferSize);
 		m_PerInstanceCBs[i]->Unmap(0, nullptr);
 	}
 
-	m_MaterialsGPU.reserve(1 + m_SponzaModel.materials.size());
-	//m_MaterialsGPU.reserve(m_PerInstanceCBCount);
+	m_MaterialsGPU.clear();
+	m_MaterialsGPU.reserve(m_Materials.size() + m_SponzaModel.materials.size());
 
 	for (auto& m : m_Materials)
 	{
 		MaterialDataGPU matGpu{};
 		Material* mat = m.get();
+
 		matGpu.DiffuseAlbedo = mat->DiffuseAlbedo;
 		matGpu.FresnelR0 = mat->FresnelR0;
 		matGpu.Ior = mat->Ior;
@@ -4345,16 +4350,22 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.isReflective = mat->IsReflective;
 		matGpu.isRefractive = mat->IsRefractive;
 		matGpu.pad3 = 0.0f;
-		matGpu.TexIndex = mat->DiffuseSrvHeapIndex;
+		matGpu.TexIndex = -1;
+		matGpu.NormalIndex = -1;
+		matGpu.SpecularIndex = -1;
+		matGpu.AlphaIndex = -1;
 		matGpu.isEmissive = mat->isEmissive;
 		matGpu.Emission = mat->emission;
-		m_MaterialsGPU.push_back(std::move(matGpu));
+
+		m_MaterialsGPU.push_back(matGpu);
 	}
 
-	for (auto& m : m_SponzaModel.materials)
+	const int sponzaMaterialOffset = static_cast<int>(m_MaterialsGPU.size());
+
+	for (auto* m : m_SponzaModel.materials)
 	{
 		MaterialDataGPU matGpu{};
-		Material* mat = m;
+
 		matGpu.DiffuseAlbedo = m->DiffuseAlbedo;
 		matGpu.FresnelR0 = m->FresnelR0;
 		matGpu.Ior = m->Ior;
@@ -4367,32 +4378,63 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.isReflective = m->IsReflective;
 		matGpu.isRefractive = m->IsRefractive;
 		matGpu.pad3 = 0.0f;
-		matGpu.TexIndex = m->DiffuseSrvHeapIndex - 1;
-		matGpu.NormalIndex = m->NormalSrvHeapIndex - 1;
-		matGpu.SpecularIndex = m->SpecularSrvHeapIndex - 1;
-		matGpu.AlphaIndex = m->AlphaSrvHeapIndex - 1;
+		matGpu.TexIndex = m->DiffuseSrvHeapIndex;
+		matGpu.NormalIndex = m->NormalSrvHeapIndex;
+		matGpu.SpecularIndex = m->SpecularSrvHeapIndex;
+		matGpu.AlphaIndex = m->AlphaSrvHeapIndex;
 		matGpu.isEmissive = m->isEmissive;
 		matGpu.Emission = m->emission;
-		m_MaterialsGPU.push_back(std::move(matGpu));
+
+		m_MaterialsGPU.push_back(matGpu);
 	}
 
-	const uint32_t bufferSize = m_MaterialsGPU.size() * sizeof(MaterialDataGPU);
+	const uint32_t bufferSize = static_cast<uint32_t>(m_MaterialsGPU.size() * sizeof(MaterialDataGPU));
 
-	m_UploadCBuffer = nv_helpers_dx12::CreateBuffer(m_Device.Get(), bufferSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+	m_UploadCBuffer = nv_helpers_dx12::CreateBuffer(
+		m_Device.Get(),
+		bufferSize,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nv_helpers_dx12::kUploadHeapProps);
 
-	uint8_t* pData;
+	uint8_t* pData = nullptr;
 	ThrowIfFailed(m_UploadCBuffer->Map(0, nullptr, (void**)&pData));
 	memcpy(pData, m_MaterialsGPU.data(), bufferSize);
 	m_UploadCBuffer->Unmap(0, nullptr);
 
+	matIndices.clear();
+	matIndices.reserve(m_SponzaModel.meshMaterialIndices.size());
+
+	const int sponzaMaterialCPUOffset = static_cast<int>(m_Materials.size());
+
 	for (int idx : m_SponzaModel.meshMaterialIndices)
 	{
-		matIndices.push_back(idx);
+		matIndices.push_back(idx + sponzaMaterialCPUOffset);
+	}
+	const uint32_t matIdxBufferSize = static_cast<uint32_t>(sizeof(int) * matIndices.size());
+
+	OutputDebugStringA(("m_Materials size: " + std::to_string(m_Materials.size()) + "\n").c_str());
+	OutputDebugStringA(("Sponza materials size: " + std::to_string(m_SponzaModel.materials.size()) + "\n").c_str());
+
+	for (size_t i = 0; i < std::min<size_t>(10, m_SponzaModel.meshMaterialIndices.size()); ++i)
+	{
+		int localIdx = m_SponzaModel.meshMaterialIndices[i];
+		int globalIdx = localIdx + static_cast<int>(m_Materials.size());
+
+		OutputDebugStringA(
+			("meshMaterialIndices[" + std::to_string(i) + "] local=" +
+				std::to_string(localIdx) + " global=" +
+				std::to_string(globalIdx) + "\n").c_str());
 	}
 
-	const uint32_t matIdxBufferSize = sizeof(int) * matIndices.size();
-	m_TriMatIndexCB = nv_helpers_dx12::CreateBuffer(m_Device.Get(), matIdxBufferSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
-	uint8_t* pData2;
+	m_TriMatIndexCB = nv_helpers_dx12::CreateBuffer(
+		m_Device.Get(),
+		matIdxBufferSize,
+		D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nv_helpers_dx12::kUploadHeapProps);
+
+	uint8_t* pData2 = nullptr;
 	ThrowIfFailed(m_TriMatIndexCB->Map(0, nullptr, (void**)&pData2));
 	memcpy(pData2, matIndices.data(), matIdxBufferSize);
 	m_TriMatIndexCB->Unmap(0, nullptr);
@@ -4407,7 +4449,6 @@ void Renderer::LoadTextures(Model& model)
 			if (path.empty())
 				return -1;
 
-			// Deduplicate
 			if (textureCache.count(path))
 				return textureCache[path];
 
@@ -4437,7 +4478,7 @@ void Renderer::LoadTextures(Model& model)
 				return -1;
 			}
 
-			int index = (int)m_Textures.size();
+			int index = static_cast<int>(m_Textures.size());
 			textureCache[path] = index;
 
 			m_Textures.push_back(std::move(tex));
@@ -4450,6 +4491,13 @@ void Renderer::LoadTextures(Model& model)
 		mat->SpecularSrvHeapIndex = LoadTexture(mat->SpecularTextureFilePath);
 		mat->NormalSrvHeapIndex = LoadTexture(mat->NormalTextureFilePath);
 		mat->AlphaSrvHeapIndex = LoadTexture(mat->AlphaTextureFilePath);
+
+		OutputDebugStringA(
+			("Material: " + mat->Name +
+				" Diff=" + std::to_string(mat->DiffuseSrvHeapIndex) +
+				" Spec=" + std::to_string(mat->SpecularSrvHeapIndex) +
+				" Norm=" + std::to_string(mat->NormalSrvHeapIndex) +
+				" Alpha=" + std::to_string(mat->AlphaSrvHeapIndex) + "\n").c_str());
 	}
 }
 

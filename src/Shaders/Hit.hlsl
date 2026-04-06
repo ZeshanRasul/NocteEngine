@@ -381,12 +381,13 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     if (InstanceID() >= 1)
     {
-        mat = materials[materialIndex + matIndices[triIndex]];
+        mat = materials[matIndices[triIndex]];
     }
     else
     {
         mat = materials[materialIndex];
     }
+    
     payload.emission = 0.0f;
     payload.isEmissive = 0;
 
