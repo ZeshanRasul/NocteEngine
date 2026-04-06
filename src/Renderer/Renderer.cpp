@@ -1937,7 +1937,7 @@ void Renderer::BuildMaterials()
 	auto stone0 = std::make_unique<Material>();
 	stone0->Name = "stone0";
 	stone0->MatCBIndex = 2;
-	stone0->DiffuseSrvHeapIndex = -1;
+	stone0->DiffuseSrvHeapIndex = 2;
 	stone0->DiffuseAlbedo = XMFLOAT4(Colors::WhiteSmoke);
 	stone0->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
 	stone0->Roughness = 0.9f;
@@ -2720,7 +2720,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 		{ 4, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 15},
 		{ 5, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 27},
 		{ 0, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 28},
-		{ 6, 24, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 32},
+		{ 6, 23, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 32},
 
 		});
 	rsc.AddHeapRangesParameter(
@@ -2875,7 +2875,7 @@ void Renderer::CreateSamplerHeap()
 
 void Renderer::CreateShaderResourceHeap()
 {
-	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 90, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 55, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -3892,7 +3892,7 @@ void Renderer::CreateAccelerationStructures()
 			XMMatrixTranslation(0.0f, 12.5f, 0.0f) },
 		
 			{sponzaBottomLevelBuffer.pResult,
-			XMMatrixScaling(0.1f, 0.1f, 0.1f) *
+			XMMatrixScaling(0.05f, 0.05f, 0.05f) *
 			XMMatrixTranslation(0.0f, 0.0f, 0.0f) }
 		};
 
@@ -4380,8 +4380,8 @@ void Renderer::CreatePerInstanceBuffers()
 		m_PerInstanceCBs[i]->Unmap(0, nullptr);
 	}
 
-	//	m_MaterialsGPU.reserve(m_PerInstanceCBCount + m_SponzaModel.materials.size());
-	m_MaterialsGPU.reserve(m_PerInstanceCBCount);
+	m_MaterialsGPU.reserve(m_PerInstanceCBCount + m_SponzaModel.materials.size());
+	//m_MaterialsGPU.reserve(m_PerInstanceCBCount);
 
 	for (int i = 0; i < m_Materials.size(); i++)
 	{
@@ -4399,31 +4399,31 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.isReflective = mat->IsReflective;
 		matGpu.isRefractive = mat->IsRefractive;
 		matGpu.pad3 = 0.0f;
-		matGpu.TexIndex = -1;
+		matGpu.TexIndex = mat->DiffuseSrvHeapIndex;
 		matGpu.isEmissive = mat->isEmissive;
 		matGpu.Emission = mat->emission;
 		m_MaterialsGPU.push_back(std::move(matGpu));
 	}
 
-	//for (auto& m : m_SponzaModel.materials)
-	//{
-	//	MaterialDataGPU matGpu{};
-	//	Material* mat = m;
-	//	matGpu.DiffuseAlbedo = m->DiffuseAlbedo;
-	//	matGpu.FresnelR0 = m->FresnelR0;
-	//	matGpu.Ior = m->Ior;
-	//	matGpu.Reflectivity = m->Reflectivity;
-	//	matGpu.Absorption = m->Absorption;
-	//	matGpu.Roughness = m->Roughness;
-	//	matGpu.pad = 1.0f;
-	//	matGpu.pad2 = 1.0f;
-	//	matGpu.metallic = m->metallic;
-	//	matGpu.isReflective = m->IsReflective;
-	//	matGpu.isRefractive = m->IsRefractive;
-	//	matGpu.pad3 = 0.0f;
-	//	matGpu.TexIndex = m->DiffuseSrvHeapIndex;
-	//	m_MaterialsGPU.push_back(std::move(matGpu));
-	//}
+	for (auto& m : m_SponzaModel.materials)
+	{
+		MaterialDataGPU matGpu{};
+		Material* mat = m;
+		matGpu.DiffuseAlbedo = m->DiffuseAlbedo;
+		matGpu.FresnelR0 = m->FresnelR0;
+		matGpu.Ior = m->Ior;
+		matGpu.Reflectivity = m->Reflectivity;
+		matGpu.Absorption = m->Absorption;
+		matGpu.Roughness = m->Roughness;
+		matGpu.pad = 1.0f;
+		matGpu.pad2 = 1.0f;
+		matGpu.metallic = m->metallic;
+		matGpu.isReflective = m->IsReflective;
+		matGpu.isRefractive = m->IsRefractive;
+		matGpu.pad3 = 0.0f;
+		matGpu.TexIndex = m->DiffuseSrvHeapIndex;
+		m_MaterialsGPU.push_back(std::move(matGpu));
+	}
 
 	const uint32_t bufferSize = m_MaterialsGPU.size() * sizeof(MaterialDataGPU);
 
