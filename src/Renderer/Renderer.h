@@ -462,10 +462,10 @@ private:
 		float windowLogVars[8];
 		int windowCount;
 
-		bool m_UseTemporal = false;
+		bool m_UseTemporal = true;
 		bool m_UseRL = false;
 		bool m_RLQTableInSRVState = false;
-		bool m_UseQTable = true;
+		bool m_UseQTable = false;
 
 		std::vector<RLQValue> m_RLQTable;
 

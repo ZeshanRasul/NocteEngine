@@ -1267,7 +1267,7 @@ bool Renderer::Draw(bool useRaster)
 		m_MaxIterations = 8192;
 	}
 
-	if (m_FrameIndex == m_MaxIterations || m_FrameIndex == 1 || m_FrameIndex == 4 || m_FrameIndex == 16 || m_FrameIndex == 256)
+	if (m_FrameIndex == m_MaxIterations || m_FrameIndex == 1 || m_FrameIndex == 4 || m_FrameIndex == 16 || m_FrameIndex == 32 || m_FrameIndex == 64 || m_FrameIndex == 128 || m_FrameIndex == 256)
 	{
 		m_TargetCaptureSPP = m_FrameIndex;
 		m_SaveImage = true;

@@ -25,22 +25,22 @@ SKIMAGE_AVAILABLE = False
 # USER SETTINGS
 # =============================================================================
 
-GT_DIR = Path(r"./GT_Renders_2")
-BASELINE_DIR = Path(r"./Baseline_Renders_2")
-RL_DIR = Path(r"./RL_Renders_2")
-OUTPUT_DIR = Path(r"./Charts/Comparison_Results_2")
+GT_DIR = Path(r"./GT_Renders_3")
+BASELINE_DIR = Path(r"./Baseline_Renders_3")
+RL_DIR = Path(r"./RL_Renders_3")
+OUTPUT_DIR = Path(r"./Charts/Comparison_Results_3")
 
 SCENES = [
-    "Scene1",
+    "",
 ]
 
-SPPS = [4, 8, 16, 32, 256]
+SPPS = [4, 8, 16, 32, 64, 128, 256]
 
 EXT = "SPP.png"
 
 # Pattern for RL and baseline renders
 # Example: "scene1_4.png"
-IMAGE_PATTERN = "{scene}_{spp}{ext}"
+IMAGE_PATTERN = "{scene}{spp}{ext}"
 
 # Pattern for GT
 # Example: "scene1.png"
