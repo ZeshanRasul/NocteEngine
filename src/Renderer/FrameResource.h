@@ -43,7 +43,7 @@ struct PassConstants
 	float FarZ = 0.0f;
 	float cbPerObjectPad2 = 0.0f;
 	float cbPerObjectPad3 = 0.0f;
-	XMFLOAT4 AmbientLight = { 0.3f, -1.0f, -0.1f, 1.0f };
+	XMFLOAT4 AmbientLight = { 0.13f, -1.0f, -0.8f, 1.0f };
 	int directPresent = 0;
 
 	int SamplingMode = 1;

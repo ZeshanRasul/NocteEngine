@@ -334,7 +334,7 @@ private:
 	void UpdateAreaLightConstantBuffer();
 	AreaLights m_AreaLights;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_AreaLightConstantBuffer;
-	XMFLOAT4 m_SunDirection = { 0.3f, -1.0f, -0.1f, 1.0f };
+	XMFLOAT4 m_SunDirection = { 0.13f, -1.0f, -0.5f, 1.0f };
 
 
 	uint32_t m_AnimationCounter = 0;
