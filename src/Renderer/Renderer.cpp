@@ -452,6 +452,7 @@ bool Renderer::Draw(bool useRaster)
 
 	m_CommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
 
+	CreateTopLevelAS(m_Instances, true);
 
 	std::vector<ID3D12DescriptorHeap*> heaps = { m_SrvUavHeap.Get(), m_SamplerHeap.Get() };
 	m_CommandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
@@ -4251,7 +4252,7 @@ void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 void Renderer::CreateAreaLightConstantBuffer()
 {
 	AreaLight areaLight{};
-	areaLight.Position = XMFLOAT3(0.0f, 1238.0f, 0.0f);
+	areaLight.Position = XMFLOAT3(0.0f, 1038.0f, 0.0f);
 	areaLight.Radiance = XMFLOAT3(50.0f, 50.0f, 50.0f);
 	areaLight.U = XMFLOAT3(1000.0f, 0.0f, 0.0f);
 	areaLight.V = XMFLOAT3(0.0f, 0.0f, 1000.0f);
@@ -4267,7 +4268,7 @@ void Renderer::CreateAreaLightConstantBuffer()
 	m_AreaLights.gNumAreaLights = 1;
 	m_AreaLights.gAreaLightPadding = XMFLOAT3(0.0f, 0.0f, 0.0f);
 
-	UINT rawSize = static_cast<UINT>(sizeof(m_AreaLights));
+	UINT rawSize = static_cast<UINT>(sizeof(AreaLights));
 	UINT bufferSize = (rawSize + 255) & ~255; // CBV alignment
 
 
@@ -4296,7 +4297,8 @@ void Renderer::UpdateAreaLightConstantBuffer()
 	float area = XMVectorGetX(XMVector3Length(crossUV));
 	m_AreaLights.gAreaLights[0].Area = area;
 
-	UINT rawSize = static_cast<UINT>(sizeof(m_AreaLights));
+
+	UINT rawSize = static_cast<UINT>(sizeof(AreaLights));
 
 	uint8_t* pData;
 	ThrowIfFailed(m_AreaLightConstantBuffer->Map(0, nullptr, (void**)&pData));
