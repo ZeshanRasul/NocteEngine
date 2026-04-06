@@ -2696,7 +2696,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 		{ 4, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 15},
 		{ 5, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 27},
 		{ 0, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 28},
-		{ 6, 23, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 32},
+		{ 6, (UINT)m_Textures.size(), 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 32},
 
 		});
 	rsc.AddHeapRangesParameter(
@@ -2851,7 +2851,7 @@ void Renderer::CreateSamplerHeap()
 
 void Renderer::CreateShaderResourceHeap()
 {
-	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 56, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 32 + m_Textures.size(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -4326,7 +4326,7 @@ void Renderer::CreatePerInstanceBuffers()
 		m_PerInstanceCBs[i]->Unmap(0, nullptr);
 	}
 
-	m_MaterialsGPU.reserve(m_PerInstanceCBCount + m_SponzaModel.materials.size());
+	m_MaterialsGPU.reserve(1 + m_SponzaModel.materials.size());
 	//m_MaterialsGPU.reserve(m_PerInstanceCBCount);
 
 	for (auto& m : m_Materials)
@@ -4368,6 +4368,9 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.isRefractive = m->IsRefractive;
 		matGpu.pad3 = 0.0f;
 		matGpu.TexIndex = m->DiffuseSrvHeapIndex - 1;
+		matGpu.NormalIndex = m->NormalSrvHeapIndex - 1;
+		matGpu.SpecularIndex = m->SpecularSrvHeapIndex - 1;
+		matGpu.AlphaIndex = m->AlphaSrvHeapIndex - 1;
 		matGpu.isEmissive = m->isEmissive;
 		matGpu.Emission = m->emission;
 		m_MaterialsGPU.push_back(std::move(matGpu));
@@ -4397,36 +4400,56 @@ void Renderer::CreatePerInstanceBuffers()
 
 void Renderer::LoadTextures(Model& model)
 {
-	for (auto& mat : model.materials)
-	{
-		if (!mat->DiffuseTextureFilePath.empty())
-		{
-			// Debug: Print the path being loaded
-			OutputDebugStringA(("Loading texture: " + mat->DiffuseTextureFilePath + "\n").c_str());
+	std::unordered_map<std::string, int> textureCache;
 
-			// Check if file exists first
-			std::wstring wPath = AnsiToWString(mat->DiffuseTextureFilePath);
+	auto LoadTexture = [&](const std::string& path) -> int
+		{
+			if (path.empty())
+				return -1;
+
+			// Deduplicate
+			if (textureCache.count(path))
+				return textureCache[path];
+
+			OutputDebugStringA(("Loading texture: " + path + "\n").c_str());
+
+			std::wstring wPath = AnsiToWString(path);
+
 			if (GetFileAttributesW(wPath.c_str()) == INVALID_FILE_ATTRIBUTES)
 			{
-				OutputDebugStringA(("Texture file not found: " + mat->DiffuseTextureFilePath + "\n").c_str());
-				continue; // Skip missing textures instead of crashing
+				OutputDebugStringA(("Missing texture: " + path + "\n").c_str());
+				return -1;
 			}
 
-			auto texMap = std::make_unique<Texture>();
-			texMap->Filename = wPath;
+			auto tex = std::make_unique<Texture>();
+			tex->Filename = wPath;
 
-			HRESULT hr = DirectX::CreateDDSTextureFromFile12(m_Device.Get(),
-				m_CommandList.Get(), texMap->Filename.c_str(),
-				texMap->Resource, texMap->UploadHeap);
+			HRESULT hr = DirectX::CreateDDSTextureFromFile12(
+				m_Device.Get(),
+				m_CommandList.Get(),
+				tex->Filename.c_str(),
+				tex->Resource,
+				tex->UploadHeap);
 
 			if (FAILED(hr))
 			{
-				OutputDebugStringA(("Failed to load texture: " + mat->DiffuseTextureFilePath + "\n").c_str());
-				continue; // Skip failed textures
+				OutputDebugStringA(("Failed to load: " + path + "\n").c_str());
+				return -1;
 			}
 
-			m_Textures.push_back(std::move(texMap));
-		}
+			int index = (int)m_Textures.size();
+			textureCache[path] = index;
+
+			m_Textures.push_back(std::move(tex));
+			return index;
+		};
+
+	for (auto& mat : model.materials)
+	{
+		mat->DiffuseSrvHeapIndex = LoadTexture(mat->DiffuseTextureFilePath);
+		mat->SpecularSrvHeapIndex = LoadTexture(mat->SpecularTextureFilePath);
+		mat->NormalSrvHeapIndex = LoadTexture(mat->NormalTextureFilePath);
+		mat->AlphaSrvHeapIndex = LoadTexture(mat->AlphaTextureFilePath);
 	}
 }
 

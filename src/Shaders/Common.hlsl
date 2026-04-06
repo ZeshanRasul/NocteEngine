@@ -28,6 +28,9 @@ struct Material
     int TexIndex;
     int isEmissive;
     float3 EmissiveColor;
+    int NormalIndex;
+    int SpecularIndex;
+    int AlphaIndex;
 };
 
 struct ShadowPayload

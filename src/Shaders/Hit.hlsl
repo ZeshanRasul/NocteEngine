@@ -393,6 +393,28 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     if (mat.TexIndex >= 0)
         mat.DiffuseAlbedo = textures[mat.TexIndex].SampleLevel(sampAniso, uv, 0);
     
+    if (mat.NormalIndex >= 0)
+    {
+        float3 nTex = textures[mat.NormalIndex].SampleLevel(sampAniso, uv, 0).xyz;
+        nTex = nTex * 2.0f - 1.0f;
+
+        float3x3 TBN = BuildTangentFrame(N);
+        N = normalize(mul(nTex, TBN));
+    }
+    
+    if (mat.SpecularIndex >= 0)
+    {
+        float gloss = textures[mat.SpecularIndex].SampleLevel(sampAniso, uv, 0).r;
+        mat.Roughness = 1.0f - gloss;
+    }
+    
+    if (mat.AlphaIndex >= 0)
+    {
+        float alpha = textures[mat.AlphaIndex].SampleLevel(sampAniso, uv, 0).r;
+        if (alpha < 0.5f)
+            payload.done = 1; // alpha cutout
+    }
+    
     // Refractive materials (glass) – handle with dedicated BSDF
     if (mat.IsRefractive != 0)
     {

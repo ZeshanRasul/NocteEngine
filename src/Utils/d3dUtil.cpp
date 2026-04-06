@@ -217,6 +217,9 @@ void d3dUtil::LoadObjModel(const std::string& filepath, Model& model)
 		auto material = new Material();
 		material->Name = mat.name;
 		material->DiffuseTextureFilePath = mat.diffuse_texname;
+		material->SpecularTextureFilePath = mat.specular_texname;
+		material->NormalTextureFilePath = mat.bump_texname;
+		material->AlphaTextureFilePath = mat.alpha_texname;
 		material->DiffuseAlbedo = DirectX::XMFLOAT4(
 			mat.diffuse[0],
 			mat.diffuse[1],

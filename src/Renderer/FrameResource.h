@@ -141,6 +141,9 @@ struct MaterialDataGPU
 	int TexIndex = -1;
 	int isEmissive = 0;
 	DirectX::XMFLOAT3 Emission = { 0.0f, 0.0f, 0.0f };
+	int NormalIndex = -1;
+	int SpecularIndex = -1;
+	int AlphaIndex = -1;
 };
 
 struct RenderItem
