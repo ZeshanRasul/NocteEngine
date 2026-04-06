@@ -134,7 +134,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	switch (m_SceneID)
 	{
 	case SceneSetUp::DIFFUSE_SPHERE:
-		m_PerInstanceCBCount = 7;
+		m_PerInstanceCBCount = 8;
 		break;
 	case SceneSetUp::DIFFUSE_CORNELL_BOX:
 		m_PerInstanceCBCount = 8;
@@ -144,11 +144,11 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 		break;
 	}
 
-	//	d3dUtil::LoadObjModel("Models/sponza.obj", m_SponzaModel);
+	d3dUtil::LoadObjModel("Models/sponza.obj", m_SponzaModel);
 	d3dUtil::LoadObjModel("Models/dragon.obj", m_DragonModel);
-	//	LoadTextures(m_SponzaModel);
+	LoadTextures(m_SponzaModel);
 		//LoadTextures(m_DragonModel);
-	//	CreateModelBuffers(m_SponzaModel, m_SponzaVertexBuffer, m_SponzaIndexBuffer, m_SponzaVBView, m_SponzaIBView);
+	CreateModelBuffers(m_SponzaModel, m_SponzaVertexBuffer, m_SponzaIndexBuffer, m_SponzaVBView, m_SponzaIBView);
 	CreateModelBuffers(m_DragonModel, m_DragonVertexBuffer, m_DragonIndexBuffer, m_DragonVBView, m_DragonIBView);
 	BuildShapeGeometry();
 	BuildSkullGeometry();
@@ -175,7 +175,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 			5,  // right sphere -> sphere material
 			//3,  // skull right -> skull material
 			3,  // skull left -> skull material
-			//11  // dragon -> dragon material
+			11  // dragon -> dragon material
 		};
 	}
 	else if (m_SceneID == SceneSetUp::DIFFUSE_CORNELL_BOX || m_SceneID == SceneSetUp::DIFFUSE_SPHERE)
@@ -300,10 +300,10 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	if (m_UseQTable)
 	{
 		const int numStates = 722;
-		const int numActions = 5;
+		const int numActions = 4;
 
 		std::vector<float> m_QTableData = BuildQTableVector(
-			Q_TABLE_8_2,
+			Q_TABLE_8_4,
 			numStates,
 			numActions
 		);
@@ -685,8 +685,7 @@ bool Renderer::Draw(bool useRaster)
 						<< m_RLQTable[static_cast<size_t>(t.StateIndex) * NumActions + 0].Value << ","
 						<< m_RLQTable[static_cast<size_t>(t.StateIndex) * NumActions + 1].Value << ","
 						<< m_RLQTable[static_cast<size_t>(t.StateIndex) * NumActions + 2].Value << ","
-						<< m_RLQTable[static_cast<size_t>(t.StateIndex) * NumActions + 3].Value << ","
-						<< m_RLQTable[static_cast<size_t>(t.StateIndex) * NumActions + 4].Value << "\n";
+						<< m_RLQTable[static_cast<size_t>(t.StateIndex) * NumActions + 3].Value << "\n";
 					logged++;
 				}
 				file.close();
@@ -1267,7 +1266,7 @@ bool Renderer::Draw(bool useRaster)
 		m_MaxIterations = 8192;
 	}
 
-	if (m_FrameIndex == m_MaxIterations || m_FrameIndex == 1 || m_FrameIndex == 4 || m_FrameIndex == 16 || m_FrameIndex == 32 || m_FrameIndex == 64 || m_FrameIndex == 128 || m_FrameIndex == 256)
+	if (!m_UseTemporal && m_FrameIndex == m_MaxIterations || m_FrameIndex == 1 || m_FrameIndex == 4 || m_FrameIndex == 16 || m_FrameIndex == 32 || m_FrameIndex == 64 || m_FrameIndex == 128 || m_FrameIndex == 256)
 	{
 		m_TargetCaptureSPP = m_FrameIndex;
 		m_SaveImage = true;
@@ -2719,8 +2718,9 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 	rsc.AddHeapRangesParameter(
 		{ { 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2},
 		{ 4, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 15},
-		{ 6, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 27},
+		{ 5, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 27},
 		{ 0, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 28},
+		{ 6, 24, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 32},
 
 		});
 	rsc.AddHeapRangesParameter(
@@ -2875,7 +2875,7 @@ void Renderer::CreateSamplerHeap()
 
 void Renderer::CreateShaderResourceHeap()
 {
-	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 32, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), 90, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -3137,7 +3137,7 @@ void Renderer::CreateShaderResourceHeap()
 		static_cast<size_t>(m_ClientWidth) *
 		static_cast<size_t>(m_ClientHeight) *
 		static_cast<size_t>(m_SPP) *
-		static_cast<size_t>(12);;
+		static_cast<size_t>(12);
 	uavDesc.Buffer.StructureByteStride = sizeof(RLTransitionGPU);
 	uavDesc.Buffer.CounterOffsetInBytes = 0;
 	uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
@@ -3178,6 +3178,29 @@ void Renderer::CreateShaderResourceHeap()
 	m_Device->CreateShaderResourceView(m_GroundTruthTex.Get(), &srvDesc, srvHandle);
 
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> tex2DList;
+
+	for (auto& tex : m_Textures)
+	{
+		tex2DList.push_back(tex->Resource);
+	}
+	srvDesc = {};
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = 1;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+	for (UINT i = 0; i < (UINT)tex2DList.size(); ++i)
+	{
+		srvDesc.Format = tex2DList[i]->GetDesc().Format;
+		srvDesc.Texture2D.MipLevels = tex2DList[i]->GetDesc().MipLevels;
+		m_Device->CreateShaderResourceView(tex2DList[i].Get(), &srvDesc, srvHandle);
+
+		srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	}
 
 }
 
@@ -3632,7 +3655,7 @@ void Renderer::CreateShaderBindingTable()
 
 		if (m_SceneID == SceneSetUp::DIFFUSE_SPHERE)
 		{
-			m_PerInstanceCBCount = 7;
+			m_PerInstanceCBCount = 8;
 			if (i < 6)
 			{
 				vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
@@ -3643,6 +3666,11 @@ void Renderer::CreateShaderBindingTable()
 				vb = sphereSubmesh.VertexBufferGPU->GetGPUVirtualAddress();
 				ib = sphereSubmesh.IndexBufferGPU->GetGPUVirtualAddress();
 
+			}
+			else if (i == 7)
+			{
+				vb = m_SponzaVertexBuffer->GetGPUVirtualAddress();
+				ib = m_SponzaIndexBuffer->GetGPUVirtualAddress();
 			}
 		}
 
@@ -3793,8 +3821,8 @@ void Renderer::CreateTopLevelAS(std::vector<std::pair<Microsoft::WRL::ComPtr<ID3
 
 void Renderer::CreateAccelerationStructures()
 {
-	//AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_SponzaVertexBuffer, m_SponzaModel.vertices.size()} }, { {m_SponzaIndexBuffer, m_SponzaModel.indices.size()}
-	//	});
+	AccelerationStructureBuffers sponzaBottomLevelBuffer = CreateBottomLevelAS({ { m_SponzaVertexBuffer, m_SponzaModel.vertices.size()} }, { {m_SponzaIndexBuffer, m_SponzaModel.indices.size()}
+		});
 	//AccelerationStructureBuffers skull0BottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} }, { {m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount} });
 
 	//AccelerationStructureBuffers sphereBottomLevelBuffers = CreateBottomLevelAS({ { sphereSubmesh.VertexBufferGPU, sphereSubmesh.VertexCount} }, { {sphereSubmesh.IndexBufferGPU, sphereSubmesh.IndexCount} });
@@ -3861,7 +3889,12 @@ void Renderer::CreateAccelerationStructures()
 			// Sphere in center: radius ~12.5 at y = 12.5
 			{ sphereBottomLevelBuffers.pResult,
 			XMMatrixScaling(25.0f, 25.0f, 25.0f) *
-			XMMatrixTranslation(0.0f, 12.5f, 0.0f) } };
+			XMMatrixTranslation(0.0f, 12.5f, 0.0f) },
+		
+			{sponzaBottomLevelBuffer.pResult,
+			XMMatrixScaling(0.1f, 0.1f, 0.1f) *
+			XMMatrixTranslation(0.0f, 0.0f, 0.0f) }
+		};
 
 	};
 
@@ -4401,30 +4434,48 @@ void Renderer::CreatePerInstanceBuffers()
 	memcpy(pData, m_MaterialsGPU.data(), bufferSize);
 	m_UploadCBuffer->Unmap(0, nullptr);
 
-	//for (int idx : m_SponzaModel.meshMaterialIndices)
-	//{
-	//	matIndices.push_back(5 + idx);
-	//}
+	for (int idx : m_SponzaModel.meshMaterialIndices)
+	{
+		matIndices.push_back(7 + idx);
+	}
 
-	//const uint32_t matIdxBufferSize = sizeof(int) * matIndices.size();
-	//m_TriMatIndexCB = nv_helpers_dx12::CreateBuffer(m_Device.Get(), matIdxBufferSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
-	//uint8_t* pData2;
-	//ThrowIfFailed(m_TriMatIndexCB->Map(0, nullptr, (void**)&pData2));
-	//memcpy(pData2, matIndices.data(), matIdxBufferSize);
-	//m_TriMatIndexCB->Unmap(0, nullptr);
+	const uint32_t matIdxBufferSize = sizeof(int) * matIndices.size();
+	m_TriMatIndexCB = nv_helpers_dx12::CreateBuffer(m_Device.Get(), matIdxBufferSize, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+	uint8_t* pData2;
+	ThrowIfFailed(m_TriMatIndexCB->Map(0, nullptr, (void**)&pData2));
+	memcpy(pData2, matIndices.data(), matIdxBufferSize);
+	m_TriMatIndexCB->Unmap(0, nullptr);
 }
 
 void Renderer::LoadTextures(Model& model)
 {
 	for (auto& mat : model.materials)
 	{
-		if (mat->DiffuseTextureFilePath != "")
+		if (!mat->DiffuseTextureFilePath.empty())
 		{
+			// Debug: Print the path being loaded
+			OutputDebugStringA(("Loading texture: " + mat->DiffuseTextureFilePath + "\n").c_str());
+
+			// Check if file exists first
+			std::wstring wPath = AnsiToWString(mat->DiffuseTextureFilePath);
+			if (GetFileAttributesW(wPath.c_str()) == INVALID_FILE_ATTRIBUTES)
+			{
+				OutputDebugStringA(("Texture file not found: " + mat->DiffuseTextureFilePath + "\n").c_str());
+				continue; // Skip missing textures instead of crashing
+			}
+
 			auto texMap = std::make_unique<Texture>();
-			texMap->Filename = AnsiToWString(mat->DiffuseTextureFilePath);
-			ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(m_Device.Get(),
+			texMap->Filename = wPath;
+
+			HRESULT hr = DirectX::CreateDDSTextureFromFile12(m_Device.Get(),
 				m_CommandList.Get(), texMap->Filename.c_str(),
-				texMap->Resource, texMap->UploadHeap));
+				texMap->Resource, texMap->UploadHeap);
+
+			if (FAILED(hr))
+			{
+				OutputDebugStringA(("Failed to load texture: " + mat->DiffuseTextureFilePath + "\n").c_str());
+				continue; // Skip failed textures
+			}
 
 			m_Textures.push_back(std::move(texMap));
 		}

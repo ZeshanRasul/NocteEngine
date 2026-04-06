@@ -40,7 +40,9 @@ StructuredBuffer<STriVertex> BTriVertex : register(t0);
 StructuredBuffer<int> indices : register(t1);
 RaytracingAccelerationStructure SceneBVH : register(t2);
 StructuredBuffer<Material> materials : register(t3);
-Texture2D<float4> gAlbedoHistory : register(t6);
+StructuredBuffer<int> matIndices : register(t4);
+Texture2D<float4> gAlbedoHistory : register(t5);
+Texture2D textures[] : register(t6);
 RWTexture2D<float4> gAlbedo : register(u0);
 
 SamplerState sampAniso : register(s0);
@@ -446,24 +448,24 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
 
     Material mat;
     
-    //if (InstanceID() >= 5)
-    //{
-    //    mat = materials[materialIndex + matIndices[triIndex]];
-    //}
-    //else
-    //{
-    //    mat = materials[materialIndex];
-    //}
+
+    if (InstanceID() >= 7)
+    {
+        mat = materials[materialIndex + matIndices[triIndex]];
+    }
+    else
+    {
+        mat = materials[materialIndex];
+    }
     
-    mat = materials[materialIndex];
+    if (mat.TexIndex >= 0)
+        mat.DiffuseAlbedo = textures[mat.TexIndex].SampleLevel(sampAniso, uv, 0);
+
     payload.matRoughness = mat.Roughness;
     
     payload.emission = 0.0f;
     payload.isEmissive = 0.0f;
 
-    //if (mat.TexIndex >= 0)
-      //  mat.DiffuseAlbedo = textures[mat.TexIndex].SampleLevel(sampAniso, uv, 0);
-    
     payload.hitSomething = 1;
     
     if (payload.depth == 1)

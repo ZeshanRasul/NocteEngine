@@ -2,7 +2,7 @@
 #include "PathTracerCommon.hlsl"
 
 #define MaxLights 16
-#define NUM_ACTIONS 5
+#define NUM_ACTIONS 4
 
 struct RLTransitionGPU
 {
@@ -106,9 +106,8 @@ uint ChooseBestActionWithTieBreak(uint stateIndex, uint pixel, uint frameIndex)
     float q1 = gQTable[baseIdx + 1].Value;
     float q2 = gQTable[baseIdx + 2].Value;
     float q3 = gQTable[baseIdx + 3].Value;
-    float q4 = gQTable[baseIdx + 4].Value;
 
-    float maxQ = max(q0, max(q1, max(q2, max(q3, q4))));
+    float maxQ = max(q0, max(q1, max(q2, q3)));
 
     uint candidates[5];
     uint count = 0;
@@ -121,8 +120,6 @@ uint ChooseBestActionWithTieBreak(uint stateIndex, uint pixel, uint frameIndex)
         candidates[count++] = 2;
     if (q3 == maxQ)
         candidates[count++] = 3;
-    if (q4 == maxQ)
-        candidates[count++] = 4;
 
     float r = HashToUnitFloat(pixel + 7919u * frameIndex);
     uint pick = min((uint) (r * count), count - 1);
@@ -243,15 +240,10 @@ SamplingModeParams GetSamplingParams(uint actionIndex)
     }
     else if (actionIndex == 2)
     {
-        p.bsdfProb = 0.5f;
-        p.lightProb = 0.5f;
-    }
-    else if (actionIndex == 3)
-    {
         p.bsdfProb = 0.3;
         p.lightProb = 0.7;
     }
-    else if (actionIndex == 4)
+    else if (actionIndex == 3)
     {
         p.bsdfProb = 0.1f;
         p.lightProb = 0.9f;
@@ -565,13 +557,13 @@ void RayGen()
     float scale = max(oldErr + newErr + 1e-4f, 1e-4f);
     rawReward = improvement / scale;
 
-    float sppWeight = 1.0f;
-    if (frameIndex < 16)
-        sppWeight = 1.0f;
-    else if (frameIndex < 64)
-        sppWeight = 3.0f;
-    else
-        sppWeight = 8.0f; // stronger penalty/reward for late-stage correctness
+// Smooth SPP-based weighting
+    float currentSPP = max((float) frameIndex, 1.0f);
+    float maxSPP = 256.0f;
+    float sppNorm = clamp(currentSPP / maxSPP, 0.0f, 1.0f);
+
+// Weight rises smoothly from 1.0 at low SPP to 3.0 at maxSPP
+    float sppWeight = 1.0f + 2.0f * sppNorm;
 
             
     finalReward = tanh(2.5f * rawReward) * 6.0f * sppWeight;

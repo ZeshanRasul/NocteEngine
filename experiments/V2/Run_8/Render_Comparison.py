@@ -27,8 +27,8 @@ SKIMAGE_AVAILABLE = False
 
 GT_DIR = Path(r"./GT_Renders_3")
 BASELINE_DIR = Path(r"./Baseline_Renders_3")
-RL_DIR = Path(r"./RL_Renders_3")
-OUTPUT_DIR = Path(r"./Charts/Comparison_Results_3")
+RL_DIR = Path(r"./RL_Renders_4")
+OUTPUT_DIR = Path(r"./Charts/Comparison_Results_4")
 
 SCENES = [
     "",

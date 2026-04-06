@@ -28,13 +28,6 @@ uint ChooseBestAction(uint stateIndex)
         bestQ = q3;
         bestAction = 3;
     }
-  
-    if (q4 > bestQ)
-    {
-        bestQ = q4;
-        bestAction = 4;
-    }
-
 
     return bestAction;
 }
@@ -170,15 +163,10 @@ SamplingModeParams GetSamplingParams(uint actionIndex)
     }
     else if (actionIndex == 2)
     {
-        p.bsdfProb = 0.5f;
-        p.lightProb = 0.5f;
-    }
-    else if (actionIndex == 3)
-    {
         p.bsdfProb = 0.3;
         p.lightProb = 0.7;
     }
-    else if (actionIndex == 4)
+    else if (actionIndex == 3)
     {
         p.bsdfProb = 0.1f;
         p.lightProb = 0.9f;
