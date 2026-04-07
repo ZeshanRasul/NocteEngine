@@ -464,7 +464,7 @@ private:
 		int windowCount;
 
 		bool m_UseDenoiser = false;
-		bool m_UseTemporal = false;
+		bool m_UseTemporal = true;
 		bool m_UseRL = false;
 		bool m_RLQTableInSRVState = false;
 		bool m_UseQTable = false;

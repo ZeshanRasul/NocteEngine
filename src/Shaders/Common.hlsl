@@ -170,8 +170,8 @@ float GGX_PDF(float3 N, float3 V, float3 L, float roughness)
     if (NdotH <= 0.0f || VdotH <= 0.0f || LdotH <= 0.0f)
         return 0.0f;
     
-    float alpha = max(roughness * roughness, 1e-4f);
-    float D = GGX_D(NdotH, alpha);
+  //  float alpha = max(roughness * roughness, 1e-4f);
+    float D = GGX_D(NdotH, roughness);
   //  float G1V = GGX_G1(N, V, alpha);
 
 
