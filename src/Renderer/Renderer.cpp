@@ -4251,21 +4251,51 @@ void Renderer::CreateAreaLightConstantBuffer()
 	m_AreaLights.gAreaLights[1] = areaLight2;
 
 	AreaLight areaLight3{};
-	areaLight3.Position = XMFLOAT3(-110.0f, 269.0f, 49.0f);
-	areaLight3.Radiance = XMFLOAT3(50.0f, 50.0f, 50.0f);
-	areaLight3.U = XMFLOAT3(100.0f, 0.0f, 0.0f);
-	areaLight3.V = XMFLOAT3(0.0f, 0.0f, 500.0f);
+	areaLight3.Position = XMFLOAT3(-110.0f, 260.0f, 20.0f);
+	areaLight3.Radiance = XMFLOAT3(12.0f, 10.0f, 8.0f);
+	areaLight3.U = XMFLOAT3(80.0f, 0.0f, 0.0f);
+	areaLight3.V = XMFLOAT3(0.0f, 80.0f, 0.0f);
 
 	U = XMLoadFloat3(&areaLight3.U);
 	V = XMLoadFloat3(&areaLight3.V);
 
-	crossUV = (XMVector3Cross(U, V));
+	crossUV = XMVector3Cross(U, V);
 	area = XMVectorGetX(XMVector3Length(crossUV));
 	areaLight3.Area = area;
 
 	m_AreaLights.gAreaLights[2] = areaLight3;
 
-	m_AreaLights.gNumAreaLights = 3;
+	AreaLight areaLight4{};
+	areaLight4.Position = XMFLOAT3(-110.0f, 280.0f, 40.0f);
+	areaLight4.Radiance = XMFLOAT3(4.0f, 4.0f, 4.0f);
+	areaLight4.U = XMFLOAT3(120.0f, 0.0f, 0.0f);
+	areaLight4.V = XMFLOAT3(0.0f, 0.0f, 120.0f);
+
+	U = XMLoadFloat3(&areaLight4.U);
+	V = XMLoadFloat3(&areaLight4.V);
+
+	crossUV = XMVector3Cross(U, V);
+	area = XMVectorGetX(XMVector3Length(crossUV));
+	areaLight4.Area = area;
+
+	m_AreaLights.gAreaLights[3] = areaLight4;
+
+	AreaLight areaLight5{};
+	areaLight5.Position = XMFLOAT3(-110.0f, 255.0f, 10.0f);
+	areaLight5.Radiance = XMFLOAT3(8.0f, 6.5f, 5.5f);
+	areaLight5.U = XMFLOAT3(40.0f, 0.0f, 0.0f);
+	areaLight5.V = XMFLOAT3(0.0f, 40.0f, 0.0f);
+
+	U = XMLoadFloat3(&areaLight5.U);
+	V = XMLoadFloat3(&areaLight5.V);
+
+	crossUV = XMVector3Cross(U, V);
+	area = XMVectorGetX(XMVector3Length(crossUV));
+	areaLight5.Area = area;
+
+	m_AreaLights.gAreaLights[4] = areaLight5;
+
+	m_AreaLights.gNumAreaLights = 5;
 	m_AreaLights.gAreaLightPadding = XMFLOAT3(0.0f, 0.0f, 0.0f);
 
 

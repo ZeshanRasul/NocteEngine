@@ -4,7 +4,7 @@
 #include "BSDF.hlsl"
 
 #define NumLights 1
-#define MAX_AREA_LIGHTS 3
+#define MAX_AREA_LIGHTS 5
 
 struct DirectionalLight
 {
