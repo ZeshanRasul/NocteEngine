@@ -4235,8 +4235,8 @@ void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 void Renderer::CreateAreaLightConstantBuffer()
 {
 	AreaLight areaLight{};
-	areaLight.Position = XMFLOAT3(0.0f, 800.0f, 0.0f);
-	areaLight.Radiance = XMFLOAT3(0.3f, 0.35f, 0.4f);
+	areaLight.Position = XMFLOAT3(0.0f, 800.0f, -1000.0f);
+	areaLight.Radiance = XMFLOAT3(5.0f, 5.0f, 5.0f);
 	areaLight.U = XMFLOAT3(2000.0f, 0.0f, 0.0f);
 	areaLight.V = XMFLOAT3(0.0f, 0.0f, 2000.0f);
 
@@ -4264,52 +4264,52 @@ void Renderer::CreateAreaLightConstantBuffer()
 
 	m_AreaLights.gAreaLights[1] = areaLight2;
 
-	AreaLight areaLight3{};
-	areaLight3.Position = XMFLOAT3(-110.0f, 260.0f, 20.0f);
-	areaLight3.Radiance = XMFLOAT3(12.0f, 10.0f, 8.0f);
-	areaLight3.U = XMFLOAT3(80.0f, 0.0f, 0.0f);
-	areaLight3.V = XMFLOAT3(0.0f, 80.0f, 0.0f);
+	//AreaLight areaLight3{};
+	//areaLight3.Position = XMFLOAT3(-110.0f, 260.0f, 20.0f);
+	//areaLight3.Radiance = XMFLOAT3(12.0f, 10.0f, 8.0f);
+	//areaLight3.U = XMFLOAT3(80.0f, 0.0f, 0.0f);
+	//areaLight3.V = XMFLOAT3(0.0f, 80.0f, 0.0f);
 
-	U = XMLoadFloat3(&areaLight3.U);
-	V = XMLoadFloat3(&areaLight3.V);
+	//U = XMLoadFloat3(&areaLight3.U);
+	//V = XMLoadFloat3(&areaLight3.V);
 
-	crossUV = XMVector3Cross(U, V);
-	area = XMVectorGetX(XMVector3Length(crossUV));
-	areaLight3.Area = area;
+	//crossUV = XMVector3Cross(U, V);
+	//area = XMVectorGetX(XMVector3Length(crossUV));
+	//areaLight3.Area = area;
 
-	m_AreaLights.gAreaLights[2] = areaLight3;
+	//m_AreaLights.gAreaLights[2] = areaLight3;
 
-	AreaLight areaLight4{};
-	areaLight4.Position = XMFLOAT3(-110.0f, 280.0f, 40.0f);
-	areaLight4.Radiance = XMFLOAT3(4.0f, 4.0f, 4.0f);
-	areaLight4.U = XMFLOAT3(120.0f, 0.0f, 0.0f);
-	areaLight4.V = XMFLOAT3(0.0f, 0.0f, 120.0f);
+	//AreaLight areaLight4{};
+	//areaLight4.Position = XMFLOAT3(-110.0f, 280.0f, 40.0f);
+	//areaLight4.Radiance = XMFLOAT3(4.0f, 4.0f, 4.0f);
+	//areaLight4.U = XMFLOAT3(120.0f, 0.0f, 0.0f);
+	//areaLight4.V = XMFLOAT3(0.0f, 0.0f, 120.0f);
 
-	U = XMLoadFloat3(&areaLight4.U);
-	V = XMLoadFloat3(&areaLight4.V);
+	//U = XMLoadFloat3(&areaLight4.U);
+	//V = XMLoadFloat3(&areaLight4.V);
 
-	crossUV = XMVector3Cross(U, V);
-	area = XMVectorGetX(XMVector3Length(crossUV));
-	areaLight4.Area = area;
+	//crossUV = XMVector3Cross(U, V);
+	//area = XMVectorGetX(XMVector3Length(crossUV));
+	//areaLight4.Area = area;
 
-	m_AreaLights.gAreaLights[3] = areaLight4;
+	//m_AreaLights.gAreaLights[3] = areaLight4;
 
-	AreaLight areaLight5{};
-	areaLight5.Position = XMFLOAT3(-110.0f, 255.0f, 10.0f);
-	areaLight5.Radiance = XMFLOAT3(8.0f, 6.5f, 5.5f);
-	areaLight5.U = XMFLOAT3(40.0f, 0.0f, 0.0f);
-	areaLight5.V = XMFLOAT3(0.0f, 40.0f, 0.0f);
+	//AreaLight areaLight5{};
+	//areaLight5.Position = XMFLOAT3(-110.0f, 255.0f, 10.0f);
+	//areaLight5.Radiance = XMFLOAT3(8.0f, 6.5f, 5.5f);
+	//areaLight5.U = XMFLOAT3(40.0f, 0.0f, 0.0f);
+	//areaLight5.V = XMFLOAT3(0.0f, 40.0f, 0.0f);
 
-	U = XMLoadFloat3(&areaLight5.U);
-	V = XMLoadFloat3(&areaLight5.V);
+	//U = XMLoadFloat3(&areaLight5.U);
+	//V = XMLoadFloat3(&areaLight5.V);
 
-	crossUV = XMVector3Cross(U, V);
-	area = XMVectorGetX(XMVector3Length(crossUV));
-	areaLight5.Area = area;
+	//crossUV = XMVector3Cross(U, V);
+	//area = XMVectorGetX(XMVector3Length(crossUV));
+	//areaLight5.Area = area;
 
-	m_AreaLights.gAreaLights[4] = areaLight5;
+	//m_AreaLights.gAreaLights[4] = areaLight5;
 
-	m_AreaLights.gNumAreaLights = 5;
+	m_AreaLights.gNumAreaLights = 2;
 	m_AreaLights.gAreaLightPadding = XMFLOAT3(0.0f, 0.0f, 0.0f);
 
 
@@ -4345,12 +4345,12 @@ void Renderer::UpdateAreaLightConstantBuffer()
 	area = XMVectorGetX(XMVector3Length(crossUV));
 	m_AreaLights.gAreaLights[1].Area = area;
 
-	U = XMLoadFloat3(&m_AreaLights.gAreaLights[2].U);
-	V = XMLoadFloat3(&m_AreaLights.gAreaLights[2].V);
+	//U = XMLoadFloat3(&m_AreaLights.gAreaLights[2].U);
+	//V = XMLoadFloat3(&m_AreaLights.gAreaLights[2].V);
 
-	crossUV = (XMVector3Cross(U, V));
-	area = XMVectorGetX(XMVector3Length(crossUV));
-	m_AreaLights.gAreaLights[2].Area = area;
+	//crossUV = (XMVector3Cross(U, V));
+	//area = XMVectorGetX(XMVector3Length(crossUV));
+	//m_AreaLights.gAreaLights[2].Area = area;
 
 	UINT rawSize = static_cast<UINT>(sizeof(AreaLights));
 
@@ -4820,6 +4820,9 @@ void Renderer::RenderImGuiDebugWindow()
 	if (ImGui::Button("Capture 64 SPP"))
 		RequestCapture(64);
 
+	if (ImGui::Button("Capture 1024 SPP"))
+		RequestCapture(1024);
+
 	if (ImGui::Button("Capture 4096 SPP"))
 		RequestCapture(4096);
 
@@ -4885,18 +4888,18 @@ void Renderer::RenderImGuiDebugWindow()
 	ImGui::Text("Area Light2 V Vector");
 	ImGui::InputFloat("Area Light2 V", &m_AreaLights.gAreaLights[1].V.z);
 
-	ImGui::Text("Area Light3 Position");
-	ImGui::InputFloat("Area Light3 Position X", &m_AreaLights.gAreaLights[2].Position.x);
-	ImGui::InputFloat("Area Light3 Position Y", &m_AreaLights.gAreaLights[2].Position.y);
-	ImGui::InputFloat("Area Light3 Position Z", &m_AreaLights.gAreaLights[2].Position.z);
-	ImGui::Text("Area Light3 Radiance");
-	ImGui::InputFloat("Area Light3 Radiance R", &m_AreaLights.gAreaLights[2].Radiance.x);
-	ImGui::InputFloat("Area Light3 Radiance G", &m_AreaLights.gAreaLights[2].Radiance.y);
-	ImGui::InputFloat("Area Light3 Radiance B", &m_AreaLights.gAreaLights[2].Radiance.z);
-	ImGui::Text("Area Light3 U Vector");
-	ImGui::InputFloat("Area Light3 U", &m_AreaLights.gAreaLights[2].U.x);
-	ImGui::Text("Area Light3 V Vector");
-	ImGui::InputFloat("Area Light3 V", &m_AreaLights.gAreaLights[2].V.z);
+	//ImGui::Text("Area Light3 Position");
+	//ImGui::InputFloat("Area Light3 Position X", &m_AreaLights.gAreaLights[2].Position.x);
+	//ImGui::InputFloat("Area Light3 Position Y", &m_AreaLights.gAreaLights[2].Position.y);
+	//ImGui::InputFloat("Area Light3 Position Z", &m_AreaLights.gAreaLights[2].Position.z);
+	//ImGui::Text("Area Light3 Radiance");
+	//ImGui::InputFloat("Area Light3 Radiance R", &m_AreaLights.gAreaLights[2].Radiance.x);
+	//ImGui::InputFloat("Area Light3 Radiance G", &m_AreaLights.gAreaLights[2].Radiance.y);
+	//ImGui::InputFloat("Area Light3 Radiance B", &m_AreaLights.gAreaLights[2].Radiance.z);
+	//ImGui::Text("Area Light3 U Vector");
+	//ImGui::InputFloat("Area Light3 U", &m_AreaLights.gAreaLights[2].U.x);
+	//ImGui::Text("Area Light3 V Vector");
+	//ImGui::InputFloat("Area Light3 V", &m_AreaLights.gAreaLights[2].V.z);
 
 	ImGui::Text("Camera Eye");
 	ImGui::InputFloat("Camera Eye X", &m_EyePos.x);
