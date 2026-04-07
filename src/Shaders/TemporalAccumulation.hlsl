@@ -31,6 +31,8 @@ cbuffer PostProcess : register(b1)
     int ToneMapMode;
     int DebugMode;
     int IsLastPass;
+    int AccumulatedSPP;
+    float3 pad;
 }
 
 cbuffer cbPass : register(b2)

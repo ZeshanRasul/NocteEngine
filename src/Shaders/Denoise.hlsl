@@ -19,6 +19,8 @@ cbuffer PostProcess : register(b1)
     int ToneMapMode;
     int DebugMode;
     int IsLastPass;
+    int AccumulatedSPP;
+    float3 pad;
 }
 
 Texture2D<float4> Input : register(t0);

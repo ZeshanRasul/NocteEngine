@@ -464,7 +464,7 @@ private:
 		int windowCount;
 
 		bool m_UseDenoiser = false;
-		bool m_UseTemporal = true;
+		bool m_UseTemporal = false;
 		bool m_UseRL = false;
 		bool m_RLQTableInSRVState = false;
 		bool m_UseQTable = false;
@@ -504,7 +504,7 @@ private:
 
 		enum class SceneSetUp
 		{
-			DIFFUSE_SPHERE = 0,
+			BISTRO = 0,
 			DIFFUSE_CORNELL_BOX = 1,
 			DIFFUSE_ALCOVE = 2,
 			GLOSSY_SPHERE = 3,
@@ -518,7 +518,7 @@ private:
 		{
 			switch (setup)
 			{
-			case SceneSetUp::DIFFUSE_SPHERE: return "Diffuse_Sphere";
+			case SceneSetUp::BISTRO: return "Amazon Lumberyard Bistro";
 			case SceneSetUp::DIFFUSE_CORNELL_BOX: return "Diffuse_Cornell_Box";
 			case SceneSetUp::DIFFUSE_ALCOVE: return "Diffuse_Alcove";
 			case SceneSetUp::GLOSSY_SPHERE: return "Glossy_Sphere";
@@ -529,7 +529,7 @@ private:
 			}
 		}
 
-		SceneSetUp m_SceneID = SceneSetUp::DIFFUSE_SPHERE;
+		SceneSetUp m_SceneID = SceneSetUp::BISTRO;
 		std::string m_RunTimestamp;
 };
 

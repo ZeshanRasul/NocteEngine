@@ -122,6 +122,8 @@ struct PostProcessData
 	int ToneMapMode = 2;
 	int DebugMode = 0;
 	int IsLastPass = 0;
+	int AccumulatedSPP = 1;
+	DirectX::XMFLOAT3 pad = {0, 0, 0};
 };
 
 struct MaterialDataGPU

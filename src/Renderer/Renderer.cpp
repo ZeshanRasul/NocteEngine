@@ -133,8 +133,8 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 
 	switch (m_SceneID)
 	{
-	case SceneSetUp::DIFFUSE_SPHERE:
-		m_PerInstanceCBCount = 2;
+	case SceneSetUp::BISTRO:
+		m_PerInstanceCBCount = 1;
 		break;
 	case SceneSetUp::DIFFUSE_CORNELL_BOX:
 		m_PerInstanceCBCount = 8;
@@ -145,11 +145,11 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	}
 
 	d3dUtil::LoadObjModel("Models/exterior.obj", m_SponzaModel);
-	d3dUtil::LoadObjModel("Models/interior.obj", m_DragonModel);
+	//d3dUtil::LoadObjModel("Models/interior.obj", m_DragonModel);
 	LoadTextures(m_SponzaModel);
-	LoadTextures(m_DragonModel);
+//	LoadTextures(m_DragonModel);
 	CreateModelBuffers(m_SponzaModel, m_SponzaVertexBuffer, m_SponzaIndexBuffer, m_SponzaVBView, m_SponzaIBView);
-	CreateModelBuffers(m_DragonModel, m_DragonVertexBuffer, m_DragonIndexBuffer, m_DragonVBView, m_DragonIBView);
+//	CreateModelBuffers(m_DragonModel, m_DragonVertexBuffer, m_DragonIndexBuffer, m_DragonVBView, m_DragonIBView);
 	BuildShapeGeometry();
 	BuildSkullGeometry();
 	CreatePlaneGeometry();
@@ -178,7 +178,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 			11  // dragon -> dragon material
 		};
 	}
-	else if (m_SceneID == SceneSetUp::DIFFUSE_CORNELL_BOX || m_SceneID == SceneSetUp::DIFFUSE_SPHERE)
+	else if (m_SceneID == SceneSetUp::DIFFUSE_CORNELL_BOX || m_SceneID == SceneSetUp::BISTRO)
 	{
 		instanceMaterialIndices =
 		{
@@ -730,7 +730,7 @@ bool Renderer::Draw(bool useRaster)
 	}
 	if (!m_UseTemporal && !m_UseDenoiser)
 	{
-
+		UpdatePostProcessConstantBuffer(0, m_DenoisePasses);
 		int uavIndex = UAV_Present;
 		int srvIndex = SRV_Accumulation;
 		std::vector<ID3D12DescriptorHeap*> heaps = { m_SrvUavHeap.Get(), m_SamplerHeap.Get() };
@@ -3590,9 +3590,9 @@ void Renderer::CreateShaderBindingTable()
 		D3D12_GPU_VIRTUAL_ADDRESS ib = 0;
 		D3D12_GPU_VIRTUAL_ADDRESS perInstanceCB = m_PerInstanceCBs[i]->GetGPUVirtualAddress();
 
-		if (m_SceneID == SceneSetUp::DIFFUSE_SPHERE)
+		if (m_SceneID == SceneSetUp::BISTRO)
 		{
-			m_PerInstanceCBCount = 2;
+			m_PerInstanceCBCount = 1;
 			/*if (i < 1)
 			{
 				vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
@@ -3603,11 +3603,11 @@ void Renderer::CreateShaderBindingTable()
 				vb = m_SponzaVertexBuffer->GetGPUVirtualAddress();
 				ib = m_SponzaIndexBuffer->GetGPUVirtualAddress();
 			}
-			if (i == 1)
+		/*	if (i == 1)
 			{
 				vb = m_DragonVertexBuffer->GetGPUVirtualAddress();
 				ib = m_DragonIndexBuffer->GetGPUVirtualAddress();
-			}
+			}*/
 		}
 
 		if (m_SceneID == SceneSetUp::DIFFUSE_CORNELL_BOX)
@@ -3764,7 +3764,7 @@ void Renderer::CreateAccelerationStructures()
 	//AccelerationStructureBuffers sphereBottomLevelBuffers = CreateBottomLevelAS({ { sphereSubmesh.VertexBufferGPU, sphereSubmesh.VertexCount} }, { {sphereSubmesh.IndexBufferGPU, sphereSubmesh.IndexCount} });
 	//AccelerationStructureBuffers boxBottomLevelBuffers = CreateBottomLevelAS({ { boxSubmesh.VertexBufferGPU, boxSubmesh.VertexCount} }, { {boxSubmesh.IndexBufferGPU, boxSubmesh.IndexCount} });
 	//AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { m_PlaneVertexBuffer, 4} }, { { m_PlaneIndexBuffer, 6 } });
-	AccelerationStructureBuffers dragonBottomLevelBuffers = CreateBottomLevelAS({ { m_DragonVertexBuffer, m_DragonModel.vertices.size() } }, { {m_DragonIndexBuffer, m_DragonModel.indices.size() } });
+//	AccelerationStructureBuffers dragonBottomLevelBuffers = CreateBottomLevelAS({ { m_DragonVertexBuffer, m_DragonModel.vertices.size() } }, { {m_DragonIndexBuffer, m_DragonModel.indices.size() } });
 		//	});
 
 
@@ -3778,7 +3778,7 @@ void Renderer::CreateAccelerationStructures()
 	//AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { m_PlaneVertexBuffer, 4} }, { { m_PlaneIndexBuffer, 6 }
 	//	});
 
-	if (m_SceneID == SceneSetUp::DIFFUSE_SPHERE)
+	if (m_SceneID == SceneSetUp::BISTRO)
 
 	{
 		m_Instances =
@@ -3793,9 +3793,9 @@ void Renderer::CreateAccelerationStructures()
 			{sponzaBottomLevelBuffer.pResult,
 			XMMatrixScaling(1.0f, 1.0f, 1.0f) *
 			XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
-			{dragonBottomLevelBuffers.pResult,
-			XMMatrixScaling(1.0f, 1.0f, 1.0f) *
-			XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
+			//{dragonBottomLevelBuffers.pResult,
+			//XMMatrixScaling(1.0f, 1.0f, 1.0f) *
+			//XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
 		};
 
 	};
@@ -4153,38 +4153,52 @@ void Renderer::CreatePostProcessConstantBuffer()
 	m_PostProcessData[0].ToneMapMode = m_ToneMapMode;
 	m_PostProcessData[0].DebugMode = m_DebugMode;
 	m_PostProcessData[0].IsLastPass = 0;
+	m_PostProcessData[0].AccumulatedSPP = 1;
+	m_PostProcessData[0].pad = { 0.0f, 0.0f, 0.0f };
 
 	m_PostProcessData[1].Exposure = m_Exposure;
 	m_PostProcessData[1].ToneMapMode = m_ToneMapMode;
 	m_PostProcessData[1].DebugMode = m_DebugMode;
 	m_PostProcessData[1].IsLastPass = 0;
+	m_PostProcessData[1].AccumulatedSPP = 1;
+	m_PostProcessData[1].pad = { 0.0f, 0.0f, 0.0f };
 
 	m_PostProcessData[2].Exposure = m_Exposure;
 	m_PostProcessData[2].ToneMapMode = m_ToneMapMode;
 	m_PostProcessData[2].DebugMode = m_DebugMode;
 	m_PostProcessData[2].IsLastPass = 0;
+	m_PostProcessData[2].AccumulatedSPP = 1;
+	m_PostProcessData[2].pad = { 0.0f, 0.0f, 0.0f };
 
 	m_PostProcessData[3].Exposure = m_Exposure;
 	m_PostProcessData[3].ToneMapMode = m_ToneMapMode;
 	m_PostProcessData[3].DebugMode = m_DebugMode;
 	m_PostProcessData[3].IsLastPass = 0;
+	m_PostProcessData[3].AccumulatedSPP = 1;
+	m_PostProcessData[3].pad = { 0.0f, 0.0f, 0.0f };
 
 	m_PostProcessData[4].Exposure = m_Exposure;
 	m_PostProcessData[4].ToneMapMode = m_ToneMapMode;
 	m_PostProcessData[4].DebugMode = m_DebugMode;
 	m_PostProcessData[4].IsLastPass = 0;
+	m_PostProcessData[4].AccumulatedSPP = 1;
+	m_PostProcessData[4].pad = { 0.0f, 0.0f, 0.0f };
 
 
 	m_PostProcessData[5].Exposure = m_Exposure;
 	m_PostProcessData[5].ToneMapMode = m_ToneMapMode;
 	m_PostProcessData[5].DebugMode = m_DebugMode;
 	m_PostProcessData[5].IsLastPass = 0;
+	m_PostProcessData[5].AccumulatedSPP = 1;
+	m_PostProcessData[5].pad = { 0.0f, 0.0f, 0.0f };
 
 
 	m_PostProcessData[6].Exposure = m_Exposure;
 	m_PostProcessData[6].ToneMapMode = m_ToneMapMode;
 	m_PostProcessData[6].DebugMode = m_DebugMode;
 	m_PostProcessData[6].IsLastPass = 0;
+	m_PostProcessData[6].AccumulatedSPP = 1;
+	m_PostProcessData[6].pad = { 0.0f, 0.0f, 0.0f };
 
 	for (int pass = 0; pass < MAX_PASSES; pass++)
 	{
