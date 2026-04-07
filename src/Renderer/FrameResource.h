@@ -75,7 +75,7 @@ struct AreaLight
 
 struct AreaLights
 {
-	AreaLight gAreaLights[1];
+	AreaLight gAreaLights[3];
 	int gNumAreaLights;
 	XMFLOAT3 gAreaLightPadding;
 };

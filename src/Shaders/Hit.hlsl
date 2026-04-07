@@ -4,7 +4,7 @@
 #include "BSDF.hlsl"
 
 #define NumLights 1
-#define MAX_AREA_LIGHTS 1
+#define MAX_AREA_LIGHTS 3
 
 struct DirectionalLight
 {
@@ -518,7 +518,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     DirectionalLight sun;
     sun.direction = normalize(float3(gSunDir.rgb));
-    sun.radiance = float3(10.5f, 10.5f, 10.5f);
+    sun.radiance = float3(1.5f, 1.5f, 1.5f);
 
     float3 L = normalize(-sun.direction);
 
