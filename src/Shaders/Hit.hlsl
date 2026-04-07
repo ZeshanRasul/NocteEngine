@@ -320,20 +320,17 @@ struct LightSample
     float pdf; // pdf in solid angle
 };
 
-LightSample SampleAreaLight(float3 p, float3 n, inout uint seed)
+LightSample SampleAreaLight(uint lightIndex, float3 p, float3 n, inout uint seed)
 {
-    LightSample s;
-    s.dir = 0;
-    s.dist = 0;
-    s.Li = 0;
-    s.pdf = 0;
+    LightSample s = (LightSample) 0;
 
-    // Sample a point on the rect with [0,1]^2
+    AreaLight light = gAreaLights[lightIndex];
+
     float2 xi = Rand2(seed);
 
-    float3 pL = gAreaLights[0].Position +
-                (xi.x - 0.5f) * gAreaLights[0].U +
-                (xi.y - 0.5f) * gAreaLights[0].V;
+    float3 pL = light.Position +
+                (xi.x - 0.5f) * light.U +
+                (xi.y - 0.5f) * light.V;
 
     float3 L = pL - p;
     float d = length(L);
@@ -342,26 +339,24 @@ LightSample SampleAreaLight(float3 p, float3 n, inout uint seed)
 
     L /= d;
 
-    // Light normal (assuming U,V define the rect plane)
-    float3 nL = normalize(cross(gAreaLights[0].U, gAreaLights[0].V));
-
+    float3 nL = normalize(cross(light.U, light.V));
     float cosOnLight = dot(nL, -L);
     if (cosOnLight <= 0.0f)
-        return s; // back side
+        return s;
 
-    // Area pdf -> solid angle pdf
-    float pdfArea = 1.0f / max(gAreaLights[0].Area, 1e-4f);
+    float pdfArea = 1.0f / max(light.Area, 1e-4f);
+
     float pdf = pdfArea * (d * d) / max(cosOnLight, 1e-4f);
+
+    pdf *= (1.0f / gNumAreaLights);
 
     s.dir = L;
     s.dist = d;
-    s.Li = gAreaLights[0].Radiance;
-    
-    if (pdf <= 0.0f)
-        return s;
+    s.Li = light.Radiance;
     s.pdf = pdf;
-    
+
     return s;
+
 }
 
 [shader("closesthit")]
@@ -472,6 +467,11 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     float3x3 frame = BuildTangentFrame(N);
     float3 VLocal = mul(V, transpose(frame));
     
+    int lightIndex = min((uint) (Rand(payload.seed) * gNumAreaLights), gNumAreaLights - 1);
+
+    bool isNEELight = (mat.LightIndex >= 0);
+    bool sameLight = (mat.LightIndex == lightIndex);
+    
     bool isEmitter = any(mat.EmissiveColor.rgb > 0.0f);
 
     if (isEmitter)
@@ -479,7 +479,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         payload.isEmissive = 1;
         float3 Le = mat.EmissiveColor.rgb;
 
-        if (!mat.isNEELight || prevWasDelta != 0 || payload.depth == 1)
+        if (!mat.isNEELight || !sameLight || prevWasDelta != 0 || payload.depth == 1)
         {
         // No MIS against NEE for primary hits or after delta events
             selfEmit = Le;
@@ -498,8 +498,11 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
             float pdfLight = 0.0f;
             if (cosOnLight > 0.0f)
             {
-                float pdfArea = 1.0f / max(gAreaLights[0].Area, 1e-8f);
+                float pdfArea = 1.0f / max(gAreaLights[lightIndex].Area, 1e-8f);
+
                 pdfLight = pdfArea * dist2 / max(cosOnLight, 1e-8f);
+
+                pdfLight *= (1.0f / gNumAreaLights);
             }
 
             float pdfBSDF = max(prevSegmentPdf, 0.0f);
@@ -515,7 +518,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     DirectionalLight sun;
     sun.direction = normalize(float3(gSunDir.rgb));
-    sun.radiance = float3(4.5f, 4.5f, 4.5f);
+    sun.radiance = float3(10.5f, 10.5f, 10.5f);
 
     float3 L = normalize(-sun.direction);
 
@@ -525,8 +528,8 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     V,
     mat,
     sun);
-     
-    LightSample lightSample = SampleAreaLight(pW, N, payload.seed);
+         
+    LightSample lightSample = SampleAreaLight(lightIndex, pW, N, payload.seed);
         
     if (lightSample.pdf > 0.0f)
     {

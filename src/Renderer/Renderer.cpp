@@ -4329,6 +4329,8 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.isEmissive = mat->isEmissive;
 		matGpu.Emission = mat->emission;
 		matGpu.isNEELight = mat->isNEELight;
+		matGpu.LightIndex = mat->LightIndex;
+		matGpu.pad4 = XMFLOAT3(0.0f, 0.0f, 0.0f);
 
 		m_MaterialsGPU.push_back(matGpu);
 	}
@@ -4358,6 +4360,8 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.isEmissive = m->isEmissive;
 		matGpu.Emission = m->emission;
 		matGpu.isNEELight = m->isNEELight;
+		matGpu.LightIndex = m->LightIndex;
+		matGpu.pad4 = XMFLOAT3(0.0f, 0.0f, 0.0f);
 
 		m_MaterialsGPU.push_back(matGpu);
 	}
@@ -4387,6 +4391,8 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.isEmissive = m->isEmissive;
 		matGpu.Emission = m->emission;
 		matGpu.isNEELight = m->isNEELight;
+		matGpu.LightIndex = m->LightIndex;
+		matGpu.pad4 = XMFLOAT3(0.0f, 0.0f, 0.0f);
 
 		m_MaterialsGPU.push_back(matGpu);
 	}

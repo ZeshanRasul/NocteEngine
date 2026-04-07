@@ -19,12 +19,12 @@ struct Material
     float Reflectivity;
     float3 Absorption;
     float Roughness;
-    float pad;
     float pad1;
+    float pad2;
     float Metallic;
     bool IsReflective;
     uint IsRefractive;
-    float pad2;
+    float pad3;
     int TexIndex;
     int isEmissive;
     float3 EmissiveColor;
@@ -32,6 +32,8 @@ struct Material
     int SpecularIndex;
     int AlphaIndex;
     int isNEELight;
+    int LightIndex;
+    float3 pad4;
 };
 
 struct ShadowPayload

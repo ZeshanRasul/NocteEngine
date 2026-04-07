@@ -75,7 +75,7 @@ struct AreaLight
 
 struct AreaLights
 {
-	AreaLight gAreaLights[14];
+	AreaLight gAreaLights[1];
 	int gNumAreaLights;
 	XMFLOAT3 gAreaLightPadding;
 };
@@ -132,12 +132,12 @@ struct MaterialDataGPU
 	float Reflectivity;
 	DirectX::XMFLOAT3 Absorption;
 	float Roughness;
-	float pad;
-	float pad2;
+	float pad = 0.0f;
+	float pad2 = 0.0f;
 	float metallic;
 	bool isReflective = false;
 	UINT isRefractive = 0;
-	float pad3;
+	float pad3 = 0.0f;
 	int TexIndex = -1;
 	int isEmissive = 0;
 	DirectX::XMFLOAT3 Emission = { 0.0f, 0.0f, 0.0f };
@@ -145,6 +145,8 @@ struct MaterialDataGPU
 	int SpecularIndex = -1;
 	int AlphaIndex = -1;
 	int isNEELight = 0;
+	int LightIndex = -1;
+	XMFLOAT3 pad4 = { 0.0f, 0.0f, 0.0f };
 };
 
 struct RenderItem

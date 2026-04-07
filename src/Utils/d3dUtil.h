@@ -147,6 +147,7 @@ struct Material
     DirectX::XMFLOAT3 emission = { 0.0f, 0.0f, 0.0f };
 	int isEmissive = 0;
     int isNEELight = 0;
+	int LightIndex = -1;
 };
 
 struct Texture
