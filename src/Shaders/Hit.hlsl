@@ -518,7 +518,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     DirectionalLight sun;
     sun.direction = normalize(float3(gSunDir.rgb));
-    sun.radiance = float3(1.5f, 1.5f, 1.5f);
+    sun.radiance = float3(2.0f, 2.0f, 2.0f);
 
     float3 L = normalize(-sun.direction);
 
