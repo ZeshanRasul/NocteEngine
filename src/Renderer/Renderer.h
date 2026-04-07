@@ -536,7 +536,8 @@ private:
 struct PerInstanceData
 {
 	int materialIndex;
-	float pad[3];
+	int triangleOffset;
+	float pad[2];
 };
 
 struct LoadedTexture

@@ -134,7 +134,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	switch (m_SceneID)
 	{
 	case SceneSetUp::DIFFUSE_SPHERE:
-		m_PerInstanceCBCount = 1;
+		m_PerInstanceCBCount = 2;
 		break;
 	case SceneSetUp::DIFFUSE_CORNELL_BOX:
 		m_PerInstanceCBCount = 8;
@@ -145,9 +145,9 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	}
 
 	d3dUtil::LoadObjModel("Models/exterior.obj", m_SponzaModel);
-	d3dUtil::LoadObjModel("Models/dragon.obj", m_DragonModel);
+	d3dUtil::LoadObjModel("Models/interior.obj", m_DragonModel);
 	LoadTextures(m_SponzaModel);
-		//LoadTextures(m_DragonModel);
+	LoadTextures(m_DragonModel);
 	CreateModelBuffers(m_SponzaModel, m_SponzaVertexBuffer, m_SponzaIndexBuffer, m_SponzaVBView, m_SponzaIBView);
 	CreateModelBuffers(m_DragonModel, m_DragonVertexBuffer, m_DragonIndexBuffer, m_DragonVBView, m_DragonIBView);
 	BuildShapeGeometry();
@@ -350,6 +350,11 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	ThrowIfFailed(m_CommandList->Close());
 	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
 	m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+
+	for (auto& tex : m_Textures)
+	{
+		tex.release();
+	}
 
 	return true;
 }
@@ -3587,7 +3592,7 @@ void Renderer::CreateShaderBindingTable()
 
 		if (m_SceneID == SceneSetUp::DIFFUSE_SPHERE)
 		{
-			m_PerInstanceCBCount = 1;
+			m_PerInstanceCBCount = 2;
 			/*if (i < 1)
 			{
 				vb = m_PlaneVertexBuffer->GetGPUVirtualAddress();
@@ -3597,6 +3602,11 @@ void Renderer::CreateShaderBindingTable()
 			{
 				vb = m_SponzaVertexBuffer->GetGPUVirtualAddress();
 				ib = m_SponzaIndexBuffer->GetGPUVirtualAddress();
+			}
+			if (i == 1)
+			{
+				vb = m_DragonVertexBuffer->GetGPUVirtualAddress();
+				ib = m_DragonIndexBuffer->GetGPUVirtualAddress();
 			}
 		}
 
@@ -3688,9 +3698,9 @@ Renderer::AccelerationStructureBuffers Renderer::CreateBottomLevelAS(std::vector
 	for (size_t i = 0; i < vVertexBuffers.size(); i++) {
 		// for (const auto &buffer : vVertexBuffers) {
 		if (i < vIndexBuffers.size() && vIndexBuffers[i].second > 0)
-			bottomLevelAS.AddVertexBuffer(vVertexBuffers[i].first.Get(), offsetof(Vertex, Pos), vVertexBuffers[i].second, sizeof(Vertex), vIndexBuffers[i].first.Get(), 0, vIndexBuffers[i].second, nullptr, 0);
+			bottomLevelAS.AddVertexBuffer(vVertexBuffers[i].first.Get(), offsetof(Vertex, Pos), vVertexBuffers[i].second, sizeof(VertexObj), vIndexBuffers[i].first.Get(), 0, vIndexBuffers[i].second, nullptr, 0);
 		else
-			bottomLevelAS.AddVertexBuffer(vVertexBuffers[i].first.Get(), offsetof(Vertex, Pos), vVertexBuffers[i].second, sizeof(Vertex), nullptr, 0);
+			bottomLevelAS.AddVertexBuffer(vVertexBuffers[i].first.Get(), offsetof(Vertex, Pos), vVertexBuffers[i].second, sizeof(VertexObj), nullptr, 0);
 	}
 
 	UINT64 scratchSizeInBytes = 0;
@@ -3754,19 +3764,19 @@ void Renderer::CreateAccelerationStructures()
 	//AccelerationStructureBuffers sphereBottomLevelBuffers = CreateBottomLevelAS({ { sphereSubmesh.VertexBufferGPU, sphereSubmesh.VertexCount} }, { {sphereSubmesh.IndexBufferGPU, sphereSubmesh.IndexCount} });
 	//AccelerationStructureBuffers boxBottomLevelBuffers = CreateBottomLevelAS({ { boxSubmesh.VertexBufferGPU, boxSubmesh.VertexCount} }, { {boxSubmesh.IndexBufferGPU, boxSubmesh.IndexCount} });
 	//AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { m_PlaneVertexBuffer, 4} }, { { m_PlaneIndexBuffer, 6 } });
-	//AccelerationStructureBuffers dragonBottomLevelBuffers = CreateBottomLevelAS({ { m_DragonVertexBuffer, m_DragonModel.vertices.size() } }, { {m_DragonIndexBuffer, m_DragonModel.indices.size() }
+	AccelerationStructureBuffers dragonBottomLevelBuffers = CreateBottomLevelAS({ { m_DragonVertexBuffer, m_DragonModel.vertices.size() } }, { {m_DragonIndexBuffer, m_DragonModel.indices.size() } });
+		//	});
+
+
+
+	//AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_DragonVertexBuffer, m_DragonModel.vertices.size()} }, { {m_DragonIndexBuffer, m_DragonModel.indices.size()}
+		//	});
+	//AccelerationStructureBuffers skull0BottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} }, { {m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount} });
+	//
+	//AccelerationStructureBuffers sphereBottomLevelBuffers = CreateBottomLevelAS({ { sphereSubmesh.VertexBufferGPU, sphereSubmesh.VertexCount} }, { {sphereSubmesh.IndexBufferGPU, sphereSubmesh.IndexCount} });
+	//AccelerationStructureBuffers boxBottomLevelBuffers = CreateBottomLevelAS({ { boxSubmesh.VertexBufferGPU, boxSubmesh.VertexCount} }, { {boxSubmesh.IndexBufferGPU, boxSubmesh.IndexCount} });
+	//AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { m_PlaneVertexBuffer, 4} }, { { m_PlaneIndexBuffer, 6 }
 	//	});
-
-
-
-	AccelerationStructureBuffers bottomLevelBuffers = CreateBottomLevelAS({ { m_DragonVertexBuffer, m_DragonModel.vertices.size()} }, { {m_DragonIndexBuffer, m_DragonModel.indices.size()}
-		});
-	AccelerationStructureBuffers skull0BottomLevelBuffers = CreateBottomLevelAS({ { m_Geometries["skullGeo"]->VertexBufferGPU, m_skullVertCount} }, { {m_Geometries["skullGeo"]->IndexBufferGPU, m_Geometries["skullGeo"]->DrawArgs["skull"].IndexCount} });
-
-	AccelerationStructureBuffers sphereBottomLevelBuffers = CreateBottomLevelAS({ { sphereSubmesh.VertexBufferGPU, sphereSubmesh.VertexCount} }, { {sphereSubmesh.IndexBufferGPU, sphereSubmesh.IndexCount} });
-	AccelerationStructureBuffers boxBottomLevelBuffers = CreateBottomLevelAS({ { boxSubmesh.VertexBufferGPU, boxSubmesh.VertexCount} }, { {boxSubmesh.IndexBufferGPU, boxSubmesh.IndexCount} });
-	AccelerationStructureBuffers planeBottomLevelBuffers = CreateBottomLevelAS({ { m_PlaneVertexBuffer, 4} }, { { m_PlaneIndexBuffer, 6 }
-		});
 
 	if (m_SceneID == SceneSetUp::DIFFUSE_SPHERE)
 
@@ -3779,153 +3789,156 @@ void Renderer::CreateAccelerationStructures()
 			//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
 			//  XMMatrixTranslation(m_AreaLights.gAreaLights[0].Position.x, m_AreaLights.gAreaLights[0].Position.y, m_AreaLights.gAreaLights[0].Position.z)},
 		
+
 			{sponzaBottomLevelBuffer.pResult,
 			XMMatrixScaling(1.0f, 1.0f, 1.0f) *
-			XMMatrixTranslation(0.0f, 0.0f, -25.0f) }
+			XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
+			{dragonBottomLevelBuffers.pResult,
+			XMMatrixScaling(1.0f, 1.0f, 1.0f) *
+			XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
 		};
 
 	};
 
-	if (m_SceneID == SceneSetUp::DIFFUSE_CORNELL_BOX)
+	//if (m_SceneID == SceneSetUp::DIFFUSE_CORNELL_BOX)
 
-	{
-		m_Instances =
-		{
-			//// Floor (y = 0)
-			//{ planeBottomLevelBuffers.pResult,
-			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			//  XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
+	//{
+	//	m_Instances =
+	//	{
+	//		//// Floor (y = 0)
+	//		//{ planeBottomLevelBuffers.pResult,
+	//		//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+	//		//  XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
 
-			//// Ceiling (y = 40)
-			//{ planeBottomLevelBuffers.pResult,
-			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
-			//  XMMatrixTranslation(0.0f, 40.0f, 0.0f) },
+	//		//// Ceiling (y = 40)
+	//		//{ planeBottomLevelBuffers.pResult,
+	//		//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+	//		//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+	//		//  XMMatrixTranslation(0.0f, 40.0f, 0.0f) },
 
-			//// AreaLight
-			//{ planeBottomLevelBuffers.pResult,
-			//  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
-			//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
-			//  XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z)},
+	//		//// AreaLight
+	//		//{ planeBottomLevelBuffers.pResult,
+	//		//  XMMatrixScaling(m_AreaLightData.U.x, 1.0f, m_AreaLightData.V.z) *
+	//		//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+	//		//  XMMatrixTranslation(m_AreaLightData.Position.x, m_AreaLightData.Position.y, m_AreaLightData.Position.z)},
 
-			//// Back wall (z = +20), normal pointing into the box (-Z)
-			//{ planeBottomLevelBuffers.pResult,
-			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
-			//  XMMatrixTranslation(0.0f, 40.0f, 40.0f) },
+	//		//// Back wall (z = +20), normal pointing into the box (-Z)
+	//		//{ planeBottomLevelBuffers.pResult,
+	//		//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+	//		//  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
+	//		//  XMMatrixTranslation(0.0f, 40.0f, 40.0f) },
 
-			//// Left wall (x = -20), normal pointing into the box (+X)
-			//{ planeBottomLevelBuffers.pResult,
-			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			//  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
-			//  XMMatrixTranslation(-40.0f, 40.0f, 0.0f) },
+	//		//// Left wall (x = -20), normal pointing into the box (+X)
+	//		//{ planeBottomLevelBuffers.pResult,
+	//		//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+	//		//  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
+	//		//  XMMatrixTranslation(-40.0f, 40.0f, 0.0f) },
 
-			//// Right wall (x = +20), normal pointing into the box (-X)
-			//{ planeBottomLevelBuffers.pResult,
-			//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			//  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
-			//  XMMatrixTranslation(40.0f, 40.0f, 0.0f) },
+	//		//// Right wall (x = +20), normal pointing into the box (-X)
+	//		//{ planeBottomLevelBuffers.pResult,
+	//		//  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+	//		//  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
+	//		//  XMMatrixTranslation(40.0f, 40.0f, 0.0f) },
 
-			//// ----------------------------------------------------
-			//// Objects on the floor: sphere (left) + skull (right)
-			//// ----------------------------------------------------
+	//		//// ----------------------------------------------------
+	//		//// Objects on the floor: sphere (left) + skull (right)
+	//		//// ----------------------------------------------------
 
-			//// Sphere in center: radius ~12.5 at y = 12.5
-			//{ sphereBottomLevelBuffers.pResult,
-			//XMMatrixScaling(25.0f, 25.0f, 25.0f) *
-			//XMMatrixTranslation(10.0f, 12.5f, 0.0f) },
+	//		//// Sphere in center: radius ~12.5 at y = 12.5
+	//		//{ sphereBottomLevelBuffers.pResult,
+	//		//XMMatrixScaling(25.0f, 25.0f, 25.0f) *
+	//		//XMMatrixTranslation(10.0f, 12.5f, 0.0f) },
 
-			// Skull on the left
-			{ skull0BottomLevelBuffers.pResult,
-			  XMMatrixScaling(3.0f, 3.0f, 3.0f) *
-			  XMMatrixTranslation(-16.0f, 1.5f, 15.0f) }
-		};
-	}
+	//		// Skull on the left
+	//		{ skull0BottomLevelBuffers.pResult,
+	//		  XMMatrixScaling(3.0f, 3.0f, 3.0f) *
+	//		  XMMatrixTranslation(-16.0f, 1.5f, 15.0f) }
+	//	};
+	//}
 
-	if (m_SceneID == SceneSetUp::DIFFUSE_ALCOVE)
-	{
-		m_Instances =
-		{
-			// Floor
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			  XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
+	//if (m_SceneID == SceneSetUp::DIFFUSE_ALCOVE)
+	//{
+	//	m_Instances =
+	//	{
+	//		// Floor
+	//		{ planeBottomLevelBuffers.pResult,
+	//		  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+	//		  XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
 
-			// Ceiling
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
-			  XMMatrixTranslation(0.0f, 40.0f, 0.0f) },
+	//		// Ceiling
+	//		{ planeBottomLevelBuffers.pResult,
+	//		  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+	//		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+	//		  XMMatrixTranslation(0.0f, 40.0f, 0.0f) },
 
-			// Area light near ceiling
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(m_AreaLights.gAreaLights[0].U.x, 1.0f, m_AreaLights.gAreaLights[0].V.z)*
-			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
-			  XMMatrixTranslation(m_AreaLights.gAreaLights[0].Position.x,
-								  m_AreaLights.gAreaLights[0].Position.y,
-								  m_AreaLights.gAreaLights[0].Position.z) },
+	//		// Area light near ceiling
+	//		{ planeBottomLevelBuffers.pResult,
+	//		  XMMatrixScaling(m_AreaLights.gAreaLights[0].U.x, 1.0f, m_AreaLights.gAreaLights[0].V.z)*
+	//		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+	//		  XMMatrixTranslation(m_AreaLights.gAreaLights[0].Position.x,
+	//							  m_AreaLights.gAreaLights[0].Position.y,
+	//							  m_AreaLights.gAreaLights[0].Position.z) },
 
-			// Main back wall
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
-			  XMMatrixTranslation(0.0f, 20.0f, 20.0f) },
+	//		// Main back wall
+	//		{ planeBottomLevelBuffers.pResult,
+	//		  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+	//		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
+	//		  XMMatrixTranslation(0.0f, 20.0f, 20.0f) },
 
-			// Left wall
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
-			  XMMatrixTranslation(-20.0f, 20.0f, 0.0f) },
+	//		// Left wall
+	//		{ planeBottomLevelBuffers.pResult,
+	//		  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+	//		  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
+	//		  XMMatrixTranslation(-20.0f, 20.0f, 0.0f) },
 
-			// Right wall
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
-			  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
-			  XMMatrixTranslation(20.0f, 20.0f, 0.0f) },
+	//		// Right wall
+	//		{ planeBottomLevelBuffers.pResult,
+	//		  XMMatrixScaling(40.0f, 1.0f, 40.0f) *
+	//		  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
+	//		  XMMatrixTranslation(20.0f, 20.0f, 0.0f) },
 
-			// ------------------------------------------------
-			// Alcove pieces
-			// ------------------------------------------------
+	//		// ------------------------------------------------
+	//		// Alcove pieces
+	//		// ------------------------------------------------
 
-			// Alcove inner back wall (deeper than main back wall)
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(16.0f, 1.0f, 20.0f) *
-			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
-			  XMMatrixTranslation(0.0f, 20.0f, 30.0f) },
+	//		// Alcove inner back wall (deeper than main back wall)
+	//		{ planeBottomLevelBuffers.pResult,
+	//		  XMMatrixScaling(16.0f, 1.0f, 20.0f) *
+	//		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(90.0f)) *
+	//		  XMMatrixTranslation(0.0f, 20.0f, 30.0f) },
 
-			// Alcove left divider wall
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(10.0f, 1.0f, 20.0f) *
-			  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
-			  XMMatrixTranslation(-8.0f, 20.0f, 25.0f) },
+	//		// Alcove left divider wall
+	//		{ planeBottomLevelBuffers.pResult,
+	//		  XMMatrixScaling(10.0f, 1.0f, 20.0f) *
+	//		  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(90.0f)) *
+	//		  XMMatrixTranslation(-8.0f, 20.0f, 25.0f) },
 
-			// Alcove right divider wall
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(10.0f, 1.0f, 20.0f) *
-			  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
-			  XMMatrixTranslation(8.0f, 20.0f, 25.0f) },
+	//		// Alcove right divider wall
+	//		{ planeBottomLevelBuffers.pResult,
+	//		  XMMatrixScaling(10.0f, 1.0f, 20.0f) *
+	//		  XMMatrixRotationAxis({0, 0, 1}, XMConvertToRadians(-90.0f)) *
+	//		  XMMatrixTranslation(8.0f, 20.0f, 25.0f) },
 
-			// Alcove ceiling/header
-			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(16.0f, 1.0f, 10.0f) *
-			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
-			  XMMatrixTranslation(0.0f, 28.0f, 25.0f) },
+	//		// Alcove ceiling/header
+	//		{ planeBottomLevelBuffers.pResult,
+	//		  XMMatrixScaling(16.0f, 1.0f, 10.0f) *
+	//		  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
+	//		  XMMatrixTranslation(0.0f, 28.0f, 25.0f) },
 
-			// ------------------------------------------------
-			// Objects
-			// ------------------------------------------------
+	//		// ------------------------------------------------
+	//		// Objects
+	//		// ------------------------------------------------
 
-			// Sphere near center/front of alcove entrance
-			{ sphereBottomLevelBuffers.pResult,
-			  XMMatrixScaling(8.0f, 8.0f, 8.0f) *
-			  XMMatrixTranslation(13.0f, 8.0f, 6.0f) },
+	//		// Sphere near center/front of alcove entrance
+	//		{ sphereBottomLevelBuffers.pResult,
+	//		  XMMatrixScaling(8.0f, 8.0f, 8.0f) *
+	//		  XMMatrixTranslation(13.0f, 8.0f, 6.0f) },
 
-			// Skull off to the left, closer to recessed region
-			{ skull0BottomLevelBuffers.pResult,
-			  XMMatrixScaling(1.5f, 1.5f, 1.5f) *
-			  XMMatrixTranslation(-15.5f, 0.75f, 16.0f) }
-		};
-	}
+	//		// Skull off to the left, closer to recessed region
+	//		{ skull0BottomLevelBuffers.pResult,
+	//		  XMMatrixScaling(1.5f, 1.5f, 1.5f) *
+	//		  XMMatrixTranslation(-15.5f, 0.75f, 16.0f) }
+	//	};
 	m_IsInstanceReflective = {
 		false,
 		false,
@@ -4245,10 +4258,6 @@ void Renderer::UpdateAreaLightConstantBuffer()
 	XMVECTOR U = XMLoadFloat3(&m_AreaLights.gAreaLights[0].U);
 	XMVECTOR V = XMLoadFloat3(&m_AreaLights.gAreaLights[0].V);
 
-	m_Instances[0].second = XMMatrixScaling(m_AreaLights.gAreaLights[0].U.x, 1.0f, m_AreaLights.gAreaLights[0].V.z) *
-		XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
-		XMMatrixTranslation(m_AreaLights.gAreaLights[0].Position.x, m_AreaLights.gAreaLights[0].Position.y, m_AreaLights.gAreaLights[0].Position.z);
-
 	XMVECTOR crossUV = (XMVector3Cross(U, V));
 	float area = XMVectorGetX(XMVector3Length(crossUV));
 	m_AreaLights.gAreaLights[0].Area = area;
@@ -4279,6 +4288,13 @@ void Renderer::CreatePerInstanceBuffers()
 
 		PerInstanceData data{};
 		data.materialIndex = i;
+		data.triangleOffset = 0;
+
+		if (i == 1)
+		{
+			data.materialIndex = m_DragonModel.meshMaterialIndices[0];
+			data.triangleOffset = m_DragonModel.meshMaterialIndices.size();
+		}
 
 		uint8_t* pData = nullptr;
 		ThrowIfFailed(m_PerInstanceCBs[i]->Map(0, nullptr, (void**)&pData));
@@ -4344,6 +4360,34 @@ void Renderer::CreatePerInstanceBuffers()
 		m_MaterialsGPU.push_back(matGpu);
 	}
 
+	const int dragonMaterialOffset = static_cast<int>(m_Materials.size());
+
+	for (auto* m : m_DragonModel.materials)
+	{
+		MaterialDataGPU matGpu{};
+
+		matGpu.DiffuseAlbedo = m->DiffuseAlbedo;
+		matGpu.FresnelR0 = m->FresnelR0;
+		matGpu.Ior = m->Ior;
+		matGpu.Reflectivity = m->Reflectivity;
+		matGpu.Absorption = m->Absorption;
+		matGpu.Roughness = m->Roughness;
+		matGpu.pad = 1.0f;
+		matGpu.pad2 = 1.0f;
+		matGpu.metallic = m->metallic;
+		matGpu.isReflective = m->IsReflective;
+		matGpu.isRefractive = m->IsRefractive;
+		matGpu.pad3 = 0.0f;
+		matGpu.TexIndex = m->DiffuseSrvHeapIndex;
+		matGpu.NormalIndex = m->NormalSrvHeapIndex;
+		matGpu.SpecularIndex = m->SpecularSrvHeapIndex;
+		matGpu.AlphaIndex = m->AlphaSrvHeapIndex;
+		matGpu.isEmissive = m->isEmissive;
+		matGpu.Emission = m->emission;
+
+		m_MaterialsGPU.push_back(matGpu);
+	}
+
 	const uint32_t bufferSize = static_cast<uint32_t>(m_MaterialsGPU.size() * sizeof(MaterialDataGPU));
 
 	m_UploadCBuffer = nv_helpers_dx12::CreateBuffer(
@@ -4359,13 +4403,34 @@ void Renderer::CreatePerInstanceBuffers()
 	m_UploadCBuffer->Unmap(0, nullptr);
 
 	matIndices.clear();
-	matIndices.reserve(m_SponzaModel.meshMaterialIndices.size());
+	matIndices.reserve(m_SponzaModel.meshMaterialIndices.size() + m_DragonModel.meshMaterialIndices.size());
 
 	const int sponzaMaterialCPUOffset = static_cast<int>(m_Materials.size());
 
 	for (int idx : m_SponzaModel.meshMaterialIndices)
 	{
 		matIndices.push_back(idx + sponzaMaterialCPUOffset);
+	}
+
+	OutputDebugStringA(("m_Materials size: " + std::to_string(m_Materials.size()) + "\n").c_str());
+	OutputDebugStringA(("Sponza materials size: " + std::to_string(m_SponzaModel.materials.size()) + "\n").c_str());
+
+	for (size_t i = 0; i < std::min<size_t>(10, m_SponzaModel.meshMaterialIndices.size()); ++i)
+	{
+		int localIdx = m_SponzaModel.meshMaterialIndices[i];
+		int globalIdx = localIdx + static_cast<int>(m_Materials.size());
+
+		OutputDebugStringA(
+			("meshMaterialIndices[" + std::to_string(i) + "] local=" +
+				std::to_string(localIdx) + " global=" +
+				std::to_string(globalIdx) + "\n").c_str());
+	}
+
+	const int dragonMaterialCPUOffset = static_cast<int>(m_Materials.size() + m_SponzaModel.materials.size());
+
+	for (int idx : m_DragonModel.meshMaterialIndices)
+	{
+		matIndices.push_back(idx + dragonMaterialCPUOffset);
 	}
 	const uint32_t matIdxBufferSize = static_cast<uint32_t>(sizeof(int) * matIndices.size());
 

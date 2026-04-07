@@ -98,7 +98,8 @@ cbuffer Colors : register(b1)
 cbuffer PerInstance : register(b2)
 {
     int materialIndex;
-    float3 padding;
+    int triMaterialOffset;
+    float2 padding;
 }
 
 
@@ -423,11 +424,11 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     if (InstanceID() >= 0)
     {
-        mat = materials[matIndices[triIndex]];
+        mat = materials[matIndices[triMaterialOffset + triIndex]];
     }
     else
     {
-        mat = materials[materialIndex];
+        mat = materials[matIndices[triMaterialOffset + triIndex]];
     }
     
     payload.emission = 0.0f;
