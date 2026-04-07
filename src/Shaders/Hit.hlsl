@@ -479,7 +479,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         payload.isEmissive = 1;
         float3 Le = mat.EmissiveColor.rgb;
 
-        if (prevWasDelta != 0 || payload.depth == 1)
+        if (!mat.isNEELight || prevWasDelta != 0 || payload.depth == 1)
         {
         // No MIS against NEE for primary hits or after delta events
             selfEmit = Le;
@@ -522,7 +522,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     float3 lighting = EvaluateDirectionalLightNEE(
     pW,
     N,
-    L,
+    V,
     mat,
     sun);
      
@@ -564,7 +564,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     if (!bsdf.valid || all(bsdf.fOverPdf == 0.0f) || bsdf.pdf <= 0.0f)
     {
-        payload.emission = selfEmit + payload.throughput * direct;
+        payload.emission = selfEmit + direct;
         payload.done = 1;
         payload.bsdfOverPdf = 0.0f;
         return;
@@ -574,7 +574,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     payload.bsdfOverPdf = bsdf.fOverPdf;
     payload.pdf = bsdf.pdf;
         
-    payload.emission = selfEmit + payload.throughput * direct;
+    payload.emission = selfEmit + direct;
     payload.prevHitPos = pW;
     payload.lastBounceWasDelta = (bsdf.delta == 1) ? 1 : 0;
     payload.prevBsdfPdf = bsdf.pdf;

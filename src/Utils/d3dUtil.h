@@ -146,6 +146,7 @@ struct Material
     UINT IsRefractive = 0;
     DirectX::XMFLOAT3 emission = { 0.0f, 0.0f, 0.0f };
 	int isEmissive = 0;
+    int isNEELight = 0;
 };
 
 struct Texture

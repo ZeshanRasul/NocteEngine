@@ -31,6 +31,7 @@ struct Material
     int NormalIndex;
     int SpecularIndex;
     int AlphaIndex;
+    int isNEELight;
 };
 
 struct ShadowPayload

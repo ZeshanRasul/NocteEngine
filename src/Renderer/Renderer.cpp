@@ -4328,6 +4328,7 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.AlphaIndex = -1;
 		matGpu.isEmissive = mat->isEmissive;
 		matGpu.Emission = mat->emission;
+		matGpu.isNEELight = mat->isNEELight;
 
 		m_MaterialsGPU.push_back(matGpu);
 	}
@@ -4356,6 +4357,7 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.AlphaIndex = m->AlphaSrvHeapIndex;
 		matGpu.isEmissive = m->isEmissive;
 		matGpu.Emission = m->emission;
+		matGpu.isNEELight = m->isNEELight;
 
 		m_MaterialsGPU.push_back(matGpu);
 	}
@@ -4384,6 +4386,7 @@ void Renderer::CreatePerInstanceBuffers()
 		matGpu.AlphaIndex = m->AlphaSrvHeapIndex;
 		matGpu.isEmissive = m->isEmissive;
 		matGpu.Emission = m->emission;
+		matGpu.isNEELight = m->isNEELight;
 
 		m_MaterialsGPU.push_back(matGpu);
 	}

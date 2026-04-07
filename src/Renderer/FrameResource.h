@@ -144,6 +144,7 @@ struct MaterialDataGPU
 	int NormalIndex = -1;
 	int SpecularIndex = -1;
 	int AlphaIndex = -1;
+	int isNEELight = 0;
 };
 
 struct RenderItem
