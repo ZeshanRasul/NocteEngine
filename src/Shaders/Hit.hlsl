@@ -415,16 +415,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
 
     float3 selfEmit = 0.0f;
     
-    Material mat;
-    
-    if (InstanceID() >= 0)
-    {
-        mat = materials[matIndices[triIndex]];
-    }
-    else
-    {
-        mat = materials[matIndices[triIndex]];
-    }
+    Material mat = materials[matIndices[triIndex]];
     
     payload.emission = 0.0f;
     payload.isEmissive = 0;

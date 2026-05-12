@@ -13,26 +13,37 @@ Most recent results following implementation of MIS, NEE, denoising and temporal
 
 [![Nocte Engine DXR Path Tracing](./docs/images/comparison_row2.png)](./docs/images/comparison_row2.png)
 
+Figure 1: Comparison of Cornell Box scene at 1, 16, 64 and 4096 samples per pixel
+
+<br>
+<br>
+
+[![Nocte Engine DXR Path Tracing](./docs/images/BistroWIP.png)](./docs/images/comparison_row2.png)
+
+Figure 2: Work in progress results of the Bistro scene with a focus on improving the denoising and temporal accumulation to achieve better convergence and image quality at low SPP.
+
 The images below showcase various visual results achieved with Nocte Engine throughout development. Each scene highlights different aspects of the engine's capabilities.
 
 <br>
 <br>
 
+## Early Results
+
 [![Nocte Engine DXR Path Tracing](./docs/images/SponzaDemoWithUI.png)](./docs/images/SponzaDemoWithUI.png)
-Figure 1: Real-time DXR path tracing with multiple importance sampling, next event estimation and spatial denoising enabled, showcasing a refractive sphere, refractive skull and matte skull in the Crytek Sponza scene.
+Figure 3: Real-time DXR path tracing with multiple importance sampling, next event estimation and spatial denoising enabled, showcasing a refractive sphere, refractive skull and matte skull in the Crytek Sponza scene.
 
 <br>
 <br>
 
 [![Nocte Engine DXR Path Tracing](./docs/images/CornellBoxStanfordBunny.png)](./docs/images/CornellBoxStanfordBunny.png)
-Figure 2: Cornell Box scene with Stanford Bunny model demonstrating global illumination with diffuse interreflections, soft shadows and area light sampling.
+Figure 4: Cornell Box scene with Stanford Bunny model demonstrating global illumination with diffuse interreflections, soft shadows and area light sampling.
 
 <br>
 <br>
 
 [![Nocte Engine DXR Path Tracing](./docs/images/CornellBoxReflections.png)](./docs/images/CornellBoxReflections.png)
 
-Figure 3: Cornell-style scene demonstrating multi-bounce reflection paths of a rough reflective back wall. This scene highlights the recursive ray traversal, BSDF sampling for specular lobes and a physically accurate example of reflected paths with indirect illumination.
+Figure 5: Cornell-style scene demonstrating multi-bounce reflection paths of a rough reflective back wall. This scene highlights the recursive ray traversal, BSDF sampling for specular lobes and a physically accurate example of reflected paths with indirect illumination.
 
 <br>
 <br>
