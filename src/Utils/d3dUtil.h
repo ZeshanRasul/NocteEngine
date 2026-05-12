@@ -51,16 +51,9 @@ struct VertexObj
 
     bool operator==(const VertexObj& v) const
     {
-        if (CompareVector3WithEpsilon(Pos, v.Pos))
-        {
-            if (CompareVector3WithEpsilon(Normal, v.Normal))
-            {
-                if (CompareVector2WithEpsilon(UV, v.UV)) return true;
-                return true;
-            }
-            return true;
-        }
-        return false;
+        return CompareVector3WithEpsilon(Pos, v.Pos)
+            && CompareVector3WithEpsilon(Normal, v.Normal)
+            && CompareVector2WithEpsilon(UV, v.UV);
     }
 
     VertexObj& operator=(const VertexObj& v)

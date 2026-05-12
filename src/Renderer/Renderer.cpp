@@ -4575,7 +4575,7 @@ void Renderer::LoadTextures(Model& model)
 
 			if (!texturePath.is_absolute())
 			{
-				std::filesystem::path basePath = "C:/dev/NocteEngine/Models";
+				std::filesystem::path basePath = "D:/dev/Graphics/NocteEngine/Models";
 				texturePath = basePath / texturePath.lexically_normal();
 			}
 

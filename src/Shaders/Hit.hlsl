@@ -1,4 +1,4 @@
-﻿﻿#include "Common.hlsl"
+﻿#include "Common.hlsl"
 #include "MicrofacetBRDFUtils.hlsl"
 #include "PathTracerCommon.hlsl"
 #include "BSDF.hlsl"
@@ -419,11 +419,11 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     if (InstanceID() >= 0)
     {
-        mat = materials[matIndices[triMaterialOffset + triIndex]];
+        mat = materials[matIndices[triIndex]];
     }
     else
     {
-        mat = materials[matIndices[triMaterialOffset + triIndex]];
+        mat = materials[matIndices[triIndex]];
     }
     
     payload.emission = 0.0f;
@@ -434,11 +434,49 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     if (mat.NormalIndex >= 0)
     {
-        float3 nTex = textures[mat.NormalIndex].SampleLevel(sampAniso, uv, 0).xyz;
-        nTex = nTex * 2.0f - 1.0f;
+        float4 nSample = textures[mat.NormalIndex].SampleLevel(sampAniso, uv, 0);
 
-        float3x3 TBN = BuildTangentFrame(N);
-        N = normalize(mul(nTex, TBN));
+        float2 nXY;
+        if (nSample.b > 0.8f)
+        {
+            nXY = nSample.xy * 2.0f - 1.0f;
+        }
+        else
+        {
+            nXY = float2(nSample.a, nSample.g) * 2.0f - 1.0f;
+        }
+
+        float nZ = sqrt(saturate(1.0f - dot(nXY, nXY)));
+        float3 nTex = normalize(float3(nXY, nZ));
+
+        // Build TBN from triangle edges and UV deltas so the frame
+        // matches the mesh's UV layout, preventing stripe/black artifacts
+        // caused by the generic BuildTangentFrame approach.
+        float3x3 objToWorld = (float3x3) ObjectToWorld3x4();
+        float3 e1 = mul(v1.Vertex - v0.Vertex, objToWorld);
+        float3 e2 = mul(v2.Vertex - v0.Vertex, objToWorld);
+
+        float2 duv1 = v1.UV - v0.UV;
+        float2 duv2 = v2.UV - v0.UV;
+
+        float det = duv1.x * duv2.y - duv2.x * duv1.y;
+        float invDet = (abs(det) > 1e-6f) ? rcp(det) : 0.0f;
+
+        float3 T = invDet * (duv2.y * e1 - duv1.y * e2);
+        // Gram-Schmidt orthogonalise against the shading normal
+        T = normalize(T - dot(T, N) * N);
+        float3 B = cross(N, T);
+
+        float3x3 TBN = float3x3(T, B, N);
+        float3 Nmapped = normalize(mul(nTex, TBN));
+
+        // Clamp the mapped normal to stay above the geometric hemisphere
+        // to prevent black patches from back-facing shading normals.
+        float blend = saturate(dot(Nmapped, Ngeom));
+        if (blend < 0.0f)
+            N = Ngeom;
+        else
+            N = Nmapped;
     }
     
     if (mat.SpecularIndex >= 0)
@@ -451,7 +489,20 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     {
         float alpha = textures[mat.AlphaIndex].SampleLevel(sampAniso, uv, 0).r;
         if (alpha < 0.5f)
-            payload.done = 1; // alpha cutout
+        {
+            float3 rayDir = normalize(WorldRayDirection());
+            payload.wi = rayDir;
+            payload.bsdfOverPdf = 1.0f;
+            payload.pdf = 1.0f;
+            payload.prevHitPos = pW + rayDir * 0.01f;
+            payload.hitPos = payload.prevHitPos;
+            payload.normal = rayDir;
+            payload.lastBounceWasDelta = 1;
+            payload.prevBsdfPdf = 1.0f;
+            payload.emission = 0.0f;
+            payload.done = 0;
+            return;
+        }
     }
     
     // Refractive materials (glass) – handle with dedicated BSDF
