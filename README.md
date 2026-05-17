@@ -3,7 +3,7 @@
 
 Nocte Engine is a real-time path tracing rendering engine built using DirectX Raytracing (DXR). The project was born out of my passion for pushing the boundaries of real-time physically accurate rendering techniques and to build a strong understanding of the real-world considerations involved in creating beautiful and realistic worlds in 3D interactive media. 
 
-While I have previous experience with rasterization-based engines made in DirectX 12 and OpenGL, my love of low-level programming along with a deep fascination of the science and mathematics behind ray tracing algorithms fueled my desire to create a real-time path tracer. The video demonstration of the engine can be found here: https://youtu.be/AWzmRLeegWA
+While I have previous experience with rasterization-based engines made in DirectX 12 and OpenGL, my love of low-level programming along with a deep fascination of the science and mathematics behind ray tracing algorithms fueled my desire to create a real-time path tracer. The video demonstration of the engine can be found here: [https://youtu.be/AWzmRLeegWA](https://youtu.be/rE1wNrLTct0)
 
 ## Visual Results
 
@@ -21,13 +21,10 @@ Figure 1: Comparison of Cornell Box scene at 1, 16, 64 and 4096 samples per pixe
 [![Nocte Engine DXR Path Tracing](./docs/images/BistroWIP.png)](./docs/images/comparison_row2.png)
 
 Figure 2: Work in progress results of the Bistro scene with a focus on improving the denoising and temporal accumulation to achieve better convergence and image quality at low SPP.
-
-The images below showcase various visual results achieved with Nocte Engine throughout development. Each scene highlights different aspects of the engine's capabilities.
-
 <br>
 <br>
-
 ## Early Results
+The images below showcase various visual results achieved with Nocte Engine throughout development. Each scene highlights different aspects of the engine's capabilities.
 
 [![Nocte Engine DXR Path Tracing](./docs/images/SponzaDemoWithUI.png)](./docs/images/SponzaDemoWithUI.png)
 Figure 3: Real-time DXR path tracing with multiple importance sampling, next event estimation and spatial denoising enabled, showcasing a refractive sphere, refractive skull and matte skull in the Crytek Sponza scene.
