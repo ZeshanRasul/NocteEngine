@@ -4236,7 +4236,7 @@ void Renderer::CreateAreaLightConstantBuffer()
 {
 	AreaLight areaLight{};
 	areaLight.Position = XMFLOAT3(150.0f, 650.0f, -950.0f);
-	areaLight.Radiance = XMFLOAT3(1.6f, 1.4f, 1.5f);
+	areaLight.Radiance = XMFLOAT3(6.6f, 6.4f, 6.5f);
 	areaLight.U = XMFLOAT3(900.0f, 0.0f, 0.0f);
 	areaLight.V = XMFLOAT3(0.0f, 0.0f, 900.0f);
 

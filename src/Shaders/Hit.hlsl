@@ -531,18 +531,18 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
 
                 if (dot(B, B) > 1e-8f && all(isfinite(B)))
                 {
-                    float3x3 TBN = float3x3(T, B, Nbase);
-
+                    float3x3 TBN = transpose(float3x3(T, B, Nbase));
+                    
                     float3 nTexRGB = nSample.xyz * 2.0f - 1.0f;
+                    nTexRGB.y = -nTexRGB.y;
                     float2 nXY_AG = float2(nSample.a, nSample.g) * 2.0f - 1.0f;
                     float3 nTexAG = float3(nXY_AG, sqrt(saturate(1.0f - dot(nXY_AG, nXY_AG))));
-
                     float3 bestN = Nbase;
                     float bestDot = 0.05f;
 
                     if (dot(nTexRGB, nTexRGB) > 1e-8f && all(isfinite(nTexRGB)))
                     {
-                        float3 NmRGB = normalize(mul(normalize(nTexRGB), TBN));
+                        float3 NmRGB = normalize(mul(TBN, nTexRGB));
                         float dRGB = dot(NmRGB, Nbase);
                         if (all(isfinite(NmRGB)) && dRGB > bestDot)
                         {
@@ -553,7 +553,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
 
                     if (dot(nTexAG, nTexAG) > 1e-8f && all(isfinite(nTexAG)))
                     {
-                        float3 NmAG = normalize(mul(normalize(nTexAG), TBN));
+                        float3 NmAG = normalize(mul(TBN, normalize(nTexAG)));
                         float dAG = dot(NmAG, Nbase);
                         if (all(isfinite(NmAG)) && dAG > bestDot)
                         {

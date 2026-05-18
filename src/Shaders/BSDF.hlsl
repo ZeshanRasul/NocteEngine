@@ -33,13 +33,43 @@ void EvaluateDisneyGGX(
     out float pdfSpec,
     out float pdfDiff)
 {
-    float3 H = normalize(V + L);
+    if (dot(N, L) <= 0.0f)
+    {
+        fSpec = 0.0f;
+        fDiff = 0.0f;
+        pdfSpec = 0.0f;
+        pdfDiff = 0.0f;
+        return;
+    }
 
+    if (dot(N, V) <= 0.0f)
+    {
+        fSpec = 0.0f;
+        fDiff = 0.0f;
+        pdfSpec = 0.0f;
+        pdfDiff = 0.0f;
+        return;
+    }
+    
+    float3 Hraw = V + L;
+    if (dot(Hraw, Hraw) < 1e-8f)
+    {
+        fSpec = 0.0f;
+        fDiff = 0.0f;
+        pdfSpec = 0.0f;
+        pdfDiff = 0.0f;
+        return;
+    }
+
+    float3 H = normalize(Hraw);
+    
     float NdotL = saturate(dot(N, L));
     float NdotV = saturate(dot(N, V));
     float NdotH = saturate(dot(N, H));
     float LdotH = saturate(dot(L, H));
 
+
+    
     if (NdotL <= 0.0f || NdotV <= 0.0f)
     {
         fSpec = 0.0f;
@@ -178,17 +208,20 @@ float PdfDisneyBRDF(
     float3 V,
     float3 L)
 {
-    float roughness = saturate(mat.Roughness);
+    float roughness = max(saturate(mat.Roughness), 0.045f);
     // Disney metal workflow helpers
     float3 Cd, F0;
     ComputeDisneyMetalWorkflow(mat.DiffuseAlbedo.xyz, mat.Metallic, Cd, F0);
     // Weights
     float specWeight = max(F0.r, max(F0.g, F0.b));
     float diffWeight = max(Cd.r, max(Cd.g, Cd.b)) * (1.0f - mat.Metallic);
-    float sum = specWeight + diffWeight + 1e-6f;
-    float specProb = saturate(specWeight / sum);
-  //  specProb = clamp(specProb, 0.1f, 0.9f);
-    // PDFs
+    float sum = specWeight + diffWeight;
+    float specProb = 0.5f;
+
+    if (sum > 1e-6f)
+        specProb = specWeight / sum;
+
+    specProb = clamp(specProb, 0.05f, 0.95f); // PDFs
     float pdfSpec = GGX_PDF(N, V, L, roughness);
     float NdotL = saturate(dot(N, L));
     float pdfDiff = NdotL / PI;
