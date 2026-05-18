@@ -18,9 +18,9 @@ Figure 1: Comparison of Cornell Box scene at 1, 16, 64 and 4096 samples per pixe
 <br>
 <br>
 
-[![Nocte Engine DXR Path Tracing](./docs/images/BistroWIP.png)](./docs/images/comparison_row2.png)
+[![Nocte Engine DXR Path Tracing](./docs/images/Bistro.png)](./docs/images/comparison_row2.png)
 
-Figure 2: Work in progress results of the Bistro scene with a focus on improving the denoising and temporal accumulation to achieve better convergence and image quality at low SPP.
+Figure 2: Amazon Lumberyard Bistro scene.
 <br>
 <br>
 ## Early Results
