@@ -9,15 +9,15 @@ While I have previous experience with rasterization-based engines made in Direct
 
 Most recent results following implementation of MIS, NEE, denoising and temporal accumulation:
 
-[![Nocte Engine DXR Path Tracing](./docs/images/Bistro.png)](./docs/images/comparison_row2.png)
+![Nocte Engine DXR Path Tracing](./docs/images/Bistro.png)
 
 Figure 1: Amazon Lumberyard Bistro scene
 <br>
 <br>
 
-[![Nocte Engine DXR Path Tracing](./docs/images/comparison_row1.png)](./docs/images/comparison_row1_.png)
+![Nocte Engine DXR Path Tracing](./docs/images/comparison_row1.png)](./docs/images/comparison_row1_.png)
 
-[![Nocte Engine DXR Path Tracing](./docs/images/comparison_row2.png)](./docs/images/comparison_row2.png)
+![Nocte Engine DXR Path Tracing](./docs/images/comparison_row2.png)](./docs/images/comparison_row2.png)
 
 Figure 2: Comparison of Cornell Box scene at 1, 16, 64 and 4096 samples per pixel
 
