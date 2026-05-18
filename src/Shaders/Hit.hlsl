@@ -95,6 +95,21 @@ cbuffer Colors : register(b1)
     float3 C[3];
 }
 
+uint GetDebugMaterialCount()
+{
+    return (uint) max(0.0f, padding2.x);
+}
+
+uint GetDebugTextureCount()
+{
+    return (uint) max(0.0f, padding2.y);
+}
+
+bool IsDebugValidationFrame()
+{
+    return padding2.z > 0.5f;
+}
+
 cbuffer PerInstance : register(b2)
 {
     int materialIndex;
@@ -123,7 +138,7 @@ bool IsOccluded(float3 origin, float3 dir, float maxDistance)
     RayDesc shadowRay;
     shadowRay.Origin = origin;
     shadowRay.Direction = dir;
-    shadowRay.TMin = 0.008f;
+    shadowRay.TMin = 0.1f;
     shadowRay.TMax = maxDistance - 0.001f;
     
     TraceRay(
@@ -143,18 +158,19 @@ bool IsOccluded(float3 origin, float3 dir, float maxDistance)
 float3 EvaluateDirectionalLightNEE(
     float3 p,
     float3 N,
+    float3 Ng,
     float3 V,
     Material mat,
     DirectionalLight sun)
 {
     float3 wi = normalize(-sun.direction); // surface -> light
-    float NdotL = saturate(dot(N, wi));
-    float NdotV = saturate(dot(N, V));
+    float NdotL = saturate(dot(Ng, wi));
+    float NdotV = saturate(dot(Ng, V));
 
     if (NdotL <= 0.0f || NdotV <= 0.0f)
         return 0.0f.xxx;
 
-    bool occluded = IsOccluded(p + N * 0.001f, wi, 100000.0f);
+    bool occluded = IsOccluded(p + Ng * 0.001f, wi, 100000.0f);
     if (occluded)
         return 0.0f.xxx;
 
@@ -387,11 +403,24 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         attrib.bary.y
     );
 
-    float3 nObj = normalize(
+    float3 nObjInterp =
         v0.Normal * bary.x +
         v1.Normal * bary.y +
-        v2.Normal * bary.z
-    );
+        v2.Normal * bary.z;
+
+    float3 nObj = float3(0.0f, 1.0f, 0.0f);
+    if (dot(nObjInterp, nObjInterp) > 1e-10f && all(isfinite(nObjInterp)))
+    {
+        nObj = normalize(nObjInterp);
+    }
+    else
+    {
+        float3 eObj1 = v1.Vertex - v0.Vertex;
+        float3 eObj2 = v2.Vertex - v0.Vertex;
+        float3 nObjFace = cross(eObj1, eObj2);
+        if (dot(nObjFace, nObjFace) > 1e-10f && all(isfinite(nObjFace)))
+            nObj = normalize(nObjFace);
+    }
 
     float2 uv =
         v0.UV * bary.x +
@@ -404,7 +433,8 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     float3 V = -WorldRayDirection();
     
     bool frontFace = dot(Ngeom, V) > 0.0f;
-    float3 N = frontFace ? Ngeom : -Ngeom;
+    float3 Ng = frontFace ? Ngeom : -Ngeom;
+    float3 N = Ng;
 
     // Fill payload base data
     payload.hitPos = pW;
@@ -415,7 +445,53 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
 
     float3 selfEmit = 0.0f;
     
-    Material mat = materials[matIndices[triIndex]];
+    uint materialCount = GetDebugMaterialCount();
+    uint textureCount = GetDebugTextureCount();
+
+    int matIdx = matIndices[triIndex];
+    bool invalidMatIndex = (matIdx < 0) || (materialCount > 0 && (uint) matIdx >= materialCount);
+
+    if (invalidMatIndex)
+    {
+        payload.hitPos = pW;
+        payload.normal = Ng;
+        payload.emission = IsDebugValidationFrame() ? float3(1.0f, 0.0f, 1.0f) : 0.0f;
+        payload.bsdfOverPdf = 0.0f;
+        payload.pdf = 1.0f;
+        payload.prevHitPos = pW;
+        payload.lastBounceWasDelta = 1;
+        payload.prevBsdfPdf = 1.0f;
+        payload.done = 1;
+        payload.isEmissive = 1;
+        return;
+    }
+
+    Material mat = materials[matIdx];
+
+    bool invalidTexIndex = false;
+    if (textureCount > 0)
+    {
+        invalidTexIndex =
+            (mat.TexIndex >= 0 && (uint) mat.TexIndex >= textureCount) ||
+            (mat.NormalIndex >= 0 && (uint) mat.NormalIndex >= textureCount) ||
+            (mat.SpecularIndex >= 0 && (uint) mat.SpecularIndex >= textureCount) ||
+            (mat.AlphaIndex >= 0 && (uint) mat.AlphaIndex >= textureCount);
+    }
+
+    if (invalidTexIndex && IsDebugValidationFrame())
+    {
+        payload.hitPos = pW;
+        payload.normal = Ng;
+        payload.emission = float3(1.0f, 1.0f, 0.0f);
+        payload.bsdfOverPdf = 0.0f;
+        payload.pdf = 1.0f;
+        payload.prevHitPos = pW;
+        payload.lastBounceWasDelta = 1;
+        payload.prevBsdfPdf = 1.0f;
+        payload.done = 1;
+        payload.isEmissive = 1;
+        return;
+    }
     
     payload.emission = 0.0f;
     payload.isEmissive = 0;
@@ -425,59 +501,90 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         mat.DiffuseAlbedo = textures[mat.TexIndex].SampleLevel(sampAniso, uv, 0);
     }
     
-    //if (mat.NormalIndex >= 0)
-    //{
-    //    float4 nSample = textures[mat.NormalIndex].SampleLevel(sampAniso, uv, 0);
+    if (mat.NormalIndex >= 0)
+    {
+        float3 Nbase = normalize(N);
 
-    //    float2 nXY;
-    //    if (nSample.b > 0.8f)
-    //    {
-    //        nXY = nSample.xy * 2.0f - 1.0f;
-    //    }
-    //    else
-    //    {
-    //        nXY = float2(nSample.a, nSample.g) * 2.0f - 1.0f;
-    //    }
+        float4 nSample = textures[mat.NormalIndex].SampleLevel(sampAniso, uv, 4.0f);
 
-    //    float nZ = sqrt(saturate(1.0f - dot(nXY, nXY)));
-    //    float3 nTex = normalize(float3(nXY, nZ));
+        float3x3 objToWorld = (float3x3) ObjectToWorld3x4();
 
-    //    // Build TBN from triangle edges and UV deltas so the frame
-    //    // matches the mesh's UV layout, preventing stripe/black artifacts
-    //    // caused by the generic BuildTangentFrame approach.
-    //    float3x3 objToWorld = (float3x3) ObjectToWorld3x4();
-    //    float3 e1 = mul(v1.Vertex - v0.Vertex, objToWorld);
-    //    float3 e2 = mul(v2.Vertex - v0.Vertex, objToWorld);
+        float3 e1 = mul(v1.Vertex - v0.Vertex, objToWorld);
+        float3 e2 = mul(v2.Vertex - v0.Vertex, objToWorld);
 
-    //    float2 duv1 = v1.UV - v0.UV;
-    //    float2 duv2 = v2.UV - v0.UV;
+        float2 duv1 = v1.UV - v0.UV;
+        float2 duv2 = v2.UV - v0.UV;
 
-    //    float det = duv1.x * duv2.y - duv2.x * duv1.y;
-    //    float invDet = (abs(det) > 1e-6f) ? rcp(det) : 0.0f;
+        float det = duv1.x * duv2.y - duv1.y * duv2.x;
 
-    //    float3 T = invDet * (duv2.y * e1 - duv1.y * e2);
-    //    // Gram-Schmidt orthogonalise against the shading normal
-    //    T = normalize(T - dot(T, N) * N);
-    //    float3 B = cross(N, T);
+        if (abs(det) > 1e-6f)
+        {
+            float invDet = rcp(det);
+            float3 T = (duv2.y * e1 - duv1.y * e2) * invDet;
 
-    //    float3x3 TBN = float3x3(T, B, N);
-    //    float3 Nmapped = normalize(mul(nTex, TBN));
+            if (dot(T, T) > 1e-8f && all(isfinite(T)))
+            {
+                T = normalize(T - Nbase * dot(Nbase, T));
 
-    //    // Clamp the mapped normal to stay above the geometric hemisphere
-    //    // to prevent black patches from back-facing shading normals.
+                float handedness = (det < 0.0f) ? -1.0f : 1.0f;
+                float3 B = normalize(cross(Nbase, T)) * handedness;
 
-    //    float3 Nbase = N;
+                if (dot(B, B) > 1e-8f && all(isfinite(B)))
+                {
+                    float3x3 TBN = float3x3(T, B, Nbase);
 
-    //    float d = dot(Nmapped, Nbase);
-    //    if (d > 0.0f && all(isfinite(Nmapped)))
-    //    {
-    //        N = Nmapped;
-    //    }
-    //    else
-    //    {
-    //        N = Nbase;
-    //    }
-    //}
+                    float3 nTexRGB = nSample.xyz * 2.0f - 1.0f;
+                    float2 nXY_AG = float2(nSample.a, nSample.g) * 2.0f - 1.0f;
+                    float3 nTexAG = float3(nXY_AG, sqrt(saturate(1.0f - dot(nXY_AG, nXY_AG))));
+
+                    float3 bestN = Nbase;
+                    float bestDot = 0.05f;
+
+                    if (dot(nTexRGB, nTexRGB) > 1e-8f && all(isfinite(nTexRGB)))
+                    {
+                        float3 NmRGB = normalize(mul(normalize(nTexRGB), TBN));
+                        float dRGB = dot(NmRGB, Nbase);
+                        if (all(isfinite(NmRGB)) && dRGB > bestDot)
+                        {
+                            bestDot = dRGB;
+                            bestN = NmRGB;
+                        }
+                    }
+
+                    if (dot(nTexAG, nTexAG) > 1e-8f && all(isfinite(nTexAG)))
+                    {
+                        float3 NmAG = normalize(mul(normalize(nTexAG), TBN));
+                        float dAG = dot(NmAG, Nbase);
+                        if (all(isfinite(NmAG)) && dAG > bestDot)
+                        {
+                            bestDot = dAG;
+                            bestN = NmAG;
+                        }
+                    }
+
+                    N = bestN;
+                }
+                else
+                {
+                    N = Nbase;
+                }
+            }
+            else
+            {
+                N = Nbase;
+            }
+        }
+        else
+        {
+            N = Nbase;
+        }
+    }
+    
+    float NoV = saturate(dot(Ng, V));
+    float normalBlend = saturate((0.25f - NoV) / 0.25f);
+
+// At grazing angles, fade normal map back to geometric normal.
+    N = normalize(lerp(N, Ng, normalBlend));
     
     if (mat.SpecularIndex >= 0)
     {
@@ -576,6 +683,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     float3 lighting = EvaluateDirectionalLightNEE(
     pW,
     N,
+    Ng,
     V,
     mat,
     sun);
@@ -584,22 +692,19 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         
     if (lightSample.pdf > 0.0f)
     {
-        bool occluded = IsOccluded(pW + N * 0.01f, lightSample.dir, lightSample.dist - 1e-4f);
+        bool occluded = IsOccluded(pW + Ng * 0.01f, lightSample.dir, lightSample.dist - 1e-4f);
         
         
         if (!occluded)
         {
             float3 L = lightSample.dir;
             
-            float NdotL = saturate(dot(N, L));
-            //payload.emission = N * 0.5f + 0.5f;
-            //payload.done = true;
-            //return;
+            float NdotL = saturate(dot(Ng, lightSample.dir));
             
             if (NdotL > 0.0f)
             {
-                float3 f = EvaluateDisneyBRDF(mat, N, V, L);
-                float pdfBSDF = PdfDisneyBRDF(mat, N, V, L);
+                float3 f = EvaluateDisneyBRDF(mat, Ng, V, L);
+                float pdfBSDF = PdfDisneyBRDF(mat, Ng, V, L);
                 pdfBSDF = max(pdfBSDF, 0.0f);
                 
  
@@ -618,7 +723,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
      
     float3 direct = LdContrib + lighting;
     
-    BSDFSample bsdf = SampleDisneyGGX(mat, N, V, VLocal, xi, frame);
+    BSDFSample bsdf = SampleDisneyGGX(mat, Ng, V, VLocal, xi, frame);
     
     if (!bsdf.valid || all(bsdf.fOverPdf == 0.0f) || bsdf.pdf <= 0.0f)
     {

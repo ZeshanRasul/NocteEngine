@@ -2602,9 +2602,9 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.UseRL = m_UseRL ? 1 : 0;
 
 	m_MainPassCB.UseQTable = m_UseQTable ? 1 : 0;
-	m_MainPassCB.padding[0] = 0.0f;
-	m_MainPassCB.padding[1] = 0.0f;
-	m_MainPassCB.padding[2] = 0.0f;
+ m_MainPassCB.padding[0] = static_cast<float>(m_MaterialsGPU.size());
+	m_MainPassCB.padding[1] = static_cast<float>(m_Textures.size());
+	m_MainPassCB.padding[2] = (m_FrameIndex == 1) ? 1.0f : 0.0f;
 
 	m_MainPassCB.Lights[0].Strength = { 4.6f, 4.6f, 4.6f };
 	m_MainPassCB.Lights[0].Direction = { 0.3f, -0.46f, 0.7f };
@@ -2837,14 +2837,14 @@ void Renderer::CreateSamplerHeap()
 
 	D3D12_CPU_DESCRIPTOR_HANDLE samplerHandle = m_SamplerHeap->GetCPUDescriptorHandleForHeapStart();
 	D3D12_SAMPLER_DESC s = {};
-	s.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+	s.Filter = D3D12_FILTER_ANISOTROPIC;
+	s.MaxAnisotropy = 16;
 	s.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	s.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	s.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	s.MinLOD = 0.0f;
 	s.MaxLOD = D3D12_FLOAT32_MAX;
 	s.MipLODBias = 0.0f;
-	s.MaxAnisotropy = 1;
 	s.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
 	m_Device->CreateSampler(&s, m_SamplerHeap->GetCPUDescriptorHandleForHeapStart());
 
@@ -4381,8 +4381,8 @@ void Renderer::CreatePerInstanceBuffers()
 
 		if (i == 1)
 		{
-			data.materialIndex = m_DragonModel.meshMaterialIndices[0];
-			data.triangleOffset = m_DragonModel.meshMaterialIndices.size();
+			data.materialIndex = m_SponzaModel.meshMaterialIndices[0];
+			data.triangleOffset = m_SponzaModel.meshMaterialIndices.size();
 		}
 
 		uint8_t* pData = nullptr;
@@ -4507,7 +4507,10 @@ void Renderer::CreatePerInstanceBuffers()
 
 	for (int idx : m_SponzaModel.meshMaterialIndices)
 	{
-		matIndices.push_back(idx + sponzaMaterialCPUOffset);
+        if (idx >= 0)
+			matIndices.push_back(idx + sponzaMaterialCPUOffset);
+		else
+			matIndices.push_back(-1);
 	}
 
 	OutputDebugStringA(("m_Materials size: " + std::to_string(m_Materials.size()) + "\n").c_str());
@@ -4528,7 +4531,10 @@ void Renderer::CreatePerInstanceBuffers()
 
 	for (int idx : m_DragonModel.meshMaterialIndices)
 	{
-		matIndices.push_back(idx + dragonMaterialCPUOffset);
+        if (idx >= 0)
+			matIndices.push_back(idx + dragonMaterialCPUOffset);
+		else
+			matIndices.push_back(-1);
 	}
 	const uint32_t matIdxBufferSize = static_cast<uint32_t>(sizeof(int) * matIndices.size());
 
