@@ -123,7 +123,7 @@ bool IsOccluded(float3 origin, float3 dir, float maxDistance)
     RayDesc shadowRay;
     shadowRay.Origin = origin;
     shadowRay.Direction = dir;
-    shadowRay.TMin = 0.001f;
+    shadowRay.TMin = 0.008f;
     shadowRay.TMax = maxDistance - 0.001f;
     
     TraceRay(
@@ -421,54 +421,63 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     payload.isEmissive = 0;
 
     if (mat.TexIndex >= 0)
-        mat.DiffuseAlbedo = textures[mat.TexIndex].SampleLevel(sampAniso, uv, 0);
-    
-    if (mat.NormalIndex >= 0)
     {
-        float4 nSample = textures[mat.NormalIndex].SampleLevel(sampAniso, uv, 0);
-
-        float2 nXY;
-        if (nSample.b > 0.8f)
-        {
-            nXY = nSample.xy * 2.0f - 1.0f;
-        }
-        else
-        {
-            nXY = float2(nSample.a, nSample.g) * 2.0f - 1.0f;
-        }
-
-        float nZ = sqrt(saturate(1.0f - dot(nXY, nXY)));
-        float3 nTex = normalize(float3(nXY, nZ));
-
-        // Build TBN from triangle edges and UV deltas so the frame
-        // matches the mesh's UV layout, preventing stripe/black artifacts
-        // caused by the generic BuildTangentFrame approach.
-        float3x3 objToWorld = (float3x3) ObjectToWorld3x4();
-        float3 e1 = mul(v1.Vertex - v0.Vertex, objToWorld);
-        float3 e2 = mul(v2.Vertex - v0.Vertex, objToWorld);
-
-        float2 duv1 = v1.UV - v0.UV;
-        float2 duv2 = v2.UV - v0.UV;
-
-        float det = duv1.x * duv2.y - duv2.x * duv1.y;
-        float invDet = (abs(det) > 1e-6f) ? rcp(det) : 0.0f;
-
-        float3 T = invDet * (duv2.y * e1 - duv1.y * e2);
-        // Gram-Schmidt orthogonalise against the shading normal
-        T = normalize(T - dot(T, N) * N);
-        float3 B = cross(N, T);
-
-        float3x3 TBN = float3x3(T, B, N);
-        float3 Nmapped = normalize(mul(nTex, TBN));
-
-        // Clamp the mapped normal to stay above the geometric hemisphere
-        // to prevent black patches from back-facing shading normals.
-        float blend = saturate(dot(Nmapped, Ngeom));
-        if (blend < 0.0f)
-            N = Ngeom;
-        else
-            N = Nmapped;
+        mat.DiffuseAlbedo = textures[mat.TexIndex].SampleLevel(sampAniso, uv, 0);
     }
+    
+    //if (mat.NormalIndex >= 0)
+    //{
+    //    float4 nSample = textures[mat.NormalIndex].SampleLevel(sampAniso, uv, 0);
+
+    //    float2 nXY;
+    //    if (nSample.b > 0.8f)
+    //    {
+    //        nXY = nSample.xy * 2.0f - 1.0f;
+    //    }
+    //    else
+    //    {
+    //        nXY = float2(nSample.a, nSample.g) * 2.0f - 1.0f;
+    //    }
+
+    //    float nZ = sqrt(saturate(1.0f - dot(nXY, nXY)));
+    //    float3 nTex = normalize(float3(nXY, nZ));
+
+    //    // Build TBN from triangle edges and UV deltas so the frame
+    //    // matches the mesh's UV layout, preventing stripe/black artifacts
+    //    // caused by the generic BuildTangentFrame approach.
+    //    float3x3 objToWorld = (float3x3) ObjectToWorld3x4();
+    //    float3 e1 = mul(v1.Vertex - v0.Vertex, objToWorld);
+    //    float3 e2 = mul(v2.Vertex - v0.Vertex, objToWorld);
+
+    //    float2 duv1 = v1.UV - v0.UV;
+    //    float2 duv2 = v2.UV - v0.UV;
+
+    //    float det = duv1.x * duv2.y - duv2.x * duv1.y;
+    //    float invDet = (abs(det) > 1e-6f) ? rcp(det) : 0.0f;
+
+    //    float3 T = invDet * (duv2.y * e1 - duv1.y * e2);
+    //    // Gram-Schmidt orthogonalise against the shading normal
+    //    T = normalize(T - dot(T, N) * N);
+    //    float3 B = cross(N, T);
+
+    //    float3x3 TBN = float3x3(T, B, N);
+    //    float3 Nmapped = normalize(mul(nTex, TBN));
+
+    //    // Clamp the mapped normal to stay above the geometric hemisphere
+    //    // to prevent black patches from back-facing shading normals.
+
+    //    float3 Nbase = N;
+
+    //    float d = dot(Nmapped, Nbase);
+    //    if (d > 0.0f && all(isfinite(Nmapped)))
+    //    {
+    //        N = Nmapped;
+    //    }
+    //    else
+    //    {
+    //        N = Nbase;
+    //    }
+    //}
     
     if (mat.SpecularIndex >= 0)
     {
@@ -478,7 +487,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     if (mat.AlphaIndex >= 0)
     {
-        float alpha = textures[mat.AlphaIndex].SampleLevel(sampAniso, uv, 0).r;
+        float alpha = textures[mat.AlphaIndex].SampleLevel(sampAniso, uv, 0).a;
         if (alpha < 0.5f)
         {
             float3 rayDir = normalize(WorldRayDirection());
@@ -570,18 +579,22 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     V,
     mat,
     sun);
-         
+        
     LightSample lightSample = SampleAreaLight(lightIndex, pW, N, payload.seed);
         
     if (lightSample.pdf > 0.0f)
     {
-        bool occluded = IsOccluded(pW + N * 0.001f, lightSample.dir, lightSample.dist - 1e-4f);
- 
+        bool occluded = IsOccluded(pW + N * 0.01f, lightSample.dir, lightSample.dist - 1e-4f);
+        
+        
         if (!occluded)
         {
             float3 L = lightSample.dir;
             
             float NdotL = saturate(dot(N, L));
+            //payload.emission = N * 0.5f + 0.5f;
+            //payload.done = true;
+            //return;
             
             if (NdotL > 0.0f)
             {

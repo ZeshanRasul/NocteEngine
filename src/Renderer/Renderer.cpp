@@ -4235,8 +4235,8 @@ void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 void Renderer::CreateAreaLightConstantBuffer()
 {
 	AreaLight areaLight{};
-	areaLight.Position = XMFLOAT3(0.0f, 800.0f, -1000.0f);
-	areaLight.Radiance = XMFLOAT3(5.0f, 5.0f, 5.0f);
+	areaLight.Position = XMFLOAT3(150.0f, 650.0f, -950.0f);
+	areaLight.Radiance = XMFLOAT3(12.0f, 12.0f, 12.0f);
 	areaLight.U = XMFLOAT3(2000.0f, 0.0f, 0.0f);
 	areaLight.V = XMFLOAT3(0.0f, 0.0f, 2000.0f);
 
@@ -4250,10 +4250,10 @@ void Renderer::CreateAreaLightConstantBuffer()
 	m_AreaLights.gAreaLights[0] = areaLight;
 
 	AreaLight areaLight2{};
-	areaLight2.Position = XMFLOAT3(5.0f, 4.0f, -10.0f);
-	areaLight2.Radiance = XMFLOAT3(8.0f, 6.5f, 5.5f);
-	areaLight2.U = XMFLOAT3(6.0f, 0.0f, 0.0f);
-	areaLight2.V = XMFLOAT3(0.0f, 0.0f, 6.0f);
+	areaLight2.Position = XMFLOAT3(420.0f, 240.0f, -860.0f);
+	areaLight2.Radiance = XMFLOAT3(10.0f, 10.0f, 10.0f);
+	areaLight2.U = XMFLOAT3(180.0f, 0.0f, 0.0f);
+	areaLight2.V = XMFLOAT3(0.0f, 0.0f, 120.0f);
 
 	U = XMLoadFloat3(&areaLight2.U);
 	V = XMLoadFloat3(&areaLight2.V);
