@@ -29,8 +29,6 @@ Figure 2: Comparison of Cornell Box scene at 1, 16, 64 and 4096 samples per pixe
 <br>
 <br>
 
-Figure 4: Clickable image link to YouTube demo video showcasing a flythrough of the Crytek Sponza scene rendered with Nocte Engine, highlighting global illumination, refractions, and soft shadows.
-
 ## Overview
 
 Fundamentally, Nocte Engine was created not just as a learning experience in low-level graphics programming, but also as a project to demonstrate and showcase my understanding of cutting-edge rendering techniques and ability to build performant and complex architectural systems.
