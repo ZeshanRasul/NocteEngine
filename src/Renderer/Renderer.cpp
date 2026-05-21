@@ -1993,9 +1993,11 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.InvRenderTargetSize = XMFLOAT2(1.0f / m_ClientWidth, 1.0f / m_ClientHeight);
 	m_MainPassCB.NearZ = 1.0f;
 	m_MainPassCB.FarZ = 1000.0f;
-	m_MainPassCB.cbPerObjectPad2 = 0.5f;
-	m_MainPassCB.cbPerObjectPad3 = 0.5f;
+	m_MainPassCB.MaterialsSize = static_cast<float>(m_MaterialsGPU.size());
+	m_MainPassCB.TexturesSize = static_cast<float>(m_Textures.size());
 	m_MainPassCB.AmbientLight = m_SunDirection;
+	m_MainPassCB.AmbientLight.w = (m_FrameIndex == 1) ? 1.0f : 0.0f;
+	m_MainPassCB.SunColor = m_SunColor;
 	m_MainPassCB.directPresent = (m_UseDenoiser || m_UseTemporal) ? 0 : 1;
 
 	m_MainPassCB.SamplingMode = static_cast<int>(m_RenderSettings.SamplingStrategy);
@@ -2010,9 +2012,6 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.UseRL = m_UseRL ? 1 : 0;
 
 	m_MainPassCB.UseQTable = m_UseQTable ? 1 : 0;
-	m_MainPassCB.padding[0] = static_cast<float>(m_MaterialsGPU.size());
-	m_MainPassCB.padding[1] = static_cast<float>(m_Textures.size());
-	m_MainPassCB.padding[2] = (m_FrameIndex == 1) ? 1.0f : 0.0f;
 
 	m_MainPassCB.Lights[0].Strength = { 4.6f, 4.6f, 4.6f };
 	m_MainPassCB.Lights[0].Direction = { 0.3f, -0.46f, 0.7f };
@@ -4245,17 +4244,33 @@ void Renderer::RenderImGuiDebugWindow()
 	ImGui::End();
 
 	ImGui::Begin("Scene Settings");
-	ImGui::Text("Fog Settings");
+
+	ImGui::SeparatorText("Sun");
+	if (ImGui::InputFloat("Sun Dir X", &m_SunDirection.x, 0.1f) ||
+		ImGui::InputFloat("Sun Dir Y", &m_SunDirection.y, 0.1f) ||
+		ImGui::InputFloat("Sun Dir Z", &m_SunDirection.z, 0.1f))
+	{
+		m_ClearAccumulation = true;
+		m_FrameIndex = 0;
+	}
+	if (ImGui::ColorEdit3("Sun Color", &m_SunColor.x))
+	{
+		m_ClearAccumulation = true;
+		m_FrameIndex = 0;
+	}
+
+	ImGui::SeparatorText("Fog");
 	ImGui::SliderFloat("Fog Density", &m_SigmaT, 0.0f, 1.0f);
 	ImGui::SliderFloat("Fog Max Distance", &m_FogMaxDistance, 0.0f, 1000.0f);
 	ImGui::Checkbox("Use Fog", &m_UseFog);
+
 	ImGui::End();
 
 	ImGui::Begin("Postprocessing Settings");
-	ImGui::Text("Exposure");
-	ImGui::SliderFloat("Exposure", &m_Exposure, 0, 10);
-	ImGui::Text("Tone Mapping Mode");
-	ImGui::SliderInt("Tone Mapping Mode", &m_ToneMapMode, 0, 2);
+	ImGui::Text("Exposure (EV stops, 0 = neutral)");
+	ImGui::SliderFloat("Exposure", &m_Exposure, -4.0f, 4.0f);
+	ImGui::Text("Tone Mapping (0 = Reinhard, 1 = ACES)");
+	ImGui::SliderInt("Tone Mapping Mode", &m_ToneMapMode, 0, 1);
 	ImGui::Text("Debug Mode");
 	ImGui::SliderInt("Debug Mode", &m_DebugMode, 0, 4);
 	ImGui::End();
@@ -4319,11 +4334,6 @@ void Renderer::RenderImGuiDebugWindow()
 	ImGui::InputFloat("Camera Eye X", &m_EyePos.x);
 	ImGui::InputFloat("Camera Eye Y", &m_EyePos.y);
 	ImGui::InputFloat("Camera Eye Z", &m_EyePos.z);
-
-	ImGui::InputFloat("Sun DirectionR", &m_SunDirection.x, 0.1f);
-	ImGui::InputFloat("Sun DirectionG", &m_SunDirection.y, 0.1f);
-	ImGui::InputFloat("Sun DirectionB", &m_SunDirection.z, 0.1f);
-	ImGui::InputFloat("Sun DirectionA", &m_SunDirection.w, 0.1f);
 
 	ImGui::End();
 

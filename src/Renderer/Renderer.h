@@ -338,7 +338,7 @@ private:
 	UINT MAX_PASSES = 7;
 	PostProcessData m_PostProcessData[7];
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_PostProcessConstantBuffer[7];
-	float m_Exposure = 0.75f;
+	float m_Exposure = -0.5f;
 	int m_ToneMapMode = 2;
 	int m_DebugMode = 0;
 	int m_IsLastPass = 0;
@@ -349,6 +349,7 @@ private:
 	AreaLights m_AreaLights;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_AreaLightConstantBuffer;
 	XMFLOAT4 m_SunDirection = { 0.4f, -1.0f, 0.3f, 1.0f };
+	XMFLOAT3 m_SunColor = { 1.0f, 0.95f, 0.85f };
 
 
 	uint32_t m_AnimationCounter = 0;

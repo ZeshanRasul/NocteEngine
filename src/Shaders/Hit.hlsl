@@ -83,8 +83,8 @@ cbuffer cbPass : register(b0)
     int gUseRL;
 
     int UseQTable;
-    float3 padding2;
-    
+    float3 gSunColor;
+
     Light gLights[MaxLights];
 };
 
@@ -97,17 +97,17 @@ cbuffer Colors : register(b1)
 
 uint GetDebugMaterialCount()
 {
-    return (uint) max(0.0f, padding2.x);
+    return (uint) max(0.0f, cbPerObjectPad2);
 }
 
 uint GetDebugTextureCount()
 {
-    return (uint) max(0.0f, padding2.y);
+    return (uint) max(0.0f, cbPerObjectPad3);
 }
 
 bool IsDebugValidationFrame()
 {
-    return padding2.z > 0.5f;
+    return gSunDir.w > 0.5f;
 }
 
 cbuffer PerInstance : register(b2)
@@ -676,7 +676,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     DirectionalLight sun;
     sun.direction = normalize(float3(gSunDir.rgb));
-    sun.radiance = float3(1.0f, 1.0f, 1.0f);
+    sun.radiance = gSunColor;
 
     float3 L = normalize(-sun.direction);
 

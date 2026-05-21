@@ -41,8 +41,8 @@ struct PassConstants
 	XMFLOAT2 InvRenderTargetSize = { 0.0f, 0.0f };
 	float NearZ = 0.0f;
 	float FarZ = 0.0f;
-	float cbPerObjectPad2 = 0.0f;
-	float cbPerObjectPad3 = 0.0f;
+	float MaterialsSize = 0.0f;
+	float TexturesSize = 0.0f;
 	XMFLOAT4 AmbientLight = { 0.13f, -1.0f, -0.8f, 1.0f };
 	int directPresent = 0;
 
@@ -56,7 +56,7 @@ struct PassConstants
 	int UseRL = 0;
 
 	int UseQTable = 0;
-	float padding[3];
+	XMFLOAT3 SunColor = { 1.0f, 0.95f, 0.85f };
 
 	Light Lights[MaxLights];
 };

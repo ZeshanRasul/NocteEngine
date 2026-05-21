@@ -65,8 +65,8 @@ cbuffer cbPass : register(b0)
     int gUseRL;
 
     int UseQTable;
-    float3 padding;
-    
+    float3 gSunColor;
+
     Light gLights[MaxLights];
 };
 
@@ -287,7 +287,7 @@ void RayGen()
                 break;
             
             float3 offsetDir = (dot(payload.wi, payload.normal) > 0.0f)
-         ? payload.normal   // going to the “outside” side of the surface
+         ? payload.normal   // going to the ï¿½outsideï¿½ side of the surface
          : -payload.normal; // going inside
             ray.Origin = payload.hitPos + offsetDir * 0.001f;
             ray.Direction = normalize(payload.wi);
