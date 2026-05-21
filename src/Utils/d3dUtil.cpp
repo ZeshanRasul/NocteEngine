@@ -2,6 +2,8 @@
 #include "d3dUtil.h"
 #include <comdef.h>
 #include <fstream>
+#include <algorithm>
+#include <cctype>
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tinyobj/tiny_obj_loader.h"
@@ -251,6 +253,40 @@ void d3dUtil::LoadObjModel(const std::string& filepath, Model& model)
 			f0 *= f0;
 			material->FresnelR0 = DirectX::XMFLOAT3(f0, f0, f0);
 			material->Roughness  = 0.0f; // glass is a delta BSDF
+		}
+
+		// Detect emissive materials from MTL Ke (emission colour).
+		// Primary path: read Ke directly.
+		float ke_r = mat.emission[0], ke_g = mat.emission[1], ke_b = mat.emission[2];
+		if (ke_r > 0.0f || ke_g > 0.0f || ke_b > 0.0f)
+		{
+			material->isEmissive = 1;
+			// Scale raw Ke to a meaningful radiance. Bistro Ke values are
+			// normalised (0-1); multiply up so bulbs visibly illuminate surroundings.
+			const float emissiveScale = 150.0f;
+			material->emission = DirectX::XMFLOAT3(
+				ke_r * emissiveScale,
+				ke_g * emissiveScale,
+				ke_b * emissiveScale);
+		}
+
+		// Fallback: detect light bulb geometry by material name when Ke is absent.
+		// Covers Bistro materials such as "MASTER_Bulb_01", "Filament", etc.
+		if (!material->isEmissive)
+		{
+			std::string lower = mat.name;
+			std::transform(lower.begin(), lower.end(), lower.begin(),
+				[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+			if (lower.find("bulb")     != std::string::npos ||
+				lower.find("filament") != std::string::npos ||
+				lower.find("lamp_")    != std::string::npos ||
+				lower.find("flame")    != std::string::npos)
+			{
+				material->isEmissive = 1;
+				// Warm tungsten colour for generic unlit bulbs
+				material->emission = DirectX::XMFLOAT3(150.0f, 110.0f, 60.0f);
+			}
 		}
 
 		model.materials.push_back(material);

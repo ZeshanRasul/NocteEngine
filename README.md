@@ -9,7 +9,7 @@ While I have previous experience with rasterization-based engines made in Direct
 
 Most recent results following implementation of MIS, NEE, denoising and temporal accumulation:
 
-![Nocte Engine DXR Path Tracing](./docs/images/Bistro.png)
+![Nocte Engine DXR Path Tracing](./docs/images/Baseline4096SPP.png)
 
 Figure 1: Amazon Lumberyard Bistro scene
 <br>
