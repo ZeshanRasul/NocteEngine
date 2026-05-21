@@ -72,7 +72,10 @@ cbuffer cbPass : register(b0)
 
 cbuffer FrameData : register(b5)
 {
-    uint frameIndex;
+    uint  frameIndex;
+    float ApertureRadius;
+    float FocalDistance;
+    float _dofPad;
 }
 
 cbuffer MediumParams : register(b6)
@@ -166,8 +169,20 @@ void RayGen()
         payload.pdf = 1.0f;
         payload.isEmissive = 0.0f;
         RayDesc ray;
-        ray.Origin = originWS;
+        ray.Origin    = originWS;
         ray.Direction = dirWS;
+        if (ApertureRadius > 0.0f)
+        {
+            float3 focusPoint = originWS + dirWS * FocalDistance;
+            float r   = sqrt(Rand(payload.seed)) * ApertureRadius;
+            float ang = Rand(payload.seed) * 6.28318530f;
+            float3 right = normalize(cross(float3(0, 1, 0), dirWS));
+            float3 up    = cross(dirWS, right);
+            ray.Origin    = originWS + right * (r * cos(ang)) + up * (r * sin(ang));
+            ray.Direction = normalize(focusPoint - ray.Origin);
+            payload.prevHitPos = ray.Origin;
+            payload.hitPos     = ray.Origin;
+        }
         ray.TMin = 0.001f;
         ray.TMax = 1e38f;
 

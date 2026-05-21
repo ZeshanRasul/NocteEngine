@@ -344,6 +344,8 @@ private:
 	int m_IsLastPass = 0;
 	float m_SkyTurbidity = 2.5f;
 	float m_SkyIntensity = 1.0f;
+	float m_ApertureRadius = 0.0f;
+	float m_FocalDistance = 10.0f;
 
 
 	void CreateAreaLightConstantBuffer();
@@ -369,6 +371,12 @@ private:
 	void CreateFrameIndexRNGCBuffer();
 	void UpdateFrameIndexRNGCBuffer();
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_FrameIndexCB;
+
+	void CreateTimestampQueryHeap();
+	Microsoft::WRL::ComPtr<ID3D12QueryHeap> m_TimestampQueryHeap;
+	Microsoft::WRL::ComPtr<ID3D12Resource>  m_TimestampReadback;
+	UINT64 m_GpuTimestampFreq = 1;
+	float  m_PassTimesMs[4] = {};  // [0]=RT, [1]=Temporal, [2]=Denoise, [3]=FinalPass
 	int m_FrameIndex = 0;
 	int m_MaxFrames = 8192;
 	int m_SPP = 1;

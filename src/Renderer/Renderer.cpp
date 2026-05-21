@@ -254,6 +254,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateComputePipelineStateObjects();
 	CreateCameraBuffer();
 	CreateFrameIndexRNGCBuffer();
+	CreateTimestampQueryHeap();
 	m_RLQTable.resize(NumStates * NumActions);
 	/*CreateReadbackBuffer();
 	CreateRLQTableBuffer();
@@ -470,8 +471,10 @@ void Renderer::DoAccumulationClear()
 
 void Renderer::DoRaytracingPass(const D3D12_DISPATCH_RAYS_DESC& desc)
 {
+	m_CommandList->EndQuery(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0);
 	m_CommandList->SetPipelineState1(m_RtStateObject.Get());
 	m_CommandList->DispatchRays(&desc);
+	m_CommandList->EndQuery(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 1);
 }
 
 void Renderer::DoHistoryCopy()
@@ -504,6 +507,7 @@ void Renderer::DoHistoryCopy()
 
 void Renderer::DoTemporalPass()
 {
+	m_CommandList->EndQuery(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 2);
 	// Transition G-buffer outputs from UAV (written by RayGen) to SRV
 	{
 		D3D12_RESOURCE_BARRIER barriers[3];
@@ -574,6 +578,7 @@ void Renderer::DoTemporalPass()
 			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 		m_CommandList->ResourceBarrier(3, barriers);
 	}
+	m_CommandList->EndQuery(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 3);
 }
 
 void Renderer::DispatchDenoisePass(UINT srcHeapIndex, UINT destHeapIndex, int passIndex)
@@ -604,6 +609,7 @@ void Renderer::DispatchDenoisePass(UINT srcHeapIndex, UINT destHeapIndex, int pa
 
 void Renderer::DoDenoisePass()
 {
+	m_CommandList->EndQuery(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 4);
 	const int numPasses = m_DenoisePasses;
 
 	// Determine which resource feeds into the first denoise pass
@@ -677,10 +683,12 @@ void Renderer::DoDenoisePass()
 		m_DenoisePing.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 		m_DenoisePong.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	m_CommandList->EndQuery(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 5);
 }
 
 void Renderer::DoFinalPass(ID3D12Resource* srcResource, UINT srcSRVIndex)
 {
+	m_CommandList->EndQuery(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 6);
 	// Transition source from UAV to SRV so FinalPass.hlsl can sample it
 	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 		srcResource,
@@ -711,6 +719,7 @@ void Renderer::DoFinalPass(ID3D12Resource* srcResource, UINT srcSRVIndex)
 		srcResource,
 		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	m_CommandList->EndQuery(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 7);
 }
 
 void Renderer::DoPresentBlit()
@@ -895,6 +904,10 @@ bool Renderer::Draw(bool useRaster)
 		}
 	}
 
+	// Initialize all timestamp slots so skipped passes show 0 ms
+	for (UINT tsi = 0; tsi < 8; ++tsi)
+		m_CommandList->EndQuery(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, tsi);
+
 	// --- Raytracing pass ---
 	DoRaytracingPass(desc);
 
@@ -976,6 +989,10 @@ bool Renderer::Draw(bool useRaster)
 	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 		CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 
+	// Resolve GPU timestamps into readback buffer
+	m_CommandList->ResolveQueryData(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP,
+		0, 8, m_TimestampReadback.Get(), 0);
+
 	ThrowIfFailed(m_CommandList->Close());
 	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
 	m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
@@ -984,6 +1001,18 @@ bool Renderer::Draw(bool useRaster)
 	m_CurrentBackBuffer = (m_CurrentBackBuffer + 1) % SwapChainBufferCount;
 
 	FlushCommandQueue();
+
+	// Read GPU pass timings from the readback buffer (GPU is now idle after flush)
+	{
+		UINT64* pTs = nullptr;
+		D3D12_RANGE readRange = { 0, 8 * sizeof(UINT64) };
+		m_TimestampReadback->Map(0, &readRange, reinterpret_cast<void**>(&pTs));
+		double freqMs = static_cast<double>(m_GpuTimestampFreq) / 1000.0;
+		for (int i = 0; i < 4; ++i)
+			m_PassTimesMs[i] = static_cast<float>((pTs[i * 2 + 1] - pTs[i * 2]) / freqMs);
+		D3D12_RANGE writeRange = { 0, 0 };
+		m_TimestampReadback->Unmap(0, &writeRange);
+	}
 
 	return true;
 
@@ -4148,8 +4177,11 @@ void Renderer::LoadTextures(Model& model)
 
 struct alignas(256) FrameIndexCB
 {
-	UINT FrameIndex;
-	UINT Padding[63];
+	UINT  FrameIndex;
+	float ApertureRadius;
+	float FocalDistance;
+	float _dofPad;
+	UINT  Padding[60];
 };
 
 void Renderer::CreateFrameIndexRNGCBuffer()
@@ -4180,12 +4212,43 @@ void Renderer::UpdateFrameIndexRNGCBuffer()
 	}
 
 	FrameIndexCB data = {};
-	data.FrameIndex = m_FrameIndex;
+	data.FrameIndex    = m_FrameIndex;
+	data.ApertureRadius = m_ApertureRadius;
+	data.FocalDistance  = m_FocalDistance;
 
 	uint8_t* pData = nullptr;
 	ThrowIfFailed(m_RNGUploadCBuffer->Map(0, nullptr, reinterpret_cast<void**>(&pData)));
 	memcpy(pData, &data, sizeof(data));
 	m_RNGUploadCBuffer->Unmap(0, nullptr);
+}
+
+void Renderer::CreateTimestampQueryHeap()
+{
+	D3D12_QUERY_HEAP_DESC desc = {};
+	desc.Type  = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
+	desc.Count = 8; // 2 slots per pass × 4 passes
+
+	ThrowIfFailed(m_Device->CreateQueryHeap(&desc, IID_PPV_ARGS(&m_TimestampQueryHeap)));
+
+	const UINT64 bufSize = 8 * sizeof(UINT64);
+	D3D12_HEAP_PROPERTIES readbackHeap = {};
+	readbackHeap.Type = D3D12_HEAP_TYPE_READBACK;
+
+	D3D12_RESOURCE_DESC bufDesc = {};
+	bufDesc.Dimension        = D3D12_RESOURCE_DIMENSION_BUFFER;
+	bufDesc.Width            = bufSize;
+	bufDesc.Height           = 1;
+	bufDesc.DepthOrArraySize = 1;
+	bufDesc.MipLevels        = 1;
+	bufDesc.SampleDesc.Count = 1;
+	bufDesc.Layout           = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+	ThrowIfFailed(m_Device->CreateCommittedResource(
+		&readbackHeap, D3D12_HEAP_FLAG_NONE,
+		&bufDesc, D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr, IID_PPV_ARGS(&m_TimestampReadback)));
+
+	ThrowIfFailed(m_CommandQueue->GetTimestampFrequency(&m_GpuTimestampFreq));
 }
 
 void Renderer::SaveCurrentFrame()
@@ -4283,6 +4346,18 @@ void Renderer::RenderImGuiDebugWindow()
 		m_FrameIndex = 0;
 	}
 
+	ImGui::SeparatorText("Depth of Field");
+	if (ImGui::SliderFloat("Aperture", &m_ApertureRadius, 0.0f, 5.0f))
+	{
+		m_ClearAccumulation = true;
+		m_FrameIndex = 0;
+	}
+	if (ImGui::SliderFloat("Focal Distance", &m_FocalDistance, 0.1f, 500.0f))
+	{
+		m_ClearAccumulation = true;
+		m_FrameIndex = 0;
+	}
+
 	ImGui::SeparatorText("Fog");
 	ImGui::SliderFloat("Fog Density", &m_SigmaT, 0.0f, 1.0f);
 	ImGui::SliderFloat("Fog Max Distance", &m_FogMaxDistance, 0.0f, 1000.0f);
@@ -4297,6 +4372,13 @@ void Renderer::RenderImGuiDebugWindow()
 	ImGui::SliderInt("Tone Mapping Mode", &m_ToneMapMode, 0, 1);
 	ImGui::Text("Debug Mode");
 	ImGui::SliderInt("Debug Mode", &m_DebugMode, 0, 4);
+
+	ImGui::SeparatorText("GPU Pass Timings");
+	ImGui::Text("Raytracing : %.2f ms", m_PassTimesMs[0]);
+	ImGui::Text("Temporal   : %.2f ms", m_PassTimesMs[1]);
+	ImGui::Text("Denoise    : %.2f ms", m_PassTimesMs[2]);
+	ImGui::Text("Final Pass : %.2f ms", m_PassTimesMs[3]);
+	ImGui::Text("Total GPU  : %.2f ms", m_PassTimesMs[0] + m_PassTimesMs[1] + m_PassTimesMs[2] + m_PassTimesMs[3]);
 	ImGui::End();
 
 	ImGui::Begin("Denoising Settings");
@@ -4388,6 +4470,32 @@ void Renderer::RenderImGuiDebugWindow()
 	ImGui::Text("Using Q Table: %s", m_UseQTable == 1 ? "True" : "False");
 
 	ImGui::End();
+
+	// GPU timing overlay — top-right corner, non-interactive
+	{
+		const float PAD = 10.0f;
+		const ImGuiViewport* vp = ImGui::GetMainViewport();
+		ImGui::SetNextWindowPos(
+			ImVec2(vp->WorkPos.x + vp->WorkSize.x - PAD, vp->WorkPos.y + PAD),
+			ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+		ImGui::SetNextWindowBgAlpha(0.55f);
+		ImGuiWindowFlags overlayFlags =
+			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+			ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+			ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs;
+		if (ImGui::Begin("##timing_overlay", nullptr, overlayFlags))
+		{
+			float total = m_PassTimesMs[0] + m_PassTimesMs[1] + m_PassTimesMs[2] + m_PassTimesMs[3];
+			ImGui::Text("RT         %5.2f ms", m_PassTimesMs[0]);
+			ImGui::Text("Temporal   %5.2f ms", m_PassTimesMs[1]);
+			ImGui::Text("Denoise    %5.2f ms", m_PassTimesMs[2]);
+			ImGui::Text("Final Pass %5.2f ms", m_PassTimesMs[3]);
+			ImGui::Separator();
+			ImGui::Text("Total GPU  %5.2f ms", total);
+			ImGui::Text("Frame %d / SPP %d", m_FrameIndex, m_SPP);
+		}
+		ImGui::End();
+	}
 }
 
 void Renderer::CreateReadbackBuffer()
