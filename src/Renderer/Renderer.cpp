@@ -826,7 +826,43 @@ bool Renderer::Draw(bool useRaster)
 	ImGui_ImplDX12_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
-	ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+
+	ImGuiID dockspaceID = ImGui::DockSpaceOverViewport(
+		0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+
+	// Build the default docked layout once per session
+	static bool s_DockLayoutBuilt = false;
+	if (!s_DockLayoutBuilt)
+	{
+		s_DockLayoutBuilt = true;
+
+		ImGui::DockBuilderRemoveNode(dockspaceID);
+		ImGui::DockBuilderAddNode(dockspaceID, ImGuiDockNodeFlags_DockSpace | ImGuiDockNodeFlags_PassthruCentralNode);
+		ImGui::DockBuilderSetNodeSize(dockspaceID, ImGui::GetMainViewport()->Size);
+
+		ImGuiID leftID, rightID, centerID;
+		// Split right sidebar (22 %)
+		ImGui::DockBuilderSplitNode(dockspaceID, ImGuiDir_Right, 0.22f, &rightID, &centerID);
+		// Split left sidebar (22 % of original width ≈ 28 % of the remaining center)
+		ImGui::DockBuilderSplitNode(centerID, ImGuiDir_Left, 0.28f, &leftID, &centerID);
+
+		// Left sidebar — scene authoring
+		ImGui::DockBuilderDockWindow("Scene Settings",    leftID);
+		ImGui::DockBuilderDockWindow("Area Light Settings", leftID);
+
+		// Right sidebar — rendering & research
+		ImGui::DockBuilderDockWindow("Postprocessing Settings", rightID);
+		ImGui::DockBuilderDockWindow("Denoising Settings",      rightID);
+		ImGui::DockBuilderDockWindow("Research Controls",       rightID);
+		ImGui::DockBuilderDockWindow("RL Settings",             rightID);
+
+		ImGui::DockBuilderFinish(dockspaceID);
+	}
+
+	// Toggle UI visibility with H (only when not typing in a text field)
+	if (ImGui::IsKeyPressed(ImGuiKey_H, false) && !ImGui::GetIO().WantTextInput)
+		m_ShowUI = !m_ShowUI;
+
 	RenderImGuiDebugWindow();
 	UpdateDenoiseConstantBuffer(0, 0);
 
@@ -4269,6 +4305,25 @@ void Renderer::CreateImGuiDescriptorHeap()
 
 void Renderer::RenderImGuiDebugWindow()
 {
+	if (!m_ShowUI)
+	{
+		// Still draw the timing overlay so it can be re-shown
+		const float PAD = 10.0f;
+		const ImGuiViewport* vp = ImGui::GetMainViewport();
+		ImGui::SetNextWindowPos(
+			ImVec2(vp->WorkPos.x + vp->WorkSize.x - PAD, vp->WorkPos.y + PAD),
+			ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+		ImGui::SetNextWindowBgAlpha(0.35f);
+		ImGuiWindowFlags overlayFlags =
+			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+			ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+			ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs;
+		if (ImGui::Begin("##timing_overlay_hidden", nullptr, overlayFlags))
+			ImGui::Text("[H] Show UI");
+		ImGui::End();
+		return;
+	}
+
 	ImGui::Begin("Research Controls");
 
 	ImGui::SliderInt("SPP per frame", &m_SPP, 1, 8);

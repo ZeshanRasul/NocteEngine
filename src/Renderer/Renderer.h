@@ -21,6 +21,7 @@
 #include <filesystem>
 
 #include "imgui/imgui.h"
+#include "imgui/imgui_internal.h"
 #include "imgui/backends/imgui_impl_win32.h"
 #include "imgui/backends/imgui_impl_dx12.h"
 using namespace DirectX;
@@ -398,6 +399,7 @@ private:
 	SubmeshGeometry sphereSubmesh;
 
 	bool showWindow = true;
+	bool m_ShowUI = true;
 	void CreateImGuiDescriptorHeap();
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_ImGuiSrvHeap;
 	D3D12_CPU_DESCRIPTOR_HANDLE imguiCpuStart;

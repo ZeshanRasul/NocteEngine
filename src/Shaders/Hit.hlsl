@@ -199,10 +199,9 @@ void HandleRefractiveHit(
     // Fresnel term from stored F0
     float3 F = Fresnel_Schlick(mat.FresnelR0, cosI);
 
-    // Use luminance / max channel for branch probability
-    float reflProb = max(F.r, max(F.g, F.b));
-    reflProb = saturate(reflProb);
-    reflProb = clamp(reflProb, 0.05f, 0.95f);
+    // Use max channel as Russian-roulette probability; cap at 0.95 to avoid divide-by-near-zero
+    float reflProb = saturate(max(F.r, max(F.g, F.b)));
+    reflProb = min(reflProb, 0.95f);
 
     float3 dir;
     float3 weight;
@@ -235,18 +234,13 @@ void HandleRefractiveHit(
             float transProb = max(1.0f - reflProb, 1e-4f);
             weight = oneMinusF / transProb;
 
-            float thickness = 0.1f;
-            float3 sigmaA = float3(0.02, 0.01, 0.01);
-            weight *= exp(-sigmaA * thickness);
-
-            // float eta2 = eta * eta;
-            // weight *= eta2;
+            // Beer-Lambert absorption over the actual path length through the glass.
+            // mat.Absorption = (0,0,0) for clear glass → no tinting.
+            float pathLen = RayTCurrent();
+            weight *= exp(-mat.Absorption * pathLen);
         }
     }
 
-    // Tint the glass by base color
-    weight *= mat.DiffuseAlbedo.rgb;
-  
     payload.wi = dir;
     payload.bsdfOverPdf = weight; // f * cos / pdf collapsed into this scalar weight
     payload.pdf = 1.0f; // implicit delta BSDF

@@ -236,6 +236,23 @@ void d3dUtil::LoadObjModel(const std::string& filepath, Model& model)
 		material->Roughness = 1.0f - spec;
 		material->DiffuseSrvHeapIndex = matCounter;
 
+		// Detect glass from MTL illumination model and IOR.
+		// illum 4/6/7/9 all describe some form of transparency/refraction.
+		bool isGlassIllum = (mat.illum == 4 || mat.illum == 6 || mat.illum == 7 || mat.illum == 9);
+		bool hasIOR       = (mat.ior > 1.001f);
+		bool isTransparent = (mat.dissolve < 0.99f);
+		if (isGlassIllum || (hasIOR && isTransparent))
+		{
+			material->IsRefractive = 1;
+			float ior = (mat.ior > 1.001f) ? mat.ior : 1.5f;
+			material->Ior = ior;
+			// Physically correct F0 from IOR: ((n-1)/(n+1))^2
+			float f0 = ((ior - 1.0f) / (ior + 1.0f));
+			f0 *= f0;
+			material->FresnelR0 = DirectX::XMFLOAT3(f0, f0, f0);
+			material->Roughness  = 0.0f; // glass is a delta BSDF
+		}
+
 		model.materials.push_back(material);
 
 		auto texture = new Texture();
