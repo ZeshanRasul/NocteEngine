@@ -679,6 +679,40 @@ void Renderer::DoDenoisePass()
 		m_DenoisePong.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 }
 
+void Renderer::DoFinalPass(ID3D12Resource* srcResource, UINT srcSRVIndex)
+{
+	// Transition source from UAV to SRV so FinalPass.hlsl can sample it
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		srcResource,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+
+	const auto heapStart = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
+	auto handle = [&](UINT idx) {
+		return CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, idx, m_CbvSrvUavDescriptorSize);
+	};
+
+	ID3D12DescriptorHeap* heaps[] = { m_SrvUavHeap.Get(), m_SamplerHeap.Get() };
+	m_CommandList->SetDescriptorHeaps(_countof(heaps), heaps);
+	m_CommandList->SetComputeRootSignature(m_DenoiseRootSignature.Get());
+	m_CommandList->SetPipelineState(m_FinalPassPSO.Get());
+
+	m_CommandList->SetComputeRootDescriptorTable(0, handle(UAV_Present));
+	m_CommandList->SetComputeRootDescriptorTable(1, handle(srcSRVIndex));
+	UpdatePostProcessConstantBuffer(0, 1);
+	m_CommandList->SetComputeRootConstantBufferView(10, m_PostProcessConstantBuffer[0]->GetGPUVirtualAddress());
+
+	UINT gx = (m_ClientWidth + 7) / 8;
+	UINT gy = (m_ClientHeight + 7) / 8;
+	m_CommandList->Dispatch(gx, gy, 1);
+
+	// Restore source to UAV for next frame
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		srcResource,
+		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+}
+
 void Renderer::DoPresentBlit()
 {
 	D3D12_RESOURCE_BARRIER barriers[2];
@@ -868,20 +902,24 @@ bool Renderer::Draw(bool useRaster)
 	DoHistoryCopy();
 
 	// --- Post-processing ---
-	if (!m_UseTemporal && !m_UseDenoiser)
-	{
-		// Simple path: tone-map accumulation directly to present UAV
-		UpdatePostProcessConstantBuffer(0, m_DenoisePasses);
-		DispatchDenoisePass(SRV_Accumulation, UAV_Present, 0);
-	}
-
 	if (m_UseTemporal)
-	{
 		DoTemporalPass();
-	}
-	if (m_UseDenoiser || m_UseTemporal)
+
+	if (m_UseDenoiser)
 	{
+		// A-Trous spatial denoiser; reads from TA output if available, else raw accumulation.
+		// Writes final pass directly to UAV_Present.
 		DoDenoisePass();
+	}
+	else if (m_UseTemporal)
+	{
+		// TA output → tone-map → present
+		DoFinalPass(m_TemporalRadianceBuffer.Get(), SRV_TemporalRadiance);
+	}
+	else
+	{
+		// Simple path: accumulated color is already a running average in RayGen; just tone-map it.
+		DoFinalPass(m_AccumulationBuffer.Get(), SRV_Accumulation);
 	}
 
 	// --- Present UAV → backbuffer ---
@@ -1972,7 +2010,7 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.UseRL = m_UseRL ? 1 : 0;
 
 	m_MainPassCB.UseQTable = m_UseQTable ? 1 : 0;
- m_MainPassCB.padding[0] = static_cast<float>(m_MaterialsGPU.size());
+	m_MainPassCB.padding[0] = static_cast<float>(m_MaterialsGPU.size());
 	m_MainPassCB.padding[1] = static_cast<float>(m_Textures.size());
 	m_MainPassCB.padding[2] = (m_FrameIndex == 1) ? 1.0f : 0.0f;
 

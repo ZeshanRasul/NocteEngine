@@ -88,6 +88,8 @@ private:
 	// Binds src as SRV and dest as UAV, then dispatches the denoise compute shader for one A-Trous pass.
 	void DispatchDenoisePass(UINT srcHeapIndex, UINT destHeapIndex, int passIndex);
 	void DoDenoisePass();
+	// Applies exposure + tone-mapping via FinalPass.hlsl; transitions srcResource UAV→SRV and back.
+	void DoFinalPass(ID3D12Resource* srcResource, UINT srcSRVIndex);
 	void DoPresentBlit();
 	void DoImGuiPass();
 	bool DoImageCapture();  // returns false when the run is complete
@@ -346,7 +348,7 @@ private:
 	void UpdateAreaLightConstantBuffer();
 	AreaLights m_AreaLights;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_AreaLightConstantBuffer;
-	XMFLOAT4 m_SunDirection = { 0.4f, 1.0f, 0.3f, 1.0f };
+	XMFLOAT4 m_SunDirection = { 0.4f, -1.0f, 0.3f, 1.0f };
 
 
 	uint32_t m_AnimationCounter = 0;
