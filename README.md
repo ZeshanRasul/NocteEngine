@@ -7,8 +7,14 @@ While I have previous experience with rasterization-based engines made in Direct
 
 ## Visual Results
 
-Most recent results following implementation of MIS, NEE, denoising and temporal accumulation:
+Most recent results following implementation of ReSTIR_DI, MIS, NEE, denoising and temporal accumulation:
 
+
+
+![Nocte Engine DXR Path Tracing](./docs/images/ReSTIR_DI_GT4096SPP.png)
+<br>
+![Nocte Engine DXR Path Tracing](./docs/images/ReSTIR_DI_2_GT4096SPP.png)
+<br>
 ![Nocte Engine DXR Path Tracing](./docs/images/GT4096SPP.png)
 <br>
 ![Nocte Engine DXR Path Tracing](./docs/images/Baseline4096SPP.png)
@@ -16,7 +22,7 @@ Most recent results following implementation of MIS, NEE, denoising and temporal
 ![Nocte Engine DXR Path Tracing](./docs/images/Baseline4096SPPSecondAngle.png)
 
 
-Figure 1: Amazon Lumberyard Bistro scene
+Figure 1: Amazon Lumberyard Bistro scene (ReSTIR_DI implementation with 4096 samples per pixel in first two images)
 <br>
 <br>
 
