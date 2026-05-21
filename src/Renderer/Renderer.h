@@ -80,6 +80,18 @@ private:
 
 	ID3D12Resource* CurrentBackBuffer() const;
 
+	// --- Draw sub-passes (called from Draw()) ---
+	void DoAccumulationClear();
+	void DoRaytracingPass(const D3D12_DISPATCH_RAYS_DESC& desc);
+	void DoHistoryCopy();
+	void DoTemporalPass();
+	// Binds src as SRV and dest as UAV, then dispatches the denoise compute shader for one A-Trous pass.
+	void DispatchDenoisePass(UINT srcHeapIndex, UINT destHeapIndex, int passIndex);
+	void DoDenoisePass();
+	void DoPresentBlit();
+	void DoImGuiPass();
+	bool DoImageCapture();  // returns false when the run is complete
+
 	Microsoft::WRL::ComPtr<ID3D12Device5> m_Device;
 	Microsoft::WRL::ComPtr<IDXGIAdapter> m_WarpAdapter;
 	Microsoft::WRL::ComPtr<ID3D12Debug> m_DebugController;
@@ -551,31 +563,50 @@ struct LoadedTexture
 	DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
 };
 
+// GPU-visible SRV/UAV heap layout (m_SrvUavHeap). Order must match CreateShaderResourceHeap().
 enum
 {
-	UAV_Output = 0,
-	SRV_TLAS = 1,
-	SRV_Materials = 2,
-	CBV_Pass = 3,
-	UAV_Accumulation = 4,
-	UAV_Normal = 5,
-	UAV_Depth = 6,
-	UAV_DenoisePing = 7,
-	UAV_DenoisePong = 8,
-	UAV_Present = 9,
-	SRV_Normal = 10,
-	SRV_Depth = 11,
-	SRV_DenoisePing = 12,
-	SRV_DenoisePong = 13,
-	SRV_Accumulation = 14,
-	SRV_TriMatIndex = 15,
-	UAV_FirstMoment = 16,
-	UAV_SecondMoment = 17,
-	UAV_OldFirstMoment = 18,
-	UAV_OldSecondMoment = 19,
-	SRV_FirstMoment = 20,
-	SRV_SecondMoment = 21,
-	SRV_OldFirstMoment = 22,
-	SRV_OldSecondMoment = 23,
+	UAV_Output           = 0,
+	SRV_TLAS             = 1,
+	SRV_Materials        = 2,
+	CBV_Pass             = 3,
+	UAV_Accumulation     = 4,
+	UAV_Normal           = 5,
+	UAV_Depth            = 6,
+	UAV_DenoisePing      = 7,
+	UAV_DenoisePong      = 8,
+	UAV_Present          = 9,
+	SRV_Normal           = 10,
+	SRV_Depth            = 11,
+	SRV_DenoisePing      = 12,
+	SRV_DenoisePong      = 13,
+	SRV_Accumulation     = 14,
+	SRV_TriMatIndex      = 15,
+	UAV_FirstMoment      = 16,
+	UAV_SecondMoment     = 17,
+	UAV_OldFirstMoment   = 18,
+	UAV_OldSecondMoment  = 19,
+	SRV_FirstMoment      = 20,
+	SRV_SecondMoment     = 21,
+	SRV_OldFirstMoment   = 22,
+	SRV_OldSecondMoment  = 23,
+	UAV_TemporalRadiance = 24,
+	SRV_TemporalRadiance = 25,
+	SRV_AccumulationHistory = 26,
+	UAV_AlbedoTex        = 27,
+	SRV_AlbedoTex        = 28,
+	SRV_GroundTruth      = 29,
+	HEAP_SLOT_COUNT      = 30,  // fixed slots before per-scene textures
+};
+
+// CPU-only UAV heap layout (m_SrvUavCPUHeap). Order must match CreateShaderResourceCPUHeap().
+enum
+{
+	CPU_UAV_Accumulation       = 0,
+	CPU_UAV_OldFirstMoment     = 1,
+	CPU_UAV_OldSecondMoment    = 2,
+	CPU_UAV_FirstMoment        = 3,
+	CPU_UAV_SecondMoment       = 4,
+	CPU_UAV_TemporalRadiance   = 5,
 };
 ;
