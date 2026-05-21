@@ -2,6 +2,7 @@
 #include "MicrofacetBRDFUtils.hlsl"
 #include "PathTracerCommon.hlsl"
 #include "BSDF.hlsl"
+#include "ReSTIR.hlsl"
 
 #define NumLights 1
 #define MAX_AREA_LIGHTS 5
@@ -51,6 +52,10 @@ StructuredBuffer<int> matIndices : register(t4);
 Texture2D<float4> gAlbedoHistory : register(t5);
 
 Texture2D textures[] : register(t6);
+
+// Reservoir buffer written by the ReSTIR IS compute pass (previous frame).
+// Space 1 avoids overlap with the unbounded textures[] array in space 0.
+StructuredBuffer<Reservoir> gReservoirs : register(t7, space1);
 
 SamplerState sampAniso : register(s0);
 
@@ -619,6 +624,18 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     float3x3 frame = BuildTangentFrame(N);
     float3 VLocal = mul(V, transpose(frame));
     
+    // For the first bounce, try to use the reservoir selected by the IS pass.
+    // For subsequent bounces, fall back to random sampling as before.
+    bool useReservoir = false;
+    Reservoir res = EmptyReservoir();
+    if (payload.depth == 1 && frameIndex > 0)
+    {
+        uint2 px       = DispatchRaysIndex().xy;
+        uint  dispWidth = DispatchRaysDimensions().x;
+        res = gReservoirs[px.y * dispWidth + px.x];
+        useReservoir = (res.LightIndex >= 0 && res.W > 0.0f);
+    }
+
     int lightIndex = min((uint) (Rand(payload.seed) * gNumAreaLights), gNumAreaLights - 1);
 
     bool isNEELight = (mat.LightIndex >= 0);
@@ -682,35 +699,63 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     mat,
     sun);
         
-    LightSample lightSample = SampleAreaLight(lightIndex, pW, N, payload.seed);
-        
-    if (lightSample.pdf > 0.0f)
+    if (useReservoir)
     {
-        bool occluded = IsOccluded(pW + Ng * 0.01f, lightSample.dir, lightSample.dist - 1e-4f);
-        
-        
-        if (!occluded)
+        // --- ReSTIR path: use reservoir-selected light ---
+        bool isSun = (res.LightIndex >= (int)gNumAreaLights);
+
+        float3 toLight;
+        float3 Li;
+        float  dist;
+
+        if (isSun)
         {
-            float3 L = lightSample.dir;
-            
-            float NdotL = saturate(dot(Ng, lightSample.dir));
-            
-            if (NdotL > 0.0f)
+            toLight = normalize(-gSunDir.xyz);
+            Li      = gSunColor;
+            dist    = 1e6f;
+        }
+        else
+        {
+            toLight = res.PointOnLight - pW;
+            dist    = max(length(toLight), 1e-4f);
+            toLight /= dist;
+            Li      = gAreaLights[res.LightIndex].Radiance;
+        }
+
+        float NdotL = saturate(dot(Ng, toLight));
+        if (NdotL > 0.0f)
+        {
+            bool occluded = IsOccluded(pW + Ng * 0.01f, toLight, dist - 1e-4f);
+            if (!occluded)
             {
-                float3 f = EvaluateDisneyBRDF(mat, Ng, V, L);
-                float pdfBSDF = PdfDisneyBRDF(mat, Ng, V, L);
-                pdfBSDF = max(pdfBSDF, 0.0f);
-                
- 
-                // Multiple importance sampling weight (power heuristic)
-                float pdfLight = lightSample.pdf;
-                float pdfL2 = pdfLight * pdfLight;
-                float pdfBSDF2 = pdfBSDF * pdfBSDF;
-                
-                float wLight = pdfL2 / max(pdfL2 + pdfBSDF2, 1e-8f);
-                
-                LdContrib = wLight * f * lightSample.Li * NdotL / max(pdfLight, 1e-4f);
-                
+                float3 f = EvaluateDisneyBRDF(mat, N, V, toLight);
+                // res.W = (1/p_hat) * W_sum/M  — the RIS unbiased weight
+                LdContrib = f * Li * NdotL * res.W;
+            }
+        }
+    }
+    else
+    {
+        // --- Fallback: standard random area-light NEE with MIS ---
+        LightSample lightSample = SampleAreaLight(lightIndex, pW, N, payload.seed);
+
+        if (lightSample.pdf > 0.0f)
+        {
+            bool occluded = IsOccluded(pW + Ng * 0.01f, lightSample.dir, lightSample.dist - 1e-4f);
+            if (!occluded)
+            {
+                float3 L    = lightSample.dir;
+                float  NdotL = saturate(dot(Ng, L));
+                if (NdotL > 0.0f)
+                {
+                    float3 f       = EvaluateDisneyBRDF(mat, Ng, V, L);
+                    float  pdfBSDF = max(PdfDisneyBRDF(mat, Ng, V, L), 0.0f);
+                    float  pdfL2   = lightSample.pdf * lightSample.pdf;
+                    float  pdfB2   = pdfBSDF * pdfBSDF;
+                    float  wLight  = pdfL2 / max(pdfL2 + pdfB2, 1e-8f);
+                    LdContrib      = wLight * f * lightSample.Li * NdotL
+                                   / max(lightSample.pdf, 1e-4f);
+                }
             }
         }
     }

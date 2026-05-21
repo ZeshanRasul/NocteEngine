@@ -28,8 +28,8 @@ RWTexture2D<float4> gOutput : register(u0);
 RWTexture2D<float4> gAccumBuf : register(u1);
 RWTexture2D<float4> gNormal : register(u2);
 RWTexture2D<float> gDepth : register(u3);
-RWTexture2D<float4> gPresent : register(u4);
-//RWStructuredBuffer<RLTransitionGPU> gRLTransitions : register(u5);
+RWTexture2D<float4> gPresent  : register(u4);
+RWTexture2D<float4> gWorldPos : register(u5); // xyz = first-hit world pos, w = 1 if surface
 
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0);
@@ -242,12 +242,14 @@ void RayGen()
         // If the ray missed or we decided to stop, accumulate emission and break
             finalRadiance += payload.throughput * payload.emission;
         
-          // Store first-hit normal/depth once
+          // Store first-hit normal/depth/world-pos once (sample 0 only)
             if (s == 0 && !primarySet)
             {
-                primaryNormal = payload.normal; // in [-1,1]
-                primaryDepth = length(payload.hitPos - gEyePosW); // world units
-                primarySet = true;
+                primaryNormal = payload.normal;
+                primaryDepth  = length(payload.hitPos - gEyePosW);
+                primarySet    = true;
+                gWorldPos[launchIndex] = float4(payload.hitPos,
+                                               float(payload.hitSomething));
             }
             
             float3 nextThroughput = payload.throughput;
@@ -349,6 +351,10 @@ void RayGen()
 
     float3 nEncoded = primarySet ? (primaryNormal * 0.5f + 0.5f) : float3(0.5f, 0.5f, 1.0f);
     gNormal[launchIndex] = float4(nEncoded, float(isemissive));
+
+    // Sky pixels: ensure gWorldPos marks w=0 so the IS pass skips them.
+    if (!primarySet)
+        gWorldPos[launchIndex] = float4(0.0f, 0.0f, 0.0f, 0.0f);
 
     gDepth[launchIndex] = primaryDepth;
 

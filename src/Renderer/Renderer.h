@@ -522,6 +522,23 @@ private:
 		std::vector<float> m_QTableData; // [state][action]
 
 
+		// ---- ReSTIR DI ----
+		void CreateWorldPosTex();
+		void CreateReservoirBuffer();
+		void CreateReSTIRConstantBuffer();
+		void UpdateReSTIRConstantBuffer();
+		void CreateReSTIRRootSignature();
+		void CreateReSTIRPSO();
+		void DoReSTIRInitialSamplingPass();
+
+		Microsoft::WRL::ComPtr<ID3D12Resource>       m_WorldPosTex;
+		Microsoft::WRL::ComPtr<ID3D12Resource>       m_ReservoirBuffer;
+		Microsoft::WRL::ComPtr<ID3D12Resource>       m_ReSTIRCB;
+		Microsoft::WRL::ComPtr<ID3D12RootSignature>  m_ReSTIRRootSignature;
+		Microsoft::WRL::ComPtr<ID3D12PipelineState>  m_ReSTIR_ISPSO;
+		Microsoft::WRL::ComPtr<ID3DBlob>             m_ReSTIRISByteCode;
+		bool m_ReservoirInSRVState = false; // tracks current resource state
+
 		Microsoft::WRL::ComPtr<ID3D12Resource> m_GroundTruthTex;
 		Microsoft::WRL::ComPtr<ID3D12Resource> upload;
 		bool LoadTextureFromFileToSRV(
@@ -559,6 +576,17 @@ private:
 		SceneSetUp m_SceneID = SceneSetUp::BISTRO;
 		std::string m_RunTimestamp;
 };
+
+struct Reservoir
+{
+	int            LightIndex;
+	DirectX::XMFLOAT3 PointOnLight;
+	int            M;
+	float          W_sum;
+	float          W;
+	float          pad;
+};
+static_assert(sizeof(Reservoir) == 32, "Reservoir size mismatch");
 
 struct PerInstanceData
 {
@@ -611,7 +639,11 @@ enum
 	UAV_AlbedoTex        = 27,
 	SRV_AlbedoTex        = 28,
 	SRV_GroundTruth      = 29,
-	HEAP_SLOT_COUNT      = 30,  // fixed slots before per-scene textures
+	UAV_WorldPos         = 30,  // ReSTIR: first-hit world position (written by RayGen)
+	SRV_WorldPos         = 31,  // (unused currently – IS pass reads via UAV)
+	UAV_Reservoir        = 32,  // ReSTIR: written by IS compute
+	SRV_Reservoir        = 33,  // ReSTIR: read by Hit shader
+	HEAP_SLOT_COUNT      = 34,  // fixed slots before per-scene textures
 };
 
 // CPU-only UAV heap layout (m_SrvUavCPUHeap). Order must match CreateShaderResourceCPUHeap().

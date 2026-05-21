@@ -262,7 +262,11 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRLTransitionBuffer(m_ClientWidth, m_ClientHeight);
 	CreateRLTransitionReadbackBuffer();*/
 	CreateDenoisingResources();
-
+	CreateWorldPosTex();
+	CreateReservoirBuffer();
+	CreateReSTIRConstantBuffer();
+	CreateReSTIRRootSignature();
+	CreateReSTIRPSO();
 
 
 	CreateAccelerationStructures();
@@ -946,6 +950,10 @@ bool Renderer::Draw(bool useRaster)
 
 	// --- Raytracing pass ---
 	DoRaytracingPass(desc);
+
+	// --- ReSTIR Initial Sampling (reads G-Buffer written above, writes reservoirs for next frame) ---
+	UpdateReSTIRConstantBuffer();
+	DoReSTIRInitialSamplingPass();
 
 	// --- Copy current frame into history buffer (always, for next frame's TA) ---
 	DoHistoryCopy();
@@ -2138,9 +2146,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
 		{ 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 6},
 		{ 4, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 9},
 		{ 1, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 26},
-//		{ 5, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 29},
-		//{ 2, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 30},
-		//{ 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 31}
+		{ 5, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, UAV_WorldPos},
 		}
 	);
 	rsc.AddHeapRangesParameter(
@@ -2165,12 +2171,12 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 4);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 5);
 	rsc.AddHeapRangesParameter(
-		{ { 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2},
-		{ 4, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 15},
-		{ 5, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 27},
-		{ 0, 1, 0 , D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 28},
-		{ 6, (UINT)m_Textures.size(), 0 , D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 30},
-
+		{ { 3, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, SRV_Materials },
+		{ 4, 1, 0,  D3D12_DESCRIPTOR_RANGE_TYPE_SRV, SRV_TriMatIndex },
+		{ 5, 1, 0,  D3D12_DESCRIPTOR_RANGE_TYPE_SRV, SRV_AlbedoTex },   // albedo history SRV
+		{ 0, 1, 0,  D3D12_DESCRIPTOR_RANGE_TYPE_UAV, UAV_AlbedoTex },   // albedo write UAV
+		{ 7, 1, 1,  D3D12_DESCRIPTOR_RANGE_TYPE_SRV, SRV_Reservoir },   // reservoir (space 1)
+		{ 6, (UINT)m_Textures.size(), 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, HEAP_SLOT_COUNT },
 		});
 	rsc.AddHeapRangesParameter(
 		{
@@ -2587,7 +2593,49 @@ void Renderer::CreateShaderResourceHeap()
 	srvDesc.Texture2D.MipLevels = 1;
 
 	m_Device->CreateShaderResourceView(m_GroundTruthTex.Get(), &srvDesc, srvHandle);
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
+	// Slot 30: UAV_WorldPos
+	uavDesc = {};
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+	uavDesc.Format        = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	m_WorldPosTex->SetName(L"WorldPos UAV");
+	m_Device->CreateUnorderedAccessView(m_WorldPosTex.Get(), nullptr, &uavDesc, srvHandle);
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	// Slot 31: SRV_WorldPos (reserved; IS pass reads via UAV binding)
+	srvDesc = {};
+	srvDesc.ViewDimension                 = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Shader4ComponentMapping       = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format                        = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	srvDesc.Texture2D.MipLevels           = 1;
+	srvDesc.Texture2D.MostDetailedMip     = 0;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+	m_Device->CreateShaderResourceView(m_WorldPosTex.Get(), &srvDesc, srvHandle);
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	// Slot 32: UAV_Reservoir (written by IS compute)
+	uavDesc = {};
+	uavDesc.Format                      = DXGI_FORMAT_UNKNOWN;
+	uavDesc.ViewDimension               = D3D12_UAV_DIMENSION_BUFFER;
+	uavDesc.Buffer.FirstElement         = 0;
+	uavDesc.Buffer.NumElements          = m_ClientWidth * m_ClientHeight;
+	uavDesc.Buffer.StructureByteStride  = sizeof(Reservoir);
+	m_ReservoirBuffer->SetName(L"Reservoir UAV");
+	m_Device->CreateUnorderedAccessView(m_ReservoirBuffer.Get(), nullptr, &uavDesc, srvHandle);
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	// Slot 33: SRV_Reservoir (read by Hit.hlsl as StructuredBuffer)
+	srvDesc = {};
+	srvDesc.Format                        = DXGI_FORMAT_UNKNOWN;
+	srvDesc.ViewDimension                 = D3D12_SRV_DIMENSION_BUFFER;
+	srvDesc.Shader4ComponentMapping       = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Buffer.FirstElement           = 0;
+	srvDesc.Buffer.NumElements            = m_ClientWidth * m_ClientHeight;
+	srvDesc.Buffer.StructureByteStride    = sizeof(Reservoir);
+	srvDesc.Buffer.Flags                  = D3D12_BUFFER_SRV_FLAG_NONE;
+	m_ReservoirBuffer->SetName(L"Reservoir SRV");
+	m_Device->CreateShaderResourceView(m_ReservoirBuffer.Get(), &srvDesc, srvHandle);
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> tex2DList;
@@ -2934,6 +2982,175 @@ void Renderer::CreatePresentUAV()
 		&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE,
 		&resDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 		nullptr, IID_PPV_ARGS(&m_PresentUAV)));
+}
+
+// ============================================================
+//  ReSTIR DI
+// ============================================================
+
+void Renderer::CreateWorldPosTex()
+{
+	D3D12_RESOURCE_DESC desc = {};
+	desc.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	desc.Width            = m_ClientWidth;
+	desc.Height           = m_ClientHeight;
+	desc.DepthOrArraySize = 1;
+	desc.MipLevels        = 1;
+	desc.Format           = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	desc.SampleDesc       = { 1, 0 };
+	desc.Flags            = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+	desc.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+
+	ThrowIfFailed(m_Device->CreateCommittedResource(
+		&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE,
+		&desc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		nullptr, IID_PPV_ARGS(&m_WorldPosTex)));
+	m_WorldPosTex->SetName(L"WorldPos G-Buffer");
+}
+
+void Renderer::CreateReservoirBuffer()
+{
+	UINT64 byteSize = static_cast<UINT64>(sizeof(Reservoir))
+	                * m_ClientWidth * m_ClientHeight;
+
+	CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(
+		byteSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+
+	CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_DEFAULT);
+
+	ThrowIfFailed(m_Device->CreateCommittedResource(
+		&heapProps, D3D12_HEAP_FLAG_NONE,
+		&bufDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		nullptr, IID_PPV_ARGS(&m_ReservoirBuffer)));
+	m_ReservoirBuffer->SetName(L"ReSTIR Reservoir Buffer");
+}
+
+struct alignas(256) ReSTIR_CB_Data
+{
+	UINT  Width;
+	UINT  Height;
+	UINT  FrameIndex;
+	UINT  pad0;
+	DirectX::XMFLOAT3 SunDir;
+	float pad1;
+	DirectX::XMFLOAT3 SunColor;
+	float pad2;
+	UINT  Padding[46]; // pad to 256 bytes
+};
+
+void Renderer::CreateReSTIRConstantBuffer()
+{
+	CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
+	CD3DX12_RESOURCE_DESC   bufDesc = CD3DX12_RESOURCE_DESC::Buffer(sizeof(ReSTIR_CB_Data));
+	ThrowIfFailed(m_Device->CreateCommittedResource(
+		&heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&m_ReSTIRCB)));
+	m_ReSTIRCB->SetName(L"ReSTIR CB");
+}
+
+void Renderer::UpdateReSTIRConstantBuffer()
+{
+	ReSTIR_CB_Data data = {};
+	data.Width       = m_ClientWidth;
+	data.Height      = m_ClientHeight;
+	data.FrameIndex  = static_cast<UINT>(m_FrameIndex);
+	data.SunDir      = DirectX::XMFLOAT3(m_SunDirection.x, m_SunDirection.y, m_SunDirection.z);
+	data.SunColor    = m_SunColor;
+
+	void* mapped = nullptr;
+	m_ReSTIRCB->Map(0, nullptr, &mapped);
+	memcpy(mapped, &data, sizeof(data));
+	m_ReSTIRCB->Unmap(0, nullptr);
+}
+
+void Renderer::CreateReSTIRRootSignature()
+{
+	// Param 0: UAV table – u0 (WorldPos)
+	// Param 1: UAV table – u1 (Normal)
+	// Param 2: UAV table – u2 (Reservoirs)
+	// Param 3: CBV b0 (ReSTIR params)
+	// Param 4: CBV b1 (AreaLights)
+	CD3DX12_DESCRIPTOR_RANGE r0, r1, r2;
+	r0.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
+	r1.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 1);
+	r2.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 2);
+
+	CD3DX12_ROOT_PARAMETER params[5];
+	params[0].InitAsDescriptorTable(1, &r0);
+	params[1].InitAsDescriptorTable(1, &r1);
+	params[2].InitAsDescriptorTable(1, &r2);
+	params[3].InitAsConstantBufferView(0);
+	params[4].InitAsConstantBufferView(1);
+
+	CD3DX12_ROOT_SIGNATURE_DESC desc(5, params, 0, nullptr,
+		D3D12_ROOT_SIGNATURE_FLAG_NONE);
+
+	Microsoft::WRL::ComPtr<ID3DBlob> serialized, error;
+	HRESULT hr = D3D12SerializeRootSignature(&desc, D3D_ROOT_SIGNATURE_VERSION_1,
+		&serialized, &error);
+	if (error) OutputDebugStringA(static_cast<char*>(error->GetBufferPointer()));
+	ThrowIfFailed(hr);
+	ThrowIfFailed(m_Device->CreateRootSignature(0,
+		serialized->GetBufferPointer(), serialized->GetBufferSize(),
+		IID_PPV_ARGS(&m_ReSTIRRootSignature)));
+}
+
+void Renderer::CreateReSTIRPSO()
+{
+	m_ReSTIRISByteCode = d3dUtil::CompileShader(
+		L"Shaders/ReSTIR_IS.hlsl", nullptr, "ReSTIR_IS", "cs_5_0");
+
+	D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
+	psoDesc.pRootSignature = m_ReSTIRRootSignature.Get();
+	psoDesc.CS = {
+		reinterpret_cast<BYTE*>(m_ReSTIRISByteCode->GetBufferPointer()),
+		m_ReSTIRISByteCode->GetBufferSize()
+	};
+	ThrowIfFailed(m_Device->CreateComputePipelineState(&psoDesc,
+		IID_PPV_ARGS(&m_ReSTIR_ISPSO)));
+}
+
+void Renderer::DoReSTIRInitialSamplingPass()
+{
+	const auto heapStart = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
+	auto handle = [&](UINT idx) {
+		return CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, idx, m_CbvSrvUavDescriptorSize);
+	};
+
+	// If the reservoir was in SRV state (read by last frame's RT pass),
+	// transition it back to UAV for the IS compute to write.
+	if (m_ReservoirInSRVState)
+	{
+		m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			m_ReservoirBuffer.Get(),
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+		m_ReservoirInSRVState = false;
+	}
+
+	ID3D12DescriptorHeap* heaps[] = { m_SrvUavHeap.Get(), m_SamplerHeap.Get() };
+	m_CommandList->SetDescriptorHeaps(_countof(heaps), heaps);
+	m_CommandList->SetComputeRootSignature(m_ReSTIRRootSignature.Get());
+	m_CommandList->SetPipelineState(m_ReSTIR_ISPSO.Get());
+
+	m_CommandList->SetComputeRootDescriptorTable(0, handle(UAV_WorldPos));
+	m_CommandList->SetComputeRootDescriptorTable(1, handle(UAV_Normal));
+	m_CommandList->SetComputeRootDescriptorTable(2, handle(UAV_Reservoir));
+	m_CommandList->SetComputeRootConstantBufferView(3, m_ReSTIRCB->GetGPUVirtualAddress());
+	m_CommandList->SetComputeRootConstantBufferView(4, m_AreaLightConstantBuffer->GetGPUVirtualAddress());
+
+	UINT groupsX = (m_ClientWidth  + 7) / 8;
+	UINT groupsY = (m_ClientHeight + 7) / 8;
+	m_CommandList->Dispatch(groupsX, groupsY, 1);
+
+	// UAV barrier then transition to SRV state for next frame's Hit shader.
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(
+		m_ReservoirBuffer.Get()));
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		m_ReservoirBuffer.Get(),
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+	m_ReservoirInSRVState = true;
 }
 
 void Renderer::CreateMediumConstantBuffer()
