@@ -10,6 +10,8 @@ While I have previous experience with rasterization-based engines made in Direct
 Most recent results following implementation of MIS, NEE, denoising and temporal accumulation:
 
 ![Nocte Engine DXR Path Tracing](./docs/images/Baseline4096SPP.png)
+<br>
+![Nocte Engine DXR Path Tracing](./docs/images/Baseline4096SPPSecondAngle.png)
 
 Figure 1: Amazon Lumberyard Bistro scene
 <br>
@@ -23,30 +25,6 @@ Figure 2: Comparison of Cornell Box scene at 1, 16, 64 and 4096 samples per pixe
 
 <br>
 <br>
-
-## Early Results
-The images below showcase various visual results achieved with Nocte Engine throughout development. Each scene highlights different aspects of the engine's capabilities.
-
-[![Nocte Engine DXR Path Tracing](./docs/images/SponzaDemoWithUI.png)](./docs/images/SponzaDemoWithUI.png)
-Figure 3: Real-time DXR path tracing with multiple importance sampling, next event estimation and spatial denoising enabled, showcasing a refractive sphere, refractive skull and matte skull in the Crytek Sponza scene.
-
-<br>
-<br>
-
-[![Nocte Engine DXR Path Tracing](./docs/images/CornellBoxStanfordBunny.png)](./docs/images/CornellBoxStanfordBunny.png)
-Figure 4: Cornell Box scene with Stanford Bunny model demonstrating global illumination with diffuse interreflections, soft shadows and area light sampling.
-
-<br>
-<br>
-
-[![Nocte Engine DXR Path Tracing](./docs/images/CornellBoxReflections.png)](./docs/images/CornellBoxReflections.png)
-
-Figure 5: Cornell-style scene demonstrating multi-bounce reflection paths of a rough reflective back wall. This scene highlights the recursive ray traversal, BSDF sampling for specular lobes and a physically accurate example of reflected paths with indirect illumination.
-
-<br>
-<br>
-
-[![Watch the video](https://img.youtube.com/vi/AWzmRLeegWA/hqdefault.jpg)](https://youtu.be/AWzmRLeegWA)
 
 Figure 4: Clickable image link to YouTube demo video showcasing a flythrough of the Crytek Sponza scene rendered with Nocte Engine, highlighting global illumination, refractions, and soft shadows.
 
