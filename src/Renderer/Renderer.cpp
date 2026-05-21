@@ -2118,6 +2118,8 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateMissSignature()
 {
 	nv_helpers_dx12::RootSignatureGenerator rsc;
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 0); // cbPass  (b0) — sun dir/colour
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 3); // PostProcess (b3) — turbidity/intensity
 	return rsc.Generate(m_Device.Get(), true);
 }
 
@@ -2988,7 +2990,9 @@ void Renderer::CreateShaderBindingTable()
 				heapPointer,
 		});
 
-	m_SbtHelper.AddMissProgram(L"Miss", {});
+	void* passCBAddr      = (void*)m_CurrentFrameResource->PassCB->Resource()->GetGPUVirtualAddress();
+	void* postProcessAddr = (void*)m_PostProcessConstantBuffer[0]->GetGPUVirtualAddress();
+	m_SbtHelper.AddMissProgram(L"Miss",       { passCBAddr, postProcessAddr });
 	m_SbtHelper.AddMissProgram(L"ShadowMiss", {});
 
 	for (UINT i = 0; i < m_Instances.size(); i++)
@@ -3561,43 +3565,48 @@ void Renderer::CreatePostProcessConstantBuffer()
 	m_PostProcessData[0].DebugMode = m_DebugMode;
 	m_PostProcessData[0].IsLastPass = 0;
 	m_PostProcessData[0].AccumulatedSPP = 1;
-	m_PostProcessData[0].pad = { 0.0f, 0.0f, 0.0f };
+	m_PostProcessData[0].SkyTurbidity = m_SkyTurbidity;
+	m_PostProcessData[0].SkyIntensity = m_SkyIntensity;
 
 	m_PostProcessData[1].Exposure = m_Exposure;
 	m_PostProcessData[1].ToneMapMode = m_ToneMapMode;
 	m_PostProcessData[1].DebugMode = m_DebugMode;
 	m_PostProcessData[1].IsLastPass = 0;
 	m_PostProcessData[1].AccumulatedSPP = 1;
-	m_PostProcessData[1].pad = { 0.0f, 0.0f, 0.0f };
+	m_PostProcessData[1].SkyTurbidity = m_SkyTurbidity;
+	m_PostProcessData[1].SkyIntensity = m_SkyIntensity;
 
 	m_PostProcessData[2].Exposure = m_Exposure;
 	m_PostProcessData[2].ToneMapMode = m_ToneMapMode;
 	m_PostProcessData[2].DebugMode = m_DebugMode;
 	m_PostProcessData[2].IsLastPass = 0;
 	m_PostProcessData[2].AccumulatedSPP = 1;
-	m_PostProcessData[2].pad = { 0.0f, 0.0f, 0.0f };
+	m_PostProcessData[2].SkyTurbidity = m_SkyTurbidity;
+	m_PostProcessData[2].SkyIntensity = m_SkyIntensity;
 
 	m_PostProcessData[3].Exposure = m_Exposure;
 	m_PostProcessData[3].ToneMapMode = m_ToneMapMode;
 	m_PostProcessData[3].DebugMode = m_DebugMode;
 	m_PostProcessData[3].IsLastPass = 0;
 	m_PostProcessData[3].AccumulatedSPP = 1;
-	m_PostProcessData[3].pad = { 0.0f, 0.0f, 0.0f };
+	m_PostProcessData[3].SkyTurbidity = m_SkyTurbidity;
+	m_PostProcessData[3].SkyIntensity = m_SkyIntensity;
 
 	m_PostProcessData[4].Exposure = m_Exposure;
 	m_PostProcessData[4].ToneMapMode = m_ToneMapMode;
 	m_PostProcessData[4].DebugMode = m_DebugMode;
 	m_PostProcessData[4].IsLastPass = 0;
 	m_PostProcessData[4].AccumulatedSPP = 1;
-	m_PostProcessData[4].pad = { 0.0f, 0.0f, 0.0f };
-
+	m_PostProcessData[4].SkyTurbidity = m_SkyTurbidity;
+	m_PostProcessData[4].SkyIntensity = m_SkyIntensity;
 
 	m_PostProcessData[5].Exposure = m_Exposure;
 	m_PostProcessData[5].ToneMapMode = m_ToneMapMode;
 	m_PostProcessData[5].DebugMode = m_DebugMode;
 	m_PostProcessData[5].IsLastPass = 0;
 	m_PostProcessData[5].AccumulatedSPP = 1;
-	m_PostProcessData[5].pad = { 0.0f, 0.0f, 0.0f };
+	m_PostProcessData[5].SkyTurbidity = m_SkyTurbidity;
+	m_PostProcessData[5].SkyIntensity = m_SkyIntensity;
 
 
 	m_PostProcessData[6].Exposure = m_Exposure;
@@ -3605,7 +3614,8 @@ void Renderer::CreatePostProcessConstantBuffer()
 	m_PostProcessData[6].DebugMode = m_DebugMode;
 	m_PostProcessData[6].IsLastPass = 0;
 	m_PostProcessData[6].AccumulatedSPP = 1;
-	m_PostProcessData[6].pad = { 0.0f, 0.0f, 0.0f };
+	m_PostProcessData[6].SkyTurbidity = m_SkyTurbidity;
+	m_PostProcessData[6].SkyIntensity = m_SkyIntensity;
 
 	for (int pass = 0; pass < MAX_PASSES; pass++)
 	{
@@ -3626,10 +3636,12 @@ void Renderer::CreatePostProcessConstantBuffer()
 
 void Renderer::UpdatePostProcessConstantBuffer(int pass, int num_passes)
 {
-	m_PostProcessData[pass].Exposure = m_Exposure;
-	m_PostProcessData[pass].ToneMapMode = m_ToneMapMode;
-	m_PostProcessData[pass].DebugMode = m_DebugMode;
-	m_PostProcessData[pass].IsLastPass = (pass == num_passes - 1) ? 1 : 0;
+	m_PostProcessData[pass].Exposure      = m_Exposure;
+	m_PostProcessData[pass].ToneMapMode   = m_ToneMapMode;
+	m_PostProcessData[pass].DebugMode     = m_DebugMode;
+	m_PostProcessData[pass].IsLastPass    = (pass == num_passes - 1) ? 1 : 0;
+	m_PostProcessData[pass].SkyTurbidity  = m_SkyTurbidity;
+	m_PostProcessData[pass].SkyIntensity  = m_SkyIntensity;
 
 
 	uint8_t* pData;
@@ -4254,6 +4266,18 @@ void Renderer::RenderImGuiDebugWindow()
 		m_FrameIndex = 0;
 	}
 	if (ImGui::ColorEdit3("Sun Color", &m_SunColor.x))
+	{
+		m_ClearAccumulation = true;
+		m_FrameIndex = 0;
+	}
+
+	ImGui::SeparatorText("Sky");
+	if (ImGui::SliderFloat("Turbidity", &m_SkyTurbidity, 1.0f, 10.0f))
+	{
+		m_ClearAccumulation = true;
+		m_FrameIndex = 0;
+	}
+	if (ImGui::SliderFloat("Sky Intensity", &m_SkyIntensity, 0.0f, 5.0f))
 	{
 		m_ClearAccumulation = true;
 		m_FrameIndex = 0;

@@ -118,12 +118,14 @@ public:
 
 struct PostProcessData
 {
-	float Exposure = 1.0f;
-	int ToneMapMode = 2;
-	int DebugMode = 0;
-	int IsLastPass = 0;
+	float Exposure    = 1.0f;
+	int ToneMapMode   = 2;
+	int DebugMode     = 0;
+	int IsLastPass    = 0;
 	int AccumulatedSPP = 1;
-	DirectX::XMFLOAT3 pad = {0, 0, 0};
+	float SkyTurbidity = 2.5f;
+	float SkyIntensity = 1.0f;
+	float _pad        = 0.0f;
 };
 
 struct MaterialDataGPU

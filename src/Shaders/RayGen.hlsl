@@ -297,8 +297,11 @@ void RayGen()
             
 
         }
+        float lum = dot(finalRadiance, float3(0.2126f, 0.7152f, 0.0722f));
+        if (lum > 10.0f)
+            finalRadiance *= 10.0f / lum;
+
         sppSum += finalRadiance;
-     //   finalColor = payload.emission;
         
         if (payload.isEmissive == 1)
         {

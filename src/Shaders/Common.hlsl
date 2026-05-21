@@ -9,6 +9,10 @@ cbuffer PostProcess : register(b3)
     int ToneMapMode;
     int DebugMode;
     int IsLastPass;
+    int AccumulatedSPP;
+    float SkyTurbidity;
+    float SkyIntensity;
+    float _pad;
 }
 
 struct Material
