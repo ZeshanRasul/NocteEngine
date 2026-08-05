@@ -99,12 +99,45 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     dxcompiler
 )
 
-# --- Post-build step: copy shaders to output directory ---
+# --- Post-build: copy runtime assets next to the executable ---
+# $<TARGET_FILE_DIR:...> already resolves to bin/<Config>, so no prefix needed.
 add_custom_command(
     TARGET ${PROJECT_NAME} POST_BUILD
+
+    # HLSL shaders (compiled + source files consumed at runtime)
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_SOURCE_DIR}/src/Shaders"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/bin/Debug/Shaders"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/Shaders"
+
+    # 3-D models
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/src/Models"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/Models"
+
+    # Material definitions
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/src/materials"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/materials"
+
+    # Texture packs (Bistro scene)
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/BuildingTextures"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/BuildingTextures"
+
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/OtherTextures"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/OtherTextures"
+
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/PropTextures"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/PropTextures"
+
+    # Runtime DLL (assimp)
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/include/lib/assimp-vc145-mtd.dll"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/assimp-vc145-mtd.dll"
+
+    COMMENT "Copying runtime assets to $<TARGET_FILE_DIR:${PROJECT_NAME}>"
 )
 
 # Optional: treat warnings as errors in CI builds
