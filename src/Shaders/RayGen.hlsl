@@ -102,7 +102,9 @@ float HashToUnitFloat(uint x)
 }
 
 
-[numthreads(8, 8, 1)]
+// Ray-generation shaders take their dispatch dimensions from DispatchRays(),
+// not from a thread-group declaration. Declaring [numthreads] here makes newer
+// DXC classify this entry as compute and reject TraceRay/DispatchRaysIndex.
 [shader("raygeneration")]
 void RayGen()
 {

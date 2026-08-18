@@ -42,6 +42,11 @@
 ###############################################################################
 # Compiler / Linker intermediates
 ###############################################################################
+# NOTE: this rule is for MSVC object files, but it also matches Wavefront .obj
+# 3-D models. Scene meshes (Models/exterior.obj, src/Models/Bistro.obj) are
+# therefore NOT in the repository and must be downloaded separately - see the
+# asset instructions in README.md. Do not "fix" this by committing the meshes;
+# they are ~620 MB and are freely redistributable from the original sources.
 *.obj
 *.idb
 *.pdb
@@ -69,8 +74,10 @@
 ###############################################################################
 # DirectX / HLSL related
 ###############################################################################
-*.cso          # compiled shader object
-*.hlsl.h       # auto-generated shader headers
+# compiled shader objects
+*.cso
+# auto-generated shader headers
+*.hlsl.h
 *.fxc.log
 *.hlsli.tmp
 *.shadercache

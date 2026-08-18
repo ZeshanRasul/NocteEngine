@@ -68,7 +68,10 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY           "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"
     RUNTIME_OUTPUT_DIRECTORY_DEBUG     "${CMAKE_BINARY_DIR}/bin/Debug"
     RUNTIME_OUTPUT_DIRECTORY_RELEASE   "${CMAKE_BINARY_DIR}/bin/Release"
-    VS_DEBUGGER_WORKING_DIRECTORY      "${CMAKE_SOURCE_DIR}"
+    # Assets (Shaders/, Models/, textures) are copied next to the executable by the
+    # post-build step below, and are loaded relative to the working directory.
+    # Pointing the debugger at the source root makes F5 fail to find Shaders/.
+    VS_DEBUGGER_WORKING_DIRECTORY      "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
 )
 
 # Preprocessor defines
