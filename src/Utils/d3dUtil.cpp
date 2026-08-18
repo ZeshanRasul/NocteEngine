@@ -4,6 +4,7 @@
 #include <fstream>
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tinyobj/tiny_obj_loader.h"
@@ -207,8 +208,18 @@ void d3dUtil::LoadObjModel(const std::string& filepath, Model& model)
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
 	std::string err;
+	const std::filesystem::path objPath(filepath);
+	std::string materialBaseDir = objPath.parent_path().string();
+	if (!materialBaseDir.empty())
+		materialBaseDir += std::filesystem::path::preferred_separator;
 
-	if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, filepath.c_str(), "materials\\"))
+	if (!tinyobj::LoadObj(
+		&attrib,
+		&shapes,
+		&materials,
+		&err,
+		filepath.c_str(),
+		materialBaseDir.empty() ? nullptr : materialBaseDir.c_str()))
 	{
 		throw std::runtime_error(err);
 	}

@@ -1,233 +1,262 @@
-# Nocte Engine - DXR Path Tracer
+# Nocte Engine
 
+A real-time DXR path tracer in D3D12 with RIS-based direct light sampling, a multi-pass
+compute denoiser, and in-engine per-pass GPU timing.
 
-Nocte Engine is a real-time path tracing rendering engine built using DirectX Raytracing (DXR). The project was born out of my passion for pushing the boundaries of real-time physically accurate rendering techniques and to build a strong understanding of the real-world considerations involved in creating beautiful and realistic worlds in 3D interactive media. 
+**C++20 · DirectX 12 · DXR · HLSL · Windows 10/11 · Solo project**
 
-While I have previous experience with rasterization-based engines made in DirectX 12 and OpenGL, my love of low-level programming along with a deep fascination of the science and mathematics behind ray tracing algorithms fueled my desire to create a real-time path tracer. The video demonstration of the engine can be found here: https://youtu.be/k0EgTHNGC0c
+![Nocte Engine — Amazon Lumberyard Bistro](docs/images/ReSTIR_DI_GT4096SPP.png)
 
-## Visual Results
+*Amazon Lumberyard Bistro, accumulated to 4096 spp. **[Video demonstration →](https://youtu.be/k0EgTHNGC0c)***
 
-Most recent results following implementation of ReSTIR_DI, MIS, NEE, denoising and temporal accumulation:
+> **Scope.** Direct lighting uses RIS — the initial-sampling stage of ReSTIR DI. Temporal
+> and spatial reservoir reuse are **not** implemented. See [Known limitations](#known-limitations).
 
+## What this demonstrates
 
+- **Explicit D3D12 resource-state and descriptor management across a five-pass frame.** A
+  single 34-slot CBV/SRV/UAV heap indexed by a compile-time enum, hand-managed UAV↔SRV
+  transitions between the ray-tracing and compute passes, and an unbounded bindless texture
+  array coexisting with fixed-slot descriptors via register spaces.
+  → [`Renderer.h`](src/Renderer/Renderer.h) (heap slot enum), [`Renderer.cpp`](src/Renderer/Renderer.cpp) (`CreateShaderResourceHeap`)
+- **A DXR pipeline assembled from raw state objects.** Ray-generation, miss, closest-hit and
+  shadow-hit programs, two ray types, per-geometry local root signatures, and a shader binding
+  table whose records carry per-instance vertex, index and material pointers.
+  → [`Renderer.cpp:2161`](src/Renderer/Renderer.cpp#L2161) (`CreateHitSignature`), `CreateShaderBindingTable`
+- **Monte Carlo integration implemented from the papers, not a framework.** Weighted reservoir
+  sampling over a candidate light pool, GGX visible-normal importance sampling, a Disney
+  diffuse/specular mixture with a consistent mixture PDF, and Russian-roulette path termination.
+  → [`ReSTIR_IS.hlsl`](src/Shaders/ReSTIR_IS.hlsl), [`BSDF.hlsl`](src/Shaders/BSDF.hlsl)
+- **GPU cost measured rather than estimated.** D3D12 timestamp queries bracket each pass, resolve
+  to a readback heap, and drive a live per-pass overlay.
+  → [`Renderer.cpp:1037`](src/Renderer/Renderer.cpp#L1037)
+- **Debug tooling designed in.** A validation-frame mode flags out-of-range material and texture
+  indices as magenta/yellow inside the closest-hit shader, so asset and binding errors show up in
+  the image instead of silently sampling garbage.
+  → [`Hit.hlsl`](src/Shaders/Hit.hlsl) (`IsDebugValidationFrame`)
 
-![Nocte Engine DXR Path Tracing](./docs/images/ReSTIR_DI_GT4096SPP.png)
-<br>
-![Nocte Engine DXR Path Tracing](./docs/images/ReSTIR_DI_2_GT4096SPP.png)
-<br>
-![Nocte Engine DXR Path Tracing](./docs/images/GT4096SPP.png)
-<br>
-![Nocte Engine DXR Path Tracing](./docs/images/Baseline4096SPP.png)
-<br>
-![Nocte Engine DXR Path Tracing](./docs/images/Baseline4096SPPSecondAngle.png)
-
-
-Figure 1: Amazon Lumberyard Bistro scene (ReSTIR_DI implementation with 4096 samples per pixel in first two images)
-<br>
-<br>
-
-![Nocte Engine DXR Path Tracing](./docs/images/comparison_row1.png)
-
-![Nocte Engine DXR Path Tracing](./docs/images/comparison_row2.png)
-
-Figure 2: Comparison of Cornell Box scene at 1, 16, 64 and 4096 samples per pixel
-
-<br>
-<br>
-
-## Overview
-
-Fundamentally, Nocte Engine was created not just as a learning experience in low-level graphics programming, but also as a project to demonstrate and showcase my understanding of cutting-edge rendering techniques and ability to build performant and complex architectural systems.
-
-Nocte Engine gave me the opportunity to implement and experiment with advanced techniques, first starting with the core Whitted style ray tracing techniques of shadows, reflections and refractions and then build upon these foundations with Multiple Importance Sampling, Next Event Estimation and BSDF evaluation. These techniques allowed me to take a rasterization based D3D12 engine, create a basic real-time raytracer and then extend this groundwork into a high-fidelity real-time path tracer.
-
-Over the course of two months, from the first D3D12 pipeline creation to the current stage of improving the denoising and visual clarity of the path tracer, I have been able to create a renderer which is highly relevant to the modern day engines in the AAA games industry.
-
-## Project Goals
-
-As discussed, Nocte was created with a number of key goals, which organically and naturally developed over time. As I have found, the more you find yourself achieving, the greater your ambitions become and nothing fuels passion more than taking incremental steps that breakdown a project from achievable (STAR-like) milestones to a advanced system of many parts.
-
-The core goals I set out to achieve on this journey were:
-
-- Build a real-time path tracer using DirectX Raytracing
-- Explore state-of-the-art rendering techniques such as Multiple Importance Sample and Next Event Estimation
-- Reinforce and deepen my understanding of low-level programming in C++, DirectX 12, and HLSL
-- Build project-based experience in understand and leveraging the CPU and GPU to their full potential 
-- Create a visually impressive piece that showcases not just my technical abilities but also my understanding of art and design principles in 3D rendering
-
-## Key Technical Features 
-
-My Nocte Engine development journey involved the implementation of a number of advanced features as well the establishment of robust architectural systems. These features include:
-
-- Robust DXR Ray Tracing Pipeline using Acceleration Structures, ray tracing shaders, well defined shader binding tables and complex multi-pass rendering for path tracing, temporal accumulation and denoising
-- Path tracing with Multiple Importance Sampling and Next Event Estimation for realistic lighting and global illumination building upon foundational Whitted style ray tracing
-- Robust denoising in a compute pass with the A-Trous ping pong algorithm that is customizable during runtime with an in engine GUI
-- Support for .obj model loading, multiple texture binding, and material use
-- Performance measurement including FPS counter, average frame time, and extensive GPU profiling with Nvidia Nsight Graphics
-- Internal geometry creation tools for sphere, cubes, and other primitives
-- Refitting of acceleration structures for dynamic scene updates
-- Post processing effects using the ACES technique
-
-## Rendering Architecture
-
-The rendering in Nocte is executed through a number of steps:
-
-- TLAS update where instance transforms are updated (used in early development in the Whitted style scene)
-- Ray dispatch stage executing the Raygen and any further DXR shaders
-- Temporal Accumulation with a dedicated pipeline using the compute shader (currently WIP)
-- Denoising A-Trous compute shader pass executed N number of times per frame where N is exposed to the engine GUI.
-- Tone mapping (currently in final denoise pass but will be moved to it's own final pass)
-- UI rendering pass using ImGui
-
-The engine leverages a number of buffers and resources each with a clear and defined role through the multi-pass rendering pipeline.
-The raytracing pass writes to an Accumulation Buffer and reads from an Accumulation History Buffer which is leveraged for the work in progress temporal accumulation work.
-This allows the final Accumulation Buffer to contain a blended value between the previous frame and current frame. The Accumulation Buffer is then copied into the Accumulation History Buffer in order to be used in the next frame.
-
-The temporal accumulation pass then reads from the Accumulation Buffer and writes to a Temporal Accumulation Radiance buffer while using mean and mean squared moment vectors.
-Finally the TA radiance is used as the input of the first of N denoising passes, with subsequent passes using a ping pong pair of buffers which alternate as input and output.
-
-## Ray Tracing Pipeline
-
-The DXR ray tracing pipeline in Nocte Engine is built around a well defined set of shaders and a shader binding table (SBT) that maps the shaders to the geometry in the scene. Although the SBT felt complex at first, I was able to break down the process into manageable steps and create a robust system that could be extended as needed.
-
-The pipeline consists of the following shaders:
-- Ray Generation Shader: This is the entry point for ray tracing. It generates rays for each pixel on the screen and initiates the path tracing process.
-- Miss Shader: This shader is invoked when a ray does not intersect any geometry in the scene. It currently returns a background gradient and will be extended to sample environment map for more realistic lighting effects.
-- Closest Hit shader: This shader is one of the most interesting parts of the pipeline. When a ray intersects with geometry in the acceleration structure this shader is executed and populates the ray payload with a breadth of information after sampling area lights, checking whether a pixel is occluded (and thus in shadow) and whether a reflection or refraction ray should be dispatched.
-
-A number of helpers are also used for path tracing to evaluate the BSDF, sample lights and perform MIS calculations.
-
-In terms of acceleration structures, the engine builds a bottom level acceleration structure (BLAS) for each mesh in the scene and top level acceleration structure (TLAS) that contains the entire scene. The TLAS creation is set up in such a way that it is possible to refit the TLAS at runtime if necessary. There is an example of this in practice in the visual demonstration section, and TLAS refitting was used in the Whitted style phase of development.
- 
-## Lighting and Global Illumination
-
-Nocte Engine implements physically based lighting models in order to achieve realistic lighting and global illumination effects. The techniques used allow ray and path tracers to achieve high-fidelity that rasterization algorithms would struggle or be unable to achieve, highlighting the importance of ray tracing to the future of 3D game, film and visualisation technologies.
-The shaders utilise both direct and indirect illumination algorithms resulting in beautifully rendered scenes with diffuse interreflections, soft shadows, reflections and refractions.
-
-Direct lighting is implemented using Next Event Estimation (NEE) where the area light sources in the scene are sampled directly from the ray-surface intersection point and shadow rays are traced in order to evaluate whether an intersection point is occluded by geometry and thus in shadow.
-
-Global illumination is achieved through path tracing with Multiple Importance Sampling (MIS). This technique allows the engine to sample both the BSDF and light sources in order to reduce variance and noise in the final render. By combining these two sampling strategies, the engine can produce high-quality images with fewer samples per pixel, making real-time path tracing feasible. As mentioned in the references section, the MIS 101 chapter of Ray Tracing Gems II was an extremely valuable resource to understanding the difference and impact of using MIS compared to solely using BSDF sampling or light sampling alone.
-
-## Materials and Shading
-
-Material evaluation in Nocte Engine is based on the now industry standard Physically Based Rendering (PBR) techniques. The engine supports a range of material properties including albedo, roughness, metallic and will be (easily) extended to include emissive properties. These properties are used in the BSDF evaluation to calculate how light interacts with surfaces in the scene.
-
-The BSDF implementation uses Lambertian reflectance for diffuse surfaces along with the Disney GGX microfacet model for specular reflections, leveraging the Schlick Fresnel approximation. Probability density functions (PDFs) are calculated for both the BSDF and light sampling strategies resulting in improved Multiple Importance Sampling.
-
-## Denoising and Temporal Accumulation
-
-As with all path tracers, Nocte experiences the same inherent noise at low SPP (samples per pixel) due to the lack of convergence of the algorithm. To counter this noise, Nocte has spatial denoising and work in progress temporal accumulation, used to improve the image quality and convergence.
-
-The temporal accumulation approach is to accumulate and blend between radiance values from multiple frames when the scene is stationary. The present approach resets this accumulation on camera movement in order to ensure stale radiance values from previous camera perspectives do not blend with new perspectives.
-
-The spatial denoising has been implemented using A-Trous wavelet filter on the compute shader using normal and depth data to preserve edges while reducing noise. It is widely configurable with a multi-pass ping pong system and parameters that are exposed through the GUI. This ensures users and developers can quickly iterate and experiment with a range of parameter combinations and thus reach an optimal denoising state for their needs.
-
-## Scene Management
-
-The scenes in Nocte consist of mesh instances, their transforms and materials as well as acceleration structure references. Meshes can either be loaded using the engines OBJ loader, leveraging the lightweight tinyobj header only library or through the engines geometry generator which leverages a system from the leading text Frank Luna's Introduction to Game Programming with DirectX 12.
-
-All instance materials are stored in a structured buffer which is accessed using a per instance material index bound to the shaders as a constant buffer. This ensures constant buffer sizers do not grow excessively as instance counts increase.
-
-The acceleration structure architecture allows for runtime updates to the TLAS known as refitting as can be demonstrated from an early development video of rotating skulls. 
-
-Furthermore, core renderer settings such as camera controls, area light parameters and the previously discussed denoising parameters are exposed to the developer through a GUI. This ensures Nocte is practical and easily modifiable by the users and demonstrates the steps taken to mirror industry standard engine workflows in debugging, feature development and the many tweaks required in a graphics engine to achieve the best possible renders.
-
-## Performance and Profiling
-
-When building an engine as computationally expensive as a real-time path tracer, it is essential to monitor performance, design architecture in a way that results optimal efficiency and tie profiling systems and considerations within the projects core. As such, performance metrics have been monitored on both the CPU and GPU side.
-
-Nocte records frame times, average frame times and frames per second counters to under which scenarios and setups have a meaningful impact on performance, both positive and negative. By exposing performance impacting parameters such as the number of denoising passes executed, the developer is able monitor and find balance in performance and quality of the final real-time rendered scene. Furthermore, by accessing these parameters through the GUI, quick iteration loops and subtle tuning and experimentation become easy for the developers and users.
-
-NVIDIA Nsight Graphics has been used extensively to inspect render times, GPU processing performance, shader execution times, and memory access patterns. This identification and understanding of GPU bottlenecks is invaluable in confirming and validating (or refuting) developer assumptions about performance trade-offs and is an essential skill for any computationally demanding scenario particularly GPU related programming.
-
-## Tools, Debugging and Validation
-
-Creating systems that are easy to debug and validate is just as important as building the engine core features and as such a strong emphasis was placed on debugging, whether it is through debug visualisations or tracking and exposing key parameters to the GUI. A core part of debugging included using Visual Studio's built in debugger to measure and review variables within the code, order of execution and follow the call stack in order to reason and rationalise any bugs that will inevitably arise in any computer program. 
-
-Furthermore, the D3D12 debug controller was enabled in all debug builds to ensure that any misuse of the DirectX API was quickly identified and solved. Such API debug tools are invaluable in any graphics project and as such it was treated as a core priority to become familiar with the several types of common (and not so common) warnings and errors and handle and solve them diligently.
-
-As mentioned earlier, Nsight Graphics was also essential in debugging GPU side computations and was deeply beneficial to monitor and confirm successful binding of buffers and resources to shaders, ensure acceleration structures were correctly built, modified and integrated into the engine and to confirm that root parameters were valid throughout the pipeline.
-
-Finally, the rendering of scenes was developed in such a way as to incrementally increase in complexity. Starting with a simply Whitted style raytracer setup with spheres, boxes, planes and in this case, the skull mesh from Luna's text it was simple to implement, test and debug the core raytracing features, from determining visibility to tracing reflection and refraction rays. MIS and NEE were implemented using simple Cornell box style scene which allowed for feature testing with a small number of meshes within an enclosed space with a single area light. Once these more straightforward scenes were found to be working correctly, more complex models were integrated such as the Chinese Dragon mesh and Crytek Sponza environment, both sourced from Morgan McGuire's 3D model repository (referenced below).
-
-## Technical Challenges and Solutions
-
-Technical challenges are present in all complex graphics projects and working on Nocte was not an exception to this rule. The majority of challenges arose from the complexity of low-level APIs such as DirectX 12 and DXR and were important learning experiences that have bolstered my toolkit of software skills and allowed me to be well prepared when working with these APIs in future, to both plan in advance for some challenges and to know how to deal with other challenges when they inevitably arise.
-
-An early difficulty was structuring the Shader Binding Table in a way that is easy to extend and modify and the interaction of descriptor heaps with the SBT. I do not feel alone in this challenge given Ray Tracing Gems II has a whole chapter dedicated to "Demystifying the Shader Binding Table". This resource and others online, including the incredibly useful Microsoft DXR documentation proved invaluable in allowing me to fully understand the SBT and structure it in such a way that reduced duplication of code. These references and a calm and determined demeanour helped me break the challenge down into smaller pieces and gradually create a more extensible system with an incremental approach.
-
-A challenge which ties into future work is that of denoising and temporal accumulation. While the A-Trous denoiser is implemented and functioning well, with a noticeable difference when it is enabled, the temporal accumulation still needs some further development time to be functioning and noticeable. Central to this challenge is the complex and sometimes initially fragile approach of transitioning multiple resources across a complex pipeline and ensuring that they are always in the correct state defined by their location in the rendering pipeline. Again this has been a strong learning experience, and I have developed a deeper understanding of resource states, the state relevance to different uses within a pipeline and how best to structure a pipeline and choose the right resources for various scenarios.
-
-## Build and Run Instructions
-
-Nocte Engine is CMake-based project and targets modern Windows systems with DirectX 12 and DirectX Raytracing support.
-
-### Prerequisites
-- Windows 10 or later
-- Visual Studio 2022 or later with C++ development workload
-- CMake 3.15 or later
-- DirectX 12 SDK
-- NVIDIA GPU with DXR support (e.g., RTX series)
-- Git for cloning the repository
-
-### Building the Project
-
-Clone and build the project as follows:
-   ```bash
-	git clone https://github.com/ZeshanRasul/NocteEngine
-	cd NocteEngine
-	mkdir build
-	cd build
-	cmake ..
-   ```
-
-This will generate the Visual Studio solution files in the build directory after which you can use Visual Studio to build the executable in either Debug or Release mode.
-   
-### Running the Engine
-
-To run the engine, simply execute the generated NocteEngine.exe file from the build directory. Ensure that the working directory is set correctly so that the engine can locate shader and asset files correctly. The engine launches into the Sponza scene shown in the video demo with an interactive camera which can be controlled with the WASD keys.
-
-## Future Work
-
-Nocte Engine is a continually evolving project, and below a number of future developments and enhancements are listed:
-	
-- Improved temporal accumulation
-	- Finalising and refining the temporal accumulation pass to effectively denoise and converge over time.
-	- Use of motion vectors and reprojection in order to improve accumulation during camera and scene movement.
-- Advanced denoising techniques
-	- Experimenting with machine learning based denoising methods for improved render quality at low spp.
-	- Utilising hybrid denoising approaches combining spatial and temporal methods.
-	- Exploring the use of third-party denoising libraries such as NVIDIA OptiX or Intel Open Image Denoise.
-- Environment mapping
-	- Implementing HDR environment maps for realistic lighting and reflections.
-	- Importance sampling of environment maps to improve lighting quality.
-- Material  system enhancements
-	- Adding support for emissive materials to allow for self-illuminating objects.
-	- Implementing subsurface scattering for more realistic skin and organic materials.
-- Engine and Tooling Enhancements:
-	- Developing an industry standard scene editor for easier scene creation and modification.
-	- Supporting additional model formats and material types beyond .obj models.
- 
-These enhancements outline exciting directions for Nocte Engine to continue to develop and evolve, ensuring it utilises cutting-edge techniques and truly demonstrates the beauty and elegance of ray and path tracing to users and end players.
-
-## Acknowledgments, References, and Resources
-
-While all development on Nocte has been carried out solely by myself, as with any modern day graphics project, we as developers stand on the shoulders of giants. Giants for whom I am extremely grateful. Below are a number of references and resources I utilised during my development. As I continue to work on Nocte, it's likely this list will grow and I will ensure to keep it updated so that those with a similar passion for learning can easily find useful resources.
-
-### Books
- - Ray Tracing Gems II - Eric Haines and Tomas Akenine-Moller (Editors)
- - Introduction to Game Programming with DirectX 12 - Frank Luna
- - Physically Based Rendering: From Theory to Implementation - Matt Pharr, Wenzel Jakob, and Greg Humphreys
- - Real-Time Rendering, Fourth Edition - Tomas Akenine-Moller, Eric Haines, Naty Hoffman
-	
-### Documentation and Online Resources
- - Microsoft DirectX 12 Documentation: https://learn.microsoft.com/en-us/windows/win32/direct3d12/directx-12-graphics
- - Microsoft DirectX Raytracing (DXR) Documentation: https://learn.microsoft.com/en-us/windows/win32/direct3d12/directx-raytracing
- - NVIDIA Developer Blog - Real-Time Ray Tracing: https://developer.nvidia.com/rtx/raytracing
- - Morgan McGuire's 3D Model Repository: https://casual-effects.com/g3d/data10/index.html
-
-### Tools and Libraries
- - DirectX 12 and DXR
- - NVIDIA Nsight Graphics
- - TinyOBJLoader
- - ImGui
+## Technical breakdown
+
+### Direct lighting — RIS over a candidate light pool
+
+A compute pass reads the G-buffer written by the ray-generation shader and, per pixel, draws 32
+candidate lights from the scene's analytic area lights plus the sun. Each candidate is accepted
+into a reservoir with probability proportional to an unshadowed target function
+`p̂ = N·L × luminance / d²`, using weighted reservoir sampling. The surviving sample carries the
+unbiased contribution weight `W = W_sum / (M · p̂)`. No shadow rays are traced during selection —
+visibility is tested once, in the closest-hit shader, against the single survivor.
+
+*Trade-off.* This buys one good light sample per pixel for one shadow ray, which matters as light
+count grows. Because there is no reuse pass, it is RIS (Talbot et al. 2005) rather than ReSTIR
+(Bitterli et al. 2020). The reservoir is consumed one frame later and is **not reprojected**, so
+under camera motion a pixel's reservoir can describe a surface that is no longer there.
+
+→ [`ReSTIR_IS.hlsl`](src/Shaders/ReSTIR_IS.hlsl) · [`ReSTIR.hlsl`](src/Shaders/ReSTIR.hlsl) · consumed in [`Hit.hlsl`](src/Shaders/Hit.hlsl) · dispatched at [`Renderer.cpp:3114`](src/Renderer/Renderer.cpp#L3114)
+
+### BSDF sampling and multiple importance sampling
+
+Disney diffuse plus a GGX specular lobe, sampled as a mixture with lobe-selection probability
+derived from `F0` and albedo. Directions come from Heitz's visible-normal distribution sampling;
+both lobes are always evaluated for the chosen direction so `f·cosθ/pdf` stays energy-correct
+regardless of which lobe was picked.
+
+*On MIS, honestly.* The area lights are analytic quads in a constant buffer with no geometric
+representation in the BVH, so a BSDF-sampled ray has zero probability of generating a sample on
+one. The complementary strategy cannot fire, which makes the correct power-heuristic weight
+exactly 1 — an earlier version applied `pdf_L²/(pdf_L² + pdf_B²)` here and simply discarded
+energy. The MIS machinery for emitter hits is implemented and correct, but is currently inert
+because no material is registered as an NEE light, so emissive Bistro geometry (bulbs, filaments)
+is reached by BSDF sampling alone. Wiring that up is the next correctness task.
+
+→ [`BSDF.hlsl`](src/Shaders/BSDF.hlsl) · [`MicrofacetBRDFUtils.hlsl`](src/Shaders/MicrofacetBRDFUtils.hlsl) · [`Hit.hlsl`](src/Shaders/Hit.hlsl)
+
+### Denoising — À-Trous with albedo demodulation
+
+An edge-avoiding À-Trous wavelet filter run as N ping-pong compute passes with a doubling step
+size (default 5). Colour is demodulated by albedo before filtering and remodulated after, so the
+filter operates on illumination and leaves texture detail intact. Edge-stopping weights use
+normal, linear depth and luminance, with the luminance sigma widened by per-pixel variance
+estimated from first and second moments.
+
+*Trade-off.* Emissive pixels bypass the filter entirely (the normal buffer's `w` channel is the
+mask), which keeps light sources crisp at the cost of leaving them noisier than their surroundings.
+
+→ [`Denoise.hlsl`](src/Shaders/Denoise.hlsl)
+
+### Temporal accumulation
+
+Two mechanisms share the name. Progressive accumulation in the ray-generation shader averages
+frames while the camera is static, and produces every converged image here. A separate
+reprojection compute pass reconstructs world position from linear depth, reprojects through the
+previous view-projection matrix, and blends history with per-pixel moments.
+
+*Status.* The reprojection pass runs, but neighbourhood variance clamping is currently disabled
+and the blend factor uses a global frame counter rather than a per-pixel history length, so it
+ghosts under motion. Treated as unfinished rather than as a feature.
+
+→ [`RayGen.hlsl`](src/Shaders/RayGen.hlsl) · [`TemporalAccumulation.hlsl`](src/Shaders/TemporalAccumulation.hlsl)
+
+### Sky and glass
+
+Preetham analytical sky (Perez luminance distribution, zenith chromaticity fits) with a
+soft-edged solar disc, evaluated in the miss shader. Refractive materials are handled as a
+specular BSDF with Fresnel-weighted Russian roulette between reflection and transmission, total
+internal reflection on exit, and Beer–Lambert absorption over the true path length through the
+medium.
+
+→ [`SkyCommon.hlsl`](src/Shaders/SkyCommon.hlsl) · [`Miss.hlsl`](src/Shaders/Miss.hlsl) · [`Hit.hlsl`](src/Shaders/Hit.hlsl) (`HandleRefractiveHit`)
+
+## Performance
+
+Per-pass GPU timings come from D3D12 timestamp queries bracketing each pass, resolved to a
+readback heap once per frame ([`Renderer.cpp:1037`](src/Renderer/Renderer.cpp#L1037)) and shown
+live in the overlay. **They are not currently logged**, so the figures below are single-run
+readings rather than averaged measurements — treat them as indicative.
+
+| Pass | Time |
+|---|---|
+| Ray tracing | `<x.xx>` ms |
+| Temporal | `<x.xx>` ms |
+| Denoise (5 passes) | `<x.xx>` ms |
+| Final / tone map | `<x.xx>` ms |
+| **Total GPU** | **`<x.xx>` ms** |
+
+`<GPU>` · driver `<version>` · 1920×1080 · Bistro exterior, 2 area lights + sun · 1 spp per frame ·
+camera static at the position in the header image.
+
+**To make these defensible:** append `m_PassTimesMs[0..3]` to a CSV each frame for 300 frames along
+a fixed camera path, discard the first 60, and report mean and 95th percentile. The timing values
+and a CSV-writing pattern already exist in `Renderer.cpp`; this is roughly 20 lines.
+
+## Architecture
+
+```
+src/
+├── Renderer/
+│   ├── Renderer.cpp    # device, DXR pipeline, all passes (~5k lines — see Limitations)
+│   ├── Renderer.h      # descriptor-heap slot enum, GPU-mirrored structs
+│   └── FrameResource.h # PassConstants, per-instance data
+├── Shaders/
+│   ├── RayGen.hlsl     # camera rays, path loop, G-buffer, progressive accumulation
+│   ├── Hit.hlsl        # closest hit: materials, NEE, reservoir shading, BSDF sampling
+│   ├── Miss.hlsl       # Preetham sky + solar disc
+│   ├── ReSTIR_IS.hlsl  # RIS candidate sampling (compute)
+│   ├── Denoise.hlsl    # À-Trous + albedo demodulation (compute)
+│   └── TemporalAccumulation.hlsl
+├── Utils/              # geometry generation, OBJ loading, timing
+└── RL/                 # separate path-guiding experiment (see Limitations)
+```
+
+One frame: **ray tracing** (DXR; writes radiance, normal, depth, world position) → **RIS initial
+sampling** (compute; reservoirs for the next frame) → **history copy** → **temporal** (optional
+compute) → **denoise** (N ping-pong compute passes) → **tone map and present**. Every pass indexes
+a single descriptor heap whose slots are fixed by an enum in `Renderer.h`, and resource
+transitions are issued explicitly at the call sites in `Draw()`.
+
+## Build and run
+
+**Requirements**
+
+- Windows 10 2004 or later; GPU with DXR support (RTX 20-series or newer, RDNA2 or newer)
+- Visual Studio 2022 or later with the "Desktop development with C++" workload
+- CMake 3.24 or later (the build uses 3.24 features)
+- Windows SDK 10.0.19041 or later — supplies `d3d12`, `dxgi`, `dxguid`, `d3dcompiler`, `dxcompiler`
+
+**Get the scene mesh.** The Bistro mesh is *not* committed — it is roughly 300 MB and freely
+available from its original source. Textures and material definitions **are** included.
+
+1. Download **Amazon Lumberyard Bistro** from
+   [NVIDIA ORCA](https://developer.nvidia.com/orca/amazon-lumberyard-bistro) or
+   [Morgan McGuire's Computer Graphics Archive](https://casual-effects.com/data/).
+2. Place the exterior mesh at `src/Models/exterior.obj`.
+
+The build copies it next to the executable automatically. Without it the engine fails on startup
+while loading `Models/exterior.obj`.
+
+**Build**
+
+```bash
+git clone https://github.com/ZeshanRasul/NocteEngine
+cd NocteEngine
+cmake -B out/build/x64-Release
+cmake --build out/build/x64-Release --config RelWithDebInfo
+```
+
+Run this from a Developer Command Prompt, or run `vcvars64.bat` first, so CMake finds the
+toolchain. Opening the folder directly in Visual Studio also works — `CMakeSettings.json` defines
+`x64-Debug` and `x64-Release` configurations.
+
+**Run.** Shaders and assets are copied next to the executable and loaded relative to the working
+directory, so launch it from its own output folder:
+
+```bash
+cd out/build/x64-Release/bin/RelWithDebInfo
+./NocteEngine.exe
+```
+
+F5 from Visual Studio also works; the debugger working directory is set to the output folder.
+
+**Controls.** `W`/`A`/`S`/`D` to move, mouse drag to look, `H` toggles the UI. Denoiser pass count
+and sigmas, area-light parameters, sun direction and colour, exposure, tone mapping and samples
+per pixel are all exposed in the ImGui panels.
+
+**A successful run** opens a window on the Bistro exterior under a Preetham sky, visibly
+converging over the first few seconds while the camera is still, with the per-pass GPU timing
+overlay in the corner.
+
+## Known limitations
+
+- **RIS, not full ReSTIR.** No temporal or spatial reservoir reuse. The reservoir is one frame
+  stale and unreprojected, so it degrades under camera motion.
+- **MIS is currently inert.** The emitter-hit MIS weighting is implemented but unreachable,
+  because no material is registered as an NEE light; emissive geometry is sampled by BSDF alone
+  and is noisier than it needs to be.
+- **Temporal reprojection ghosts under motion** — variance clamping is disabled and the blend
+  factor uses a global frame counter rather than a per-pixel history length.
+- **No runtime toggle for RIS**, so on/off comparisons require a code change to reproduce.
+- **`Renderer.cpp` is ~5,000 lines across 95 methods.** It grew from a rasterizer and each new pass
+  was added in place. The descriptor-slot enum and the extracted `Do*Pass()` functions are the
+  seams along which it should be split; that refactor is not done.
+- **Only the Bistro exterior loads.** Sponza and Cornell Box assets were removed as no matching
+  mesh shipped with them; scene selection currently affects constant-buffer sizing only.
+- **`src/RL/` is a separate experiment** in reinforcement-learning path guidance, partially wired
+  up and not part of the rendering path described above.
+
+**Next:** temporal reservoir reuse with reprojection, then spatial reuse; register emissive
+geometry as NEE lights so MIS becomes live; add a frame-time logging harness; split
+`Renderer.cpp`.
+
+## References
+
+Techniques implemented here, with the sources used:
+
+- Bitterli, B., Wyman, C., Pharr, M., Shirley, P., Lefohn, A., Jarosz, W. (2020). *Spatiotemporal
+  reservoir resampling for real-time ray tracing with dynamic direct lighting.* ACM TOG 39(4).
+  — reservoir formulation, target function, unbiased contribution weight.
+- Talbot, J., Cline, D., Egbert, P. (2005). *Importance Resampling for Global Illumination.*
+  Eurographics Symposium on Rendering. — the RIS estimator as implemented here.
+- Chao, M. T. (1982). *A general purpose unequal probability sampling plan.* Biometrika 69(3).
+  — weighted reservoir sampling.
+- Veach, E., Guibas, L. (1995). *Optimally Combining Sampling Techniques for Monte Carlo
+  Rendering.* SIGGRAPH '95. — multiple importance sampling and the power heuristic.
+- Heitz, E. (2018). *Sampling the GGX Distribution of Visible Normals.* JCGT 7(4). — VNDF sampling.
+- Burley, B. (2012). *Physically Based Shading at Disney.* SIGGRAPH Course Notes. — diffuse model
+  and metal workflow.
+- Dammertz, H., Sewtz, D., Hanika, J., Lensch, H. (2010). *Edge-Avoiding À-Trous Wavelet Transform
+  for Fast Global Illumination Filtering.* HPG 2010. — the denoiser.
+- Schied, C. et al. (2017). *Spatiotemporal Variance-Guided Filtering.* HPG 2017. — albedo
+  demodulation and variance-driven edge stopping.
+- Preetham, A. J., Shirley, P., Smits, B. (1999). *A Practical Analytic Model for Daylight.*
+  SIGGRAPH '99. — sky model.
+- Haines, E., Akenine-Möller, T. (eds.) (2021). *Ray Tracing Gems II* — "Demystifying the Shader
+  Binding Table" and "MIS 101".
+- Luna, F. *Introduction to 3D Game Programming with DirectX 12.* — geometry generator and D3D12
+  foundations.
+
+**Third-party code and assets.** See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). In short:
+`nv_helpers_dx12` (NVIDIA) provides the acceleration-structure builders, ray-tracing pipeline
+generator, root-signature generator and shader-binding-table generator, and `manipulator.cpp`
+(NVIDIA) the camera manipulation. Model loading is tinyobjloader, image I/O is stb, UI is Dear
+ImGui, maths is GLM and DirectXMath. Everything under `src/Shaders/` and `src/Renderer/` is mine.
+
+**Licence.** [MIT](LICENSE) for the code; scene assets carry their own Creative Commons terms.

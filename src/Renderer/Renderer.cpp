@@ -2161,6 +2161,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
 Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 {
 	nv_helpers_dx12::RootSignatureGenerator rsc;
+	const UINT textureCount = m_Textures.empty() ? 1u : static_cast<UINT>(m_Textures.size());
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 0);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 1);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 2);
@@ -2176,7 +2177,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 		{ 5, 1, 0,  D3D12_DESCRIPTOR_RANGE_TYPE_SRV, SRV_AlbedoTex },   // albedo history SRV
 		{ 0, 1, 0,  D3D12_DESCRIPTOR_RANGE_TYPE_UAV, UAV_AlbedoTex },   // albedo write UAV
 		{ 7, 1, 1,  D3D12_DESCRIPTOR_RANGE_TYPE_SRV, SRV_Reservoir },   // reservoir (space 1)
-		{ 6, (UINT)m_Textures.size(), 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, HEAP_SLOT_COUNT },
+		{ 6, textureCount, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, HEAP_SLOT_COUNT },
 		});
 	rsc.AddHeapRangesParameter(
 		{
@@ -2332,7 +2333,10 @@ void Renderer::CreateSamplerHeap()
 
 void Renderer::CreateShaderResourceHeap()
 {
-	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(m_Device.Get(), HEAP_SLOT_COUNT + m_Textures.size(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+	const UINT textureCount = m_Textures.empty() ? 1u : static_cast<UINT>(m_Textures.size());
+	m_SrvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(
+		m_Device.Get(), HEAP_SLOT_COUNT + textureCount,
+		D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_SrvUavHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -2659,6 +2663,15 @@ void Renderer::CreateShaderResourceHeap()
 
 		srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
+	}
+
+	// A descriptor range cannot contain zero descriptors. Keep one valid null SRV
+	// for scenes that intentionally contain no textures.
+	if (tex2DList.empty())
+	{
+		srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		srvDesc.Texture2D.MipLevels = 1;
+		m_Device->CreateShaderResourceView(nullptr, &srvDesc, srvHandle);
 	}
 
 }

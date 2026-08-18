@@ -117,11 +117,6 @@ add_custom_command(
         "${CMAKE_SOURCE_DIR}/src/Models"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/Models"
 
-    # Material definitions
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_SOURCE_DIR}/src/materials"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/materials"
-
     # Texture packs (Bistro scene)
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_SOURCE_DIR}/BuildingTextures"

@@ -28,8 +28,14 @@ UI, model loading, image I/O and maths. The renderer, all shaders under
 | Asset | Source | Licence |
 |---|---|---|
 | Amazon Lumberyard Bistro | Amazon Lumberyard, via [NVIDIA ORCA](https://developer.nvidia.com/orca) / [Morgan McGuire's Computer Graphics Archive](https://casual-effects.com/data/) | CC BY 4.0 |
-| Crytek Sponza | Frank Meinl (Crytek), original by Marko Dabrovic; modifications by Morgan McGuire — see `Models/copyright.txt` | CC BY 3.0 |
 
-Scene assets are redistributed here for convenience under their respective
-Creative Commons terms and remain the property of their original authors. If you
-fork this repository, attribution obligations for these assets travel with them.
+The Bistro mesh itself is **not** committed (see the asset instructions in the
+README); the textures it uses are. Assets are redistributed under their
+respective Creative Commons terms and remain the property of their original
+authors. If you fork this repository, attribution obligations travel with them.
+
+Earlier commits in this repository's history also contain Crytek Sponza assets
+(Frank Meinl, original by Marko Dabrovic, modifications by Morgan McGuire,
+CC BY 3.0). Those files were removed from the working tree because no Sponza
+mesh ships with the project, but they remain reachable in the git history and
+their attribution stands.
