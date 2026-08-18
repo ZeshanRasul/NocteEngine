@@ -1,7 +1,12 @@
 #ifndef RESTIR_HLSL
 #define RESTIR_HLSL
 
-// Reservoir for Resampled Importance Sampling.
+// Reservoir for Resampled Importance Sampling (RIS).
+//
+// Shared by the initial-sampling compute pass and the closest-hit shader. Only
+// the initial-sampling stage of ReSTIR DI is implemented; there is no temporal
+// or spatial reuse, so this struct is never merged across frames or neighbours.
+//
 // LightIndex < 0  → invalid (no sample selected yet).
 // LightIndex == gNumAreaLights → sun/directional light.
 struct Reservoir

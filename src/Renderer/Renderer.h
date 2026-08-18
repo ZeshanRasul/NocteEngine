@@ -522,7 +522,11 @@ private:
 		std::vector<float> m_QTableData; // [state][action]
 
 
-		// ---- ReSTIR DI ----
+		// ---- RIS direct light sampling ----
+		// Initial-sampling stage of ReSTIR DI only: no temporal or spatial
+		// reservoir reuse is implemented, so this is RIS rather than ReSTIR.
+		// The IS pass runs after the ray-tracing pass and its reservoirs are
+		// consumed by the *next* frame's closest-hit shader.
 		void CreateWorldPosTex();
 		void CreateReservoirBuffer();
 		void CreateReSTIRConstantBuffer();

@@ -53,7 +53,7 @@ Texture2D<float4> gAlbedoHistory : register(t5);
 
 Texture2D textures[] : register(t6);
 
-// Reservoir buffer written by the ReSTIR IS compute pass (previous frame).
+// Reservoir buffer written by the RIS initial-sampling compute pass last frame.
 // Space 1 avoids overlap with the unbounded textures[] array in space 0.
 StructuredBuffer<Reservoir> gReservoirs : register(t7, space1);
 
@@ -624,8 +624,8 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     float3x3 frame = BuildTangentFrame(N);
     float3 VLocal = mul(V, transpose(frame));
     
-    // For the first bounce, try to use the reservoir selected by the IS pass.
-    // For subsequent bounces, fall back to random sampling as before.
+    // First bounce only: use the light selected by last frame's RIS pass.
+    // Deeper bounces fall back to uniform light selection.
     bool useReservoir = false;
     Reservoir res = EmptyReservoir();
     if (payload.depth == 1 && frameIndex > 0)
@@ -638,9 +638,8 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
 
     int lightIndex = min((uint) (Rand(payload.seed) * gNumAreaLights), gNumAreaLights - 1);
 
-    bool isNEELight = (mat.LightIndex >= 0);
     bool sameLight = (mat.LightIndex == lightIndex);
-    
+
     bool isEmitter = any(mat.EmissiveColor.rgb > 0.0f);
 
     if (isEmitter)
@@ -648,6 +647,12 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         payload.isEmissive = 1;
         float3 Le = mat.EmissiveColor.rgb;
 
+        // NOTE: no material currently sets isNEELight/LightIndex (both keep their
+        // defaults of 0 and -1 in d3dUtil.h), so emissive geometry is reached by
+        // BSDF sampling only and the MIS branch below is presently unreachable.
+        // Emissive Bistro geometry (bulbs, filaments) is therefore sampled by one
+        // strategy alone — correct, but noisier than it needs to be. Registering
+        // that geometry as an NEE light is what makes the branch below live.
         if (!mat.isNEELight || !sameLight || prevWasDelta != 0 || payload.depth == 1)
         {
         // No MIS against NEE for primary hits or after delta events
@@ -683,25 +688,19 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         }
     }
     
-    float3 LdContrib = 0.0f;
-    
+    float3 LdContrib  = 0.0f;
+    float3 sunContrib = 0.0f;
+
     DirectionalLight sun;
     sun.direction = normalize(float3(gSunDir.rgb));
     sun.radiance = gSunColor;
 
-    float3 L = normalize(-sun.direction);
-
-    float3 lighting = EvaluateDirectionalLightNEE(
-    pW,
-    N,
-    Ng,
-    V,
-    mat,
-    sun);
-        
     if (useReservoir)
     {
-        // --- ReSTIR path: use reservoir-selected light ---
+        // --- RIS path: shade the single reservoir-selected light ---
+        // The candidate pool in ReSTIR_IS.hlsl spans area lights *and* the sun,
+        // so the separate directional NEE term is deliberately not added here.
+        // Adding it would double count the sun whenever WRS selected it.
         bool isSun = (res.LightIndex >= (int)gNumAreaLights);
 
         float3 toLight;
@@ -736,7 +735,9 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     }
     else
     {
-        // --- Fallback: standard random area-light NEE with MIS ---
+        // --- Fallback: independent sun + area-light NEE estimators, summed ---
+        sunContrib = EvaluateDirectionalLightNEE(pW, N, Ng, V, mat, sun);
+
         LightSample lightSample = SampleAreaLight(lightIndex, pW, N, payload.seed);
 
         if (lightSample.pdf > 0.0f)
@@ -748,19 +749,24 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
                 float  NdotL = saturate(dot(Ng, L));
                 if (NdotL > 0.0f)
                 {
-                    float3 f       = EvaluateDisneyBRDF(mat, Ng, V, L);
-                    float  pdfBSDF = max(PdfDisneyBRDF(mat, Ng, V, L), 0.0f);
-                    float  pdfL2   = lightSample.pdf * lightSample.pdf;
-                    float  pdfB2   = pdfBSDF * pdfBSDF;
-                    float  wLight  = pdfL2 / max(pdfL2 + pdfB2, 1e-8f);
-                    LdContrib      = wLight * f * lightSample.Li * NdotL
-                                   / max(lightSample.pdf, 1e-4f);
+                    // No MIS weight here. The area lights are analytic quads held in
+                    // a constant buffer with no geometric representation in the BVH,
+                    // so a BSDF-sampled ray has zero probability of generating a
+                    // sample on one. The complementary strategy cannot fire, which
+                    // makes the correct power-heuristic weight exactly 1 — applying
+                    // pdfL^2/(pdfL^2 + pdfBSDF^2) here only discarded energy.
+                    // MIS becomes live once emissive geometry is registered as an
+                    // NEE light (mat.isNEELight / mat.LightIndex); the weighting for
+                    // that case is handled at the emitter hit above.
+                    float3 f  = EvaluateDisneyBRDF(mat, Ng, V, L);
+                    LdContrib = f * lightSample.Li * NdotL
+                              / max(lightSample.pdf, 1e-4f);
                 }
             }
         }
     }
-     
-    float3 direct = LdContrib + lighting;
+
+    float3 direct = LdContrib + sunContrib;
     
     BSDFSample bsdf = SampleDisneyGGX(mat, Ng, V, VLocal, xi, frame);
     

@@ -1,12 +1,22 @@
-// ReSTIR DI – Initial Sampling (IS) compute pass.
+// Resampled Importance Sampling (RIS) – initial candidate sampling.
+//
+// This is the *initial sampling* stage of ReSTIR DI (Bitterli et al. 2020) and
+// nothing more. There is no temporal reuse pass and no spatial reuse pass, so
+// this is RIS in the sense of Talbot et al. 2005 rather than full ReSTIR — the
+// "spatiotemporal" half of the algorithm is not implemented.
 //
 // For each screen pixel that hit a surface (gWorldPos.w == 1):
 //   1. Draw NUM_CANDIDATES random lights.
 //   2. Accept each with WRS probability proportional to p_hat (unshadowed irradiance).
 //   3. Compute the unbiased contribution weight W.
-//   4. Store the reservoir for this frame's Hit shader to consume.
+//   4. Store the reservoir for the next frame's Hit shader to consume.
 //
-// No shadow rays are fired here; visibility is tested in Hit.hlsl.
+// No shadow rays are fired here; visibility is tested once, in Hit.hlsl, against
+// the single surviving sample.
+//
+// Known limitation: the reservoir is consumed one frame later and is not
+// reprojected, so under camera motion a pixel's reservoir may describe a surface
+// that is no longer there.
 
 #include "ReSTIR.hlsl"
 

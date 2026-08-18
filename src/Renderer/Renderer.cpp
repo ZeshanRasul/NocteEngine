@@ -951,7 +951,7 @@ bool Renderer::Draw(bool useRaster)
 	// --- Raytracing pass ---
 	DoRaytracingPass(desc);
 
-	// --- ReSTIR Initial Sampling (reads G-Buffer written above, writes reservoirs for next frame) ---
+	// --- RIS initial sampling (reads the G-Buffer written above, writes reservoirs for next frame) ---
 	UpdateReSTIRConstantBuffer();
 	DoReSTIRInitialSamplingPass();
 
@@ -2985,7 +2985,8 @@ void Renderer::CreatePresentUAV()
 }
 
 // ============================================================
-//  ReSTIR DI
+//  RIS direct light sampling
+//  (initial-sampling stage of ReSTIR DI; no temporal/spatial reuse)
 // ============================================================
 
 void Renderer::CreateWorldPosTex()
