@@ -106,28 +106,6 @@ medium.
 
 → [`SkyCommon.hlsl`](src/Shaders/SkyCommon.hlsl) · [`Miss.hlsl`](src/Shaders/Miss.hlsl) · [`Hit.hlsl`](src/Shaders/Hit.hlsl) (`HandleRefractiveHit`)
 
-## Performance
-
-Per-pass GPU timings come from D3D12 timestamp queries bracketing each pass, resolved to a
-readback heap once per frame ([`Renderer.cpp:1037`](src/Renderer/Renderer.cpp#L1037)) and shown
-live in the overlay. **They are not currently logged**, so the figures below are single-run
-readings rather than averaged measurements — treat them as indicative.
-
-| Pass | Time |
-|---|---|
-| Ray tracing | `<x.xx>` ms |
-| Temporal | `<x.xx>` ms |
-| Denoise (5 passes) | `<x.xx>` ms |
-| Final / tone map | `<x.xx>` ms |
-| **Total GPU** | **`<x.xx>` ms** |
-
-`<GPU>` · driver `<version>` · 1920×1080 · Bistro exterior, 2 area lights + sun · 1 spp per frame ·
-camera static at the position in the header image.
-
-**To make these defensible:** append `m_PassTimesMs[0..3]` to a CSV each frame for 300 frames along
-a fixed camera path, discard the first 60, and report mean and 95th percentile. The timing values
-and a CSV-writing pattern already exist in `Renderer.cpp`; this is roughly 20 lines.
-
 ## Architecture
 
 ```
