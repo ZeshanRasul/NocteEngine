@@ -51,7 +51,7 @@ cbuffer ReSTIRCB : register(b0)
     uint   gISWidth;
     uint   gISHeight;
     uint   gISFrameIndex;
-    uint   pad0;
+    uint   gEnableRIS;  // 0 = write empty reservoirs so Hit.hlsl falls back to uniform NEE
     float3 gISSunDir;   // world-space sun direction (points toward surface)
     float  pad1;
     float3 gISSunColor;
@@ -72,23 +72,50 @@ RWStructuredBuffer<Reservoir> gReservoirs : register(u2);
 
 // --------------------------------------------------------------------------
 // Target function  p_hat(x)
-// Approximate unshadowed irradiance: luminance × NdotL / dist²
-// (No BRDF – BRDF evaluated at shading time in Hit.hlsl)
+// (No BRDF term – the BRDF is evaluated at shading time in Hit.hlsl)
 // --------------------------------------------------------------------------
-float pHatArea(float3 N, float3 P, float3 lightPos, float3 radiance)
+// Both target functions below return approximate unshadowed *irradiance* at P.
+// Keeping them in the same measure is essential: WRS selects proportional to
+// p_hat, so if one light type's p_hat is expressed in different units the
+// reservoir simply always picks that type.
+//
+// An earlier version divided the area-light term by d^2 but omitted the light's
+// area and its cosine, while the sun term had no geometric factor at all. With
+// this scene's lights (area = |U x V| = 810,000 at a distance of a few hundred
+// units) that made the sun's p_hat larger by roughly six orders of magnitude, so
+// the area lights were never selected and shadowed regions such as the archway
+// lost their only light source.
+// Hit.hlsl shades the reservoir sample as  f * Li * NdotL * W , which is the
+// solid-angle form of the RIS estimator. Both p_hat and the source pdf must
+// therefore be solid-angle densities, and crucially the SAME p_hat has to appear
+// in the candidate weight (w = p_hat / q) and in the finalisation
+// (W = W_sum / (M * p_hat)). Mixing measures between those two places scales the
+// result by the subtended solid angle — brighter when that is below 1 sr, darker
+// above — which is a bias, not noise, and does not wash out with more samples.
+//
+// So p_hat is the integrand without the BRDF, in solid angle: luminance * NdotL.
+// All geometry (area, light cosine, inverse square) belongs in 1/q instead.
+float pHatSolidAngle(float3 N, float3 L, float3 radiance)
 {
-    float3 toLight = lightPos - P;
-    float  dist2   = max(dot(toLight, toLight), 1e-6f);
-    float  NdotL   = max(dot(N, normalize(toLight)), 0.0f);
-    float  lum     = dot(radiance, float3(0.2126f, 0.7152f, 0.0722f));
-    return NdotL * lum / dist2;
+    float NdotL = max(dot(N, L), 0.0f);
+    float lum   = dot(radiance, float3(0.2126f, 0.7152f, 0.0722f));
+    return NdotL * lum;
 }
 
-float pHatSun(float3 N, float3 sunDir, float3 sunColor)
+// Reciprocal of the solid-angle pdf for a point sampled uniformly over the quad:
+//   pdf_sa = d^2 / (Area * cos(theta_light))   ->   1/pdf_sa = Area * cos / d^2
+// Also returns the normalised direction to that sample. Emission is one-sided,
+// matching SampleAreaLight() in Hit.hlsl.
+float AreaSampleInvPdf(AreaLight al, float3 P, float3 pointOnLight, out float3 L)
 {
-    float NdotL = max(dot(N, normalize(-sunDir)), 0.0f);
-    float lum   = dot(sunColor, float3(0.2126f, 0.7152f, 0.0722f));
-    return NdotL * lum;
+    float3 toLight = pointOnLight - P;
+    float  dist2   = max(dot(toLight, toLight), 1e-6f);
+    L = toLight * rsqrt(dist2);
+
+    float3 nL   = normalize(cross(al.U, al.V));
+    float  cosL = max(dot(nL, -L), 0.0f);
+
+    return (al.Area * cosL) / dist2;
 }
 
 // --------------------------------------------------------------------------
@@ -102,6 +129,16 @@ void ReSTIR_IS(uint3 id : SV_DispatchThreadID)
         return;
 
     uint linearIdx = px.y * gISWidth + px.x;
+
+    // RIS disabled: invalidate the reservoir. Hit.hlsl gates on
+    // (LightIndex >= 0 && W > 0), so an empty reservoir makes it fall back to
+    // uniform light selection with no shader-side branch of its own. This is the
+    // A/B baseline for the with/without-RIS comparison.
+    if (gEnableRIS == 0u)
+    {
+        gReservoirs[linearIdx] = EmptyReservoir();
+        return;
+    }
 
     // Sky pixel → empty reservoir, nothing to sample.
     float4 wpSample = gWorldPos[px];
@@ -136,15 +173,20 @@ void ReSTIR_IS(uint3 id : SV_DispatchThreadID)
                          + (xi.x - 0.5f) * al.U
                          + (xi.y - 0.5f) * al.V;
 
-            float ph = pHatArea(N, P, pointOnLight, al.Radiance);
-            // Source PDF = 1 / totalLights → WRS weight = p_hat / q = p_hat * totalLights
-            w = ph * float(totalLights);
+            // q = P(pick this light) * pdf_sa(point) = (1/totalLights) * pdf_sa
+            float3 L;
+            float  invPdfSA = AreaSampleInvPdf(al, P, pointOnLight, L);
+            float  ph       = pHatSolidAngle(N, L, al.Radiance);
+            w = ph * float(totalLights) * invPdfSA;
         }
         else
         {
-            // Sun treated as directional (virtual point far along L direction).
-            pointOnLight = P + normalize(-gISSunDir) * 1e6f;
-            float ph = pHatSun(N, gISSunDir, gISSunColor);
+            // The sun is a delta light: selecting it fully determines the
+            // direction, so there is no continuous sampling density to divide
+            // out and q is simply 1/totalLights.
+            float3 L = normalize(-gISSunDir);
+            pointOnLight = P + L * 1e6f;
+            float ph = pHatSolidAngle(N, L, gISSunColor);
             w = ph * float(totalLights);
         }
 
@@ -155,11 +197,17 @@ void ReSTIR_IS(uint3 id : SV_DispatchThreadID)
     //   W = (1 / p_hat(y)) * (W_sum / M)
     if (r.LightIndex >= 0)
     {
+        // Must be the same p_hat used to build the candidate weights above.
         float ph = 0.0f;
         if (r.LightIndex < (int)gNumAreaLights)
-            ph = pHatArea(N, P, r.PointOnLight, gAreaLights[r.LightIndex].Radiance);
+        {
+            float3 L = normalize(r.PointOnLight - P);
+            ph = pHatSolidAngle(N, L, gAreaLights[r.LightIndex].Radiance);
+        }
         else
-            ph = pHatSun(N, gISSunDir, gISSunColor);
+        {
+            ph = pHatSolidAngle(N, normalize(-gISSunDir), gISSunColor);
+        }
 
         r.W = (ph > 1e-10f) ? (r.W_sum / (float(r.M) * ph)) : 0.0f;
     }

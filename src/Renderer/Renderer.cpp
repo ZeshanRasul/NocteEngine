@@ -370,6 +370,9 @@ static inline UINT64 Align(UINT64 v, UINT64 alignment) {
 
 void Renderer::Update(float dt, Camera& cam)
 {
+	// Push the UI's camera-lock state onto the camera each frame.
+	cam.SetLocked(m_CameraLocked);
+
 	if (m_ResetAccumulation)
 	{
 		m_ClearAccumulation = true;
@@ -813,10 +816,16 @@ bool Renderer::DoImageCapture()
 	std::filesystem::path runPath = std::filesystem::path("experiments/runs") / folderName;
 	std::filesystem::create_directories(runPath);
 	std::string tag = m_UseQTable ? "QTable" : (m_UseTemporal ? "GT" : (m_UseRL ? "RL" : "Baseline"));
+	// Tag the RIS state so an A/B pair cannot be mixed up after the fact.
+	tag += m_UseReSTIR ? "_RIS" : "_NoRIS";
 	std::string filename = tag + std::to_string(m_FrameIndex) + "SPP.png";
 	std::filesystem::path fullPath = runPath / filename;
 
-	if (!stbi_write_jpg(fullPath.string().c_str(), width, height, 4, image.data(), width * 4))
+	// PNG, not JPEG: these captures are used to measure noise, and JPEG's block
+	// artefacts sit in exactly the frequency band being compared. (The previous
+	// call wrote JPEG data under a .png extension, and passed width*4 as the JPEG
+	// quality argument; for stbi_write_png that same value is the correct stride.)
+	if (!stbi_write_png(fullPath.string().c_str(), width, height, 4, image.data(), width * 4))
 		std::cerr << "Failed to write image: " << fullPath << std::endl;
 
 	m_SaveImage = false;
@@ -983,7 +992,7 @@ bool Renderer::Draw(bool useRaster)
 	DoPresentBlit();
 
 	// --- Image capture (if requested) ---
-	if (m_TargetCaptureSPP > 1)
+	if (m_TargetCaptureSPP >= 1)
 	{
 		m_CurrentAccumSPP++;
 		if (m_CurrentAccumSPP > m_TargetCaptureSPP)
@@ -1001,7 +1010,10 @@ bool Renderer::Draw(bool useRaster)
 
 		if (m_SaveImage)
 		{
-			if (!DoImageCapture())
+			// Capturing must not end the session: an A/B pair has to be shot from
+			// one identical viewpoint, which is impossible if the app exits after
+			// the first image. Batch experiment runs can opt back in.
+			if (!DoImageCapture() && m_ExitAfterCapture)
 				return false;
 		}
 	}
@@ -1009,7 +1021,7 @@ bool Renderer::Draw(bool useRaster)
 	if (m_FrameIndex == m_MaxFrames)
 	{
 		m_SaveImage = true;
-		if (!DoImageCapture())
+		if (!DoImageCapture() && m_ExitAfterCapture)
 			return false;
 	}
 
@@ -3044,7 +3056,7 @@ struct alignas(256) ReSTIR_CB_Data
 	UINT  Width;
 	UINT  Height;
 	UINT  FrameIndex;
-	UINT  pad0;
+	UINT  EnableRIS;
 	DirectX::XMFLOAT3 SunDir;
 	float pad1;
 	DirectX::XMFLOAT3 SunColor;
@@ -3068,6 +3080,7 @@ void Renderer::UpdateReSTIRConstantBuffer()
 	data.Width       = m_ClientWidth;
 	data.Height      = m_ClientHeight;
 	data.FrameIndex  = static_cast<UINT>(m_FrameIndex);
+	data.EnableRIS   = m_UseReSTIR ? 1u : 0u;
 	data.SunDir      = DirectX::XMFLOAT3(m_SunDirection.x, m_SunDirection.y, m_SunDirection.z);
 	data.SunColor    = m_SunColor;
 
@@ -3126,6 +3139,14 @@ void Renderer::CreateReSTIRPSO()
 
 void Renderer::DoReSTIRInitialSamplingPass()
 {
+	// RIS off: one dispatch is still needed to invalidate the reservoirs left over
+	// from when it was on, but after that the pass is skipped entirely. Returning
+	// before any barrier leaves the buffer in the SRV state the Hit shader expects.
+	if (!m_UseReSTIR && m_ReservoirCleared)
+		return;
+
+	m_ReservoirCleared = !m_UseReSTIR;
+
 	const auto heapStart = m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart();
 	auto handle = [&](UINT idx) {
 		return CD3DX12_GPU_DESCRIPTOR_HANDLE(heapStart, idx, m_CbvSrvUavDescriptorSize);
@@ -4447,8 +4468,9 @@ struct alignas(256) FrameIndexCB
 	UINT  FrameIndex;
 	float ApertureRadius;
 	float FocalDistance;
-	float _dofPad;
-	UINT  Padding[60];
+	float FireflyClamp;
+	UINT  DebugReservoirView;
+	UINT  Padding[59];
 };
 
 void Renderer::CreateFrameIndexRNGCBuffer()
@@ -4481,6 +4503,8 @@ void Renderer::UpdateFrameIndexRNGCBuffer()
 	FrameIndexCB data = {};
 	data.FrameIndex    = m_FrameIndex;
 	data.ApertureRadius = m_ApertureRadius;
+	data.FireflyClamp   = m_FireflyClamp;
+	data.DebugReservoirView = m_DebugReservoirView ? 1u : 0u;
 	data.FocalDistance  = m_FocalDistance;
 
 	uint8_t* pData = nullptr;
@@ -4570,6 +4594,55 @@ void Renderer::RenderImGuiDebugWindow()
 		m_FrameIndex = 0;
 		m_ClearAccumulation = true;
 	}
+	if (ImGui::Checkbox("Use RIS Light Sampling", &m_UseReSTIR))
+	{
+		// Re-enabling must re-run the IS pass, so drop the "already cleared" latch.
+		m_ReservoirCleared = false;
+		m_FrameIndex = 0;
+		m_ClearAccumulation = true;
+	}
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Off = uniform light selection (baseline for A/B comparison).\n"
+		                  "Resets accumulation so both sides start from frame 0.");
+
+	ImGui::SeparatorText("Capture");
+
+	if (ImGui::Checkbox("Lock Camera", &m_CameraLocked))
+	{
+		// No accumulation reset: locking mid-run is exactly the point.
+	}
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Freezes WASD and mouse-look so a long accumulation\n"
+		                  "cannot drift. Lock before capturing an A/B pair.");
+
+	if (ImGui::SliderFloat("Firefly Clamp", &m_FireflyClamp, 0.0f, 1000.0f, "%.1f",
+	                       ImGuiSliderFlags_Logarithmic))
+	{
+		m_FrameIndex = 0;
+		m_ClearAccumulation = true;
+	}
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Per-sample luminance ceiling (0 = disabled).\n"
+		                  "RIS produces occasional large-weight samples; clamping them\n"
+		                  "biases RIS dark, so raise this for comparison captures.");
+
+	ImGui::Checkbox("Exit After Capture", &m_ExitAfterCapture);
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("Off (default) keeps the app running so both halves of an\n"
+		                  "A/B pair can be shot from one viewpoint. On restores the\n"
+		                  "old batch-run behaviour.");
+
+	if (ImGui::Checkbox("Debug: Reservoir Light Index", &m_DebugReservoirView))
+	{
+		m_FrameIndex = 0;
+		m_ClearAccumulation = true;
+	}
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("False-colours the light the reservoir chose per pixel.\n"
+		                  "grey = fell back to uniform NEE, amber = sun,\n"
+		                  "red/green/blue/... = area light 0/1/2/...\n"
+		                  "A seam that follows a colour change is a selection\n"
+		                  "artefact; one that cuts across flat colour is shading.");
 
 	if (ImGui::Button("Reset Accumulation"))
 	{

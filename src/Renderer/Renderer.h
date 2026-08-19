@@ -543,6 +543,27 @@ private:
 		Microsoft::WRL::ComPtr<ID3DBlob>             m_ReSTIRISByteCode;
 		bool m_ReservoirInSRVState = false; // tracks current resource state
 
+		// Runtime A/B toggle for the RIS light-selection path.
+		// When off, the IS pass writes empty reservoirs once (so Hit.hlsl falls back
+		// to uniform light selection) and is then skipped entirely, so its cost does
+		// not show up in equal-time comparisons.
+		bool m_UseReSTIR       = true;
+		bool m_ReservoirCleared = false;
+
+		// Capture / comparison controls.
+		// Exiting after a capture makes an A/B pair impossible to shoot from one
+		// viewpoint, so it is off by default and only useful for batch runs.
+		bool  m_ExitAfterCapture = false;
+		// Freezes camera input so a long accumulation cannot be nudged mid-run.
+		bool  m_CameraLocked     = false;
+		// Luminance ceiling applied per sample in RayGen. RIS deliberately produces
+		// occasional large-weight samples; clamping them biases it dark, so this
+		// must be raised (or set very high) for comparison captures.
+		float m_FireflyClamp     = 10.0f;
+		// False-colours the light each pixel's reservoir selected, to separate
+		// light-selection artefacts from shading artefacts.
+		bool  m_DebugReservoirView = false;
+
 		Microsoft::WRL::ComPtr<ID3D12Resource> m_GroundTruthTex;
 		Microsoft::WRL::ComPtr<ID3D12Resource> upload;
 		bool LoadTextureFromFileToSRV(

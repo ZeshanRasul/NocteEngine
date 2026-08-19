@@ -75,7 +75,7 @@ cbuffer FrameData : register(b5)
     uint  frameIndex;
     float ApertureRadius;
     float FocalDistance;
-    float _dofPad;
+    float gFireflyClamp;
 }
 
 cbuffer MediumParams : register(b6)
@@ -316,9 +316,13 @@ void RayGen()
             
 
         }
+        // Firefly clamp. RIS intentionally produces occasional large-weight
+        // samples, and clamping those discards energy that uniform NEE never
+        // generates -- which biases RIS dark. Raise gFireflyClamp (or set it
+        // very high) when capturing RIS on/off comparisons.
         float lum = dot(finalRadiance, float3(0.2126f, 0.7152f, 0.0722f));
-        if (lum > 10.0f)
-            finalRadiance *= 10.0f / lum;
+        if (gFireflyClamp > 0.0f && lum > gFireflyClamp)
+            finalRadiance *= gFireflyClamp / lum;
 
         sppSum += finalRadiance;
         

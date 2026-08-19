@@ -130,9 +130,36 @@ cbuffer AreaLights : register(b4)
     float3 gAreaLightPadding;
 }
 
+// Layout must match FrameIndexCB in Renderer.cpp. RayGen.hlsl uses the aperture,
+// focal-distance and firefly-clamp fields; only the flag below is read here.
 cbuffer FrameData : register(b5)
 {
-    uint frameIndex;
+    uint  frameIndex;
+    float _apertureRadius;
+    float _focalDistance;
+    float _fireflyClamp;
+    uint  gDebugReservoirView; // 0 = off, 1 = false-colour the selected light
+}
+
+// False-colour the light the RIS reservoir selected for this pixel. Used to tell
+// a light-selection artefact apart from a shading artefact: if a visible seam
+// lines up with a colour change here it came from the target function, and if it
+// cuts across a region of uniform colour it came from shading.
+float3 DebugReservoirColour(int lightIndex, bool valid, uint numAreaLights)
+{
+    if (!valid)
+        return float3(0.05f, 0.05f, 0.05f);       // grey  — fell back to uniform NEE
+    if (lightIndex >= (int)numAreaLights)
+        return float3(1.0f, 0.85f, 0.1f);          // amber — sun
+
+    switch (lightIndex)
+    {
+        case 0:  return float3(0.9f, 0.15f, 0.15f); // red
+        case 1:  return float3(0.15f, 0.9f, 0.2f);  // green
+        case 2:  return float3(0.2f, 0.4f, 1.0f);   // blue
+        case 3:  return float3(0.9f, 0.2f, 0.9f);   // magenta
+        default: return float3(0.2f, 0.9f, 0.9f);   // cyan
+    }
 }
 
 bool IsOccluded(float3 origin, float3 dir, float maxDistance)
@@ -160,6 +187,51 @@ bool IsOccluded(float3 origin, float3 dir, float maxDistance)
     return spayload.isHit;
 }
 
+// Offset along the geometric normal before tracing a shadow ray. Note that
+// IsOccluded() also clamps TMin to 0.1, which dominates at this scene's scale.
+#define SHADOW_RAY_OFFSET 0.01f
+// The sun is directional; any distance past the scene bounds behaves as infinity.
+#define SUN_RAY_TMAX      1.0e6f
+
+// ---------------------------------------------------------------------------
+// Shared direct-lighting evaluation.
+//
+// Every direct-lighting path routes through this: the RIS reservoir sample, the
+// uniform-NEE area-light fallback, and the sun. That is deliberate — the only
+// thing that may differ between the RIS and non-RIS paths is *how the light was
+// chosen*, otherwise an A/B comparison measures shading differences rather than
+// sampling quality.
+//
+// The two geometric guards matter. A normal-mapped shading normal can disagree
+// with the surface it sits on, and EvaluateDisneyBRDF returns exactly zero when
+// dot(N, L) or dot(N, V) is negative. Testing the *geometric* normal first means
+// both paths agree about which side of the surface is lit; without it, one path
+// can light a pixel that the other renders black, producing a hard terminator
+// along the geometric silhouette rather than a smooth falloff.
+// ---------------------------------------------------------------------------
+float3 ShadeLightSample(
+    Material mat,
+    float3   pW,
+    float3   N,      // shading normal (normal-mapped) — used for the BRDF
+    float3   Ng,     // geometric normal — used for guards, cosine and ray offset
+    float3   V,
+    float3   toLight,// normalised, surface -> light
+    float    dist,   // distance to the light sample
+    float3   Li)     // radiance / irradiance arriving from that light
+{
+    float NdotL = saturate(dot(Ng, toLight));
+    float NdotV = saturate(dot(Ng, V));
+
+    if (NdotL <= 0.0f || NdotV <= 0.0f)
+        return 0.0f.xxx;
+
+    if (IsOccluded(pW + Ng * SHADOW_RAY_OFFSET, toLight, dist - 1e-4f))
+        return 0.0f.xxx;
+
+    float3 f = EvaluateDisneyBRDF(mat, N, V, toLight);
+    return f * Li * NdotL;
+}
+
 float3 EvaluateDirectionalLightNEE(
     float3 p,
     float3 N,
@@ -169,18 +241,7 @@ float3 EvaluateDirectionalLightNEE(
     DirectionalLight sun)
 {
     float3 wi = normalize(-sun.direction); // surface -> light
-    float NdotL = saturate(dot(Ng, wi));
-    float NdotV = saturate(dot(Ng, V));
-
-    if (NdotL <= 0.0f || NdotV <= 0.0f)
-        return 0.0f.xxx;
-
-    bool occluded = IsOccluded(p + Ng * 0.001f, wi, 100000.0f);
-    if (occluded)
-        return 0.0f.xxx;
-
-    float3 f = EvaluateDisneyBRDF(mat, N, V, wi);
-    return f * sun.radiance * NdotL;
+    return ShadeLightSample(mat, p, N, Ng, V, wi, SUN_RAY_TMAX, sun.radiance);
 }
 
 // Handles a refractive material (glass) as a specular BSDF
@@ -634,6 +695,16 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         uint  dispWidth = DispatchRaysDimensions().x;
         res = gReservoirs[px.y * dispWidth + px.x];
         useReservoir = (res.LightIndex >= 0 && res.W > 0.0f);
+
+        if (gDebugReservoirView != 0)
+        {
+            // Emit the selection as flat colour and stop the path here.
+            payload.emission    = DebugReservoirColour(res.LightIndex, useReservoir, gNumAreaLights);
+            payload.isEmissive  = 1;   // keeps the denoiser from smearing the view
+            payload.bsdfOverPdf = 0.0f;
+            payload.done        = 1;
+            return;
+        }
     }
 
     int lightIndex = min((uint) (Rand(payload.seed) * gNumAreaLights), gNumAreaLights - 1);
@@ -721,17 +792,8 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
             Li      = gAreaLights[res.LightIndex].Radiance;
         }
 
-        float NdotL = saturate(dot(Ng, toLight));
-        if (NdotL > 0.0f)
-        {
-            bool occluded = IsOccluded(pW + Ng * 0.01f, toLight, dist - 1e-4f);
-            if (!occluded)
-            {
-                float3 f = EvaluateDisneyBRDF(mat, N, V, toLight);
-                // res.W = (1/p_hat) * W_sum/M  — the RIS unbiased weight
-                LdContrib = f * Li * NdotL * res.W;
-            }
-        }
+        // res.W = (1/p_hat) * W_sum/M — the RIS unbiased contribution weight.
+        LdContrib = ShadeLightSample(mat, pW, N, Ng, V, toLight, dist, Li) * res.W;
     }
     else
     {
@@ -742,27 +804,17 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
 
         if (lightSample.pdf > 0.0f)
         {
-            bool occluded = IsOccluded(pW + Ng * 0.01f, lightSample.dir, lightSample.dist - 1e-4f);
-            if (!occluded)
-            {
-                float3 L    = lightSample.dir;
-                float  NdotL = saturate(dot(Ng, L));
-                if (NdotL > 0.0f)
-                {
-                    // No MIS weight here. The area lights are analytic quads held in
-                    // a constant buffer with no geometric representation in the BVH,
-                    // so a BSDF-sampled ray has zero probability of generating a
-                    // sample on one. The complementary strategy cannot fire, which
-                    // makes the correct power-heuristic weight exactly 1 — applying
-                    // pdfL^2/(pdfL^2 + pdfBSDF^2) here only discarded energy.
-                    // MIS becomes live once emissive geometry is registered as an
-                    // NEE light (mat.isNEELight / mat.LightIndex); the weighting for
-                    // that case is handled at the emitter hit above.
-                    float3 f  = EvaluateDisneyBRDF(mat, Ng, V, L);
-                    LdContrib = f * lightSample.Li * NdotL
-                              / max(lightSample.pdf, 1e-4f);
-                }
-            }
+            // No MIS weight here. The area lights are analytic quads held in a
+            // constant buffer with no geometric representation in the BVH, so a
+            // BSDF-sampled ray has zero probability of generating a sample on one.
+            // The complementary strategy cannot fire, which makes the correct
+            // power-heuristic weight exactly 1 — applying pdfL^2/(pdfL^2+pdfB^2)
+            // here only discarded energy. MIS becomes live once emissive geometry
+            // is registered as an NEE light (mat.isNEELight / mat.LightIndex); the
+            // weighting for that case is handled at the emitter hit above.
+            LdContrib = ShadeLightSample(mat, pW, N, Ng, V,
+                                         lightSample.dir, lightSample.dist, lightSample.Li)
+                      / max(lightSample.pdf, 1e-4f);
         }
     }
 

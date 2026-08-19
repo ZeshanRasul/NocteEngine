@@ -8,6 +8,11 @@ public:
 	Camera();
 	~Camera();
 
+	// Freezes all camera movement, so a long accumulation cannot be nudged and
+	// an A/B capture pair is guaranteed to share one viewpoint.
+	void SetLocked(bool locked) { m_Locked = locked; }
+	bool IsLocked() const { return m_Locked; }
+
 	// Get/Set world camera position.
 	DirectX::XMVECTOR GetPosition()const;
 	DirectX::XMFLOAT3 GetPosition3f()const;
@@ -79,6 +84,8 @@ private:
 	bool mViewDirty = true;
 
 	// Cache View/Proj matrices.
+	bool m_Locked = false;
+
 	DirectX::XMFLOAT4X4 mView = MathHelper::Identity4x4();
 	DirectX::XMFLOAT4X4 mProj = MathHelper::Identity4x4();
 };

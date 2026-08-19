@@ -346,8 +346,11 @@ LRESULT Window::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			float dx = XMConvertToRadians(0.1f * static_cast<float>(x - m_LastMousePos.x));
 			float dy = XMConvertToRadians(0.1f * static_cast<float>(y - m_LastMousePos.y));
 
-			m_Camera.Pitch(dy);
-			m_Camera.RotateY(dx);
+			if (!m_Camera.IsLocked())
+			{
+				m_Camera.Pitch(dy);
+				m_Camera.RotateY(dx);
+			}
 		//	m_Camera.UpdateViewMatrix();
 		}
 
@@ -357,6 +360,10 @@ LRESULT Window::HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 	void Window::OnKeyboardInput(GameTimer & gt)
 	{
+		// Camera lock: hold the viewpoint fixed for reproducible captures.
+		if (m_Camera.IsLocked())
+			return;
+
 		const float dt = gt.DeltaTime();
 
 		if (GetAsyncKeyState('W') & 0x8000)
