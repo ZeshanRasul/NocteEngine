@@ -508,7 +508,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     uint materialCount = GetDebugMaterialCount();
     uint textureCount = GetDebugTextureCount();
 
-    int matIdx = matIndices[triIndex];
+    int matIdx = materialIndex;
     bool invalidMatIndex = (matIdx < 0) || (materialCount > 0 && (uint) matIdx >= materialCount);
 
     if (invalidMatIndex)

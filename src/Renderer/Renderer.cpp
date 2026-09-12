@@ -3773,8 +3773,10 @@ void Renderer::CreatePerInstanceBuffers()
 			nv_helpers_dx12::kUploadHeapProps);
 
 		PerInstanceData data{};
-		data.materialIndex = i;
+		data.materialIndex = instanceMaterialIndices[i];
 		data.triangleOffset = 0;
+
+
 
 		uint8_t* pData = nullptr;
 		ThrowIfFailed(m_PerInstanceCBs[i]->Map(0, nullptr, (void**)&pData));
@@ -3829,10 +3831,13 @@ void Renderer::CreatePerInstanceBuffers()
 	memcpy(pData, m_MaterialsGPU.data(), bufferSize);
 	m_UploadCBuffer->Unmap(0, nullptr);
 
-	matIndices.clear();
-	matIndices.resize(m_PerInstanceCBCount * 6);
-
+//	matIndices.clear();
+	matIndices.resize(m_PerInstanceCBCount);
+	matIndices[0] = 0; // AreaLight
+	matIndices[1] = 1; // Ground Plane
+	
 	const uint32_t matIdxBufferSize = static_cast<uint32_t>(sizeof(int) * matIndices.size());
+
 
 
 	m_TriMatIndexCB = nv_helpers_dx12::CreateBuffer(
