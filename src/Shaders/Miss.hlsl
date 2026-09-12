@@ -48,6 +48,8 @@ void Miss(inout PathPayload payload)
         }
     }
 
+    envColor = 0.0f;
+    
     payload.hitSomething    = 0;
     payload.tHit            = 1e20f;
     payload.isEmissive      = 1;

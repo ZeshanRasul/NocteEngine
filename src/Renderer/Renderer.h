@@ -362,9 +362,7 @@ private:
 	void CreatePerInstanceBuffers();
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_PerInstanceCBs;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_TriMatIndexCB;
-	UINT m_PerInstanceCBCount = 9;
-	UINT m_SkullCount = 1;
-	UINT m_SphereCount = 1;
+	UINT m_PerInstanceCBCount = 2;
 	void LoadTextures(Model& model);
 	std::vector<std::unique_ptr<Texture>> m_Textures;
 	std::vector<int> matIndices;
@@ -414,7 +412,7 @@ private:
 	int m_CurrentAccumSPP = 0;       // how many spp accumulated so far
 	bool m_CaptureRequested = false; // set by UI
 	bool m_ResetAccumulation = false;
-	bool m_StartCaptureSequenceNextFrame = false; 
+	bool m_StartCaptureSequenceNextFrame = false;
 
 	std::vector<bool> m_IsInstanceReflective;
 
@@ -452,154 +450,141 @@ private:
 	}
 
 	////////// RL Experiment //////////
-	public:
-		RenderSettings& GetRenderSettings() { return m_RenderSettings; }
-		const RenderSettings& GetRenderSettings() const { return m_RenderSettings; }
+public:
+	RenderSettings& GetRenderSettings() { return m_RenderSettings; }
+	const RenderSettings& GetRenderSettings() const { return m_RenderSettings; }
 
-		void SetSamplingMode(SamplingMode mode) { m_RenderSettings.SamplingStrategy = mode; }
-		SamplingMode GetSamplingMode() const { return m_RenderSettings.SamplingStrategy; }
+	void SetSamplingMode(SamplingMode mode) { m_RenderSettings.SamplingStrategy = mode; }
+	SamplingMode GetSamplingMode() const { return m_RenderSettings.SamplingStrategy; }
 
-	private:
-		RLController m_RLController = {};
-		RenderSettings m_RenderSettings = {};
-		FrameStats m_FrameStats = {};
-		FrameStats m_PrevFrameStats = {};
-		std::vector<XMFLOAT4> m_FrameImageData;
-		std::string m_MetricsFileName;
-		std::filesystem::path m_Fullpath;
+private:
+	RLController m_RLController = {};
+	RenderSettings m_RenderSettings = {};
+	FrameStats m_FrameStats = {};
+	FrameStats m_PrevFrameStats = {};
+	std::vector<XMFLOAT4> m_FrameImageData;
+	std::string m_MetricsFileName;
+	std::filesystem::path m_Fullpath;
 
-		const char* samplingModeNames[5] =
+	const char* samplingModeNames[5] =
+	{
+		"BSDF Heavy",
+		"BSDF Gentle",
+		"Balanced",
+		"Light Gentle"
+		"Light Heavy"
+	};
+
+	DiscreteState m_CurrentState = {};
+	DiscreteState m_PrevState = {};
+	bool m_HasPrevState = false;
+	std::string m_CurrentStateName = "Unknown";
+	int m_MaxIterations = 8192;
+	RLAction m_PrevAction = RLAction::Balanced;
+	RLAction m_CurrentAction = RLAction::Balanced;
+	float m_Reward = 0.0f;
+	float m_AccumulatedReward = 0.0f;
+
+	float windowLogVars[8];
+	int windowCount;
+
+	bool m_UseDenoiser = false;
+	bool m_UseTemporal = false;
+	bool m_UseRL = false;
+	bool m_RLQTableInSRVState = false;
+	bool m_UseQTable = false;
+
+	std::vector<RLQValue> m_RLQTable;
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_RLQTableBuffer;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_RLQTableUploadBuffer;
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_RLTransitionBuffer;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_RLTransitionReadbackBuffer;
+
+	uint32_t m_RLTransitionCount = 0;
+	uint64_t m_RLTransitionBufferSize = 0;
+	uint64_t m_RLQTableBufferSize = 0;
+
+	static constexpr uint32_t NumActions = 4;
+	static constexpr uint32_t NumStates = 722;
+	float m_Alpha = 0.1f;
+
+	void CreateRLQTableBuffer();
+	void CreateRLQTableUploadBuffer();
+	void UploadRLQTable(const std::vector<RLQValue>& qTable);
+	void CreateRLTransitionBuffer(uint32_t width, uint32_t height);
+	void CreateRLTransitionReadbackBuffer();
+	void CopyRLTransitionsToReadback();
+	std::vector<RLTransitionGPU> ReadBackRLTransitions();
+	std::vector<float> m_QTableData; // [state][action]
+
+
+	// ---- RIS direct light sampling ----
+	// Initial-sampling stage of ReSTIR DI only: no temporal or spatial
+	// reservoir reuse is implemented, so this is RIS rather than ReSTIR.
+	// The IS pass runs after the ray-tracing pass and its reservoirs are
+	// consumed by the *next* frame's closest-hit shader.
+	void CreateWorldPosTex();
+	void CreateReservoirBuffer();
+	void CreateReSTIRConstantBuffer();
+	void UpdateReSTIRConstantBuffer();
+	void CreateReSTIRRootSignature();
+	void CreateReSTIRPSO();
+	void DoReSTIRInitialSamplingPass();
+
+	Microsoft::WRL::ComPtr<ID3D12Resource>       m_WorldPosTex;
+	Microsoft::WRL::ComPtr<ID3D12Resource>       m_ReservoirBuffer;
+	Microsoft::WRL::ComPtr<ID3D12Resource>       m_ReSTIRCB;
+	Microsoft::WRL::ComPtr<ID3D12RootSignature>  m_ReSTIRRootSignature;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState>  m_ReSTIR_ISPSO;
+	Microsoft::WRL::ComPtr<ID3DBlob>             m_ReSTIRISByteCode;
+	bool m_ReservoirInSRVState = false; // tracks current resource state
+
+	// Runtime A/B toggle for the RIS light-selection path.
+	// When off, the IS pass writes empty reservoirs once (so Hit.hlsl falls back
+	// to uniform light selection) and is then skipped entirely, so its cost does
+	// not show up in equal-time comparisons.
+	bool m_UseReSTIR = true;
+	bool m_ReservoirCleared = false;
+
+	// Capture / comparison controls.
+	// Exiting after a capture makes an A/B pair impossible to shoot from one
+	// viewpoint, so it is off by default and only useful for batch runs.
+	bool  m_ExitAfterCapture = false;
+	// Freezes camera input so a long accumulation cannot be nudged mid-run.
+	bool  m_CameraLocked = false;
+	// Luminance ceiling applied per sample in RayGen. RIS deliberately produces
+	// occasional large-weight samples; clamping them biases it dark, so this
+	// must be raised (or set very high) for comparison captures.
+	float m_FireflyClamp = 10.0f;
+	// False-colours the light each pixel's reservoir selected, to separate
+	// light-selection artefacts from shading artefacts.
+	bool  m_DebugReservoirView = false;
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_GroundTruthTex;
+	Microsoft::WRL::ComPtr<ID3D12Resource> upload;
+	bool LoadTextureFromFileToSRV(
+		ID3D12Device* device,
+		ID3D12GraphicsCommandList* cmdList,
+		const std::string& filename);
+
+	enum class SceneSetUp
+	{
+		DIFFUSE_PLANE = 0,
+	};
+
+	std::string GetSceneSetUpName(SceneSetUp setup)
+	{
+		switch (setup)
 		{
-			"BSDF Heavy",
-			"BSDF Gentle",
-			"Balanced",
-			"Light Gentle"
-			"Light Heavy"
-		};
-
-		DiscreteState m_CurrentState = {};
-		DiscreteState m_PrevState = {};
-		bool m_HasPrevState = false;
-		std::string m_CurrentStateName = "Unknown";
-		int m_MaxIterations = 8192;
-		RLAction m_PrevAction = RLAction::Balanced;
-		RLAction m_CurrentAction = RLAction::Balanced;
-		float m_Reward = 0.0f;
-		float m_AccumulatedReward = 0.0f;
-
-		float windowLogVars[8];
-		int windowCount;
-
-		bool m_UseDenoiser = false;
-		bool m_UseTemporal = false;
-		bool m_UseRL = false;
-		bool m_RLQTableInSRVState = false;
-		bool m_UseQTable = false;
-
-		std::vector<RLQValue> m_RLQTable;
-
-		Microsoft::WRL::ComPtr<ID3D12Resource> m_RLQTableBuffer;
-		Microsoft::WRL::ComPtr<ID3D12Resource> m_RLQTableUploadBuffer;
-
-		Microsoft::WRL::ComPtr<ID3D12Resource> m_RLTransitionBuffer;
-		Microsoft::WRL::ComPtr<ID3D12Resource> m_RLTransitionReadbackBuffer;
-
-		uint32_t m_RLTransitionCount = 0;
-		uint64_t m_RLTransitionBufferSize = 0;
-		uint64_t m_RLQTableBufferSize = 0;
-
-		static constexpr uint32_t NumActions = 4;
-		static constexpr uint32_t NumStates = 722;
-		float m_Alpha = 0.1f;
-
-		void CreateRLQTableBuffer();
-		void CreateRLQTableUploadBuffer();
-		void UploadRLQTable(const std::vector<RLQValue>& qTable);
-		void CreateRLTransitionBuffer(uint32_t width, uint32_t height);
-		void CreateRLTransitionReadbackBuffer();
-		void CopyRLTransitionsToReadback();
-		std::vector<RLTransitionGPU> ReadBackRLTransitions();
-		std::vector<float> m_QTableData; // [state][action]
-
-
-		// ---- RIS direct light sampling ----
-		// Initial-sampling stage of ReSTIR DI only: no temporal or spatial
-		// reservoir reuse is implemented, so this is RIS rather than ReSTIR.
-		// The IS pass runs after the ray-tracing pass and its reservoirs are
-		// consumed by the *next* frame's closest-hit shader.
-		void CreateWorldPosTex();
-		void CreateReservoirBuffer();
-		void CreateReSTIRConstantBuffer();
-		void UpdateReSTIRConstantBuffer();
-		void CreateReSTIRRootSignature();
-		void CreateReSTIRPSO();
-		void DoReSTIRInitialSamplingPass();
-
-		Microsoft::WRL::ComPtr<ID3D12Resource>       m_WorldPosTex;
-		Microsoft::WRL::ComPtr<ID3D12Resource>       m_ReservoirBuffer;
-		Microsoft::WRL::ComPtr<ID3D12Resource>       m_ReSTIRCB;
-		Microsoft::WRL::ComPtr<ID3D12RootSignature>  m_ReSTIRRootSignature;
-		Microsoft::WRL::ComPtr<ID3D12PipelineState>  m_ReSTIR_ISPSO;
-		Microsoft::WRL::ComPtr<ID3DBlob>             m_ReSTIRISByteCode;
-		bool m_ReservoirInSRVState = false; // tracks current resource state
-
-		// Runtime A/B toggle for the RIS light-selection path.
-		// When off, the IS pass writes empty reservoirs once (so Hit.hlsl falls back
-		// to uniform light selection) and is then skipped entirely, so its cost does
-		// not show up in equal-time comparisons.
-		bool m_UseReSTIR       = true;
-		bool m_ReservoirCleared = false;
-
-		// Capture / comparison controls.
-		// Exiting after a capture makes an A/B pair impossible to shoot from one
-		// viewpoint, so it is off by default and only useful for batch runs.
-		bool  m_ExitAfterCapture = false;
-		// Freezes camera input so a long accumulation cannot be nudged mid-run.
-		bool  m_CameraLocked     = false;
-		// Luminance ceiling applied per sample in RayGen. RIS deliberately produces
-		// occasional large-weight samples; clamping them biases it dark, so this
-		// must be raised (or set very high) for comparison captures.
-		float m_FireflyClamp     = 10.0f;
-		// False-colours the light each pixel's reservoir selected, to separate
-		// light-selection artefacts from shading artefacts.
-		bool  m_DebugReservoirView = false;
-
-		Microsoft::WRL::ComPtr<ID3D12Resource> m_GroundTruthTex;
-		Microsoft::WRL::ComPtr<ID3D12Resource> upload;
-		bool LoadTextureFromFileToSRV(
-			ID3D12Device* device,
-			ID3D12GraphicsCommandList* cmdList,
-			const std::string& filename);
-
-		enum class SceneSetUp
-		{
-			BISTRO = 0,
-			DIFFUSE_CORNELL_BOX = 1,
-			DIFFUSE_ALCOVE = 2,
-			GLOSSY_SPHERE = 3,
-			GLASS_SPHERE = 4,
-
-			TEST_DIFFUSE_CORNELL = 5,
-			TEST_GLASS_CORNELL = 6,
-		};
-
-		std::string GetSceneSetUpName(SceneSetUp setup)
-		{
-			switch (setup)
-			{
-			case SceneSetUp::BISTRO: return "Amazon Lumberyard Bistro";
-			case SceneSetUp::DIFFUSE_CORNELL_BOX: return "Diffuse_Cornell_Box";
-			case SceneSetUp::DIFFUSE_ALCOVE: return "Diffuse_Alcove";
-			case SceneSetUp::GLOSSY_SPHERE: return "Glossy_Sphere";
-			case SceneSetUp::GLASS_SPHERE: return "Glass_Sphere";
-			case SceneSetUp::TEST_DIFFUSE_CORNELL: return "Test_Diffuse_Cornell";
-			case SceneSetUp::TEST_GLASS_CORNELL: return "Test_Glass_Cornell";
-			default: return "Unknown Scene Setup";
-			}
+		case SceneSetUp::DIFFUSE_PLANE: return "Diffuse_Plane";
+		default: return "Unknown Scene Setup";
 		}
+	}
 
-		SceneSetUp m_SceneID = SceneSetUp::BISTRO;
-		std::string m_RunTimestamp;
+	SceneSetUp m_SceneID = SceneSetUp::DIFFUSE_PLANE;
+	std::string m_RunTimestamp;
 };
 
 struct Reservoir
@@ -634,51 +619,50 @@ struct LoadedTexture
 // GPU-visible SRV/UAV heap layout (m_SrvUavHeap). Order must match CreateShaderResourceHeap().
 enum
 {
-	UAV_Output           = 0,
-	SRV_TLAS             = 1,
-	SRV_Materials        = 2,
-	CBV_Pass             = 3,
-	UAV_Accumulation     = 4,
-	UAV_Normal           = 5,
-	UAV_Depth            = 6,
-	UAV_DenoisePing      = 7,
-	UAV_DenoisePong      = 8,
-	UAV_Present          = 9,
-	SRV_Normal           = 10,
-	SRV_Depth            = 11,
-	SRV_DenoisePing      = 12,
-	SRV_DenoisePong      = 13,
-	SRV_Accumulation     = 14,
-	SRV_TriMatIndex      = 15,
-	UAV_FirstMoment      = 16,
-	UAV_SecondMoment     = 17,
-	UAV_OldFirstMoment   = 18,
-	UAV_OldSecondMoment  = 19,
-	SRV_FirstMoment      = 20,
-	SRV_SecondMoment     = 21,
-	SRV_OldFirstMoment   = 22,
-	SRV_OldSecondMoment  = 23,
+	UAV_Output = 0,
+	SRV_TLAS = 1,
+	SRV_Materials = 2,
+	CBV_Pass = 3,
+	UAV_Accumulation = 4,
+	UAV_Normal = 5,
+	UAV_Depth = 6,
+	UAV_DenoisePing = 7,
+	UAV_DenoisePong = 8,
+	UAV_Present = 9,
+	SRV_Normal = 10,
+	SRV_Depth = 11,
+	SRV_DenoisePing = 12,
+	SRV_DenoisePong = 13,
+	SRV_Accumulation = 14,
+	SRV_TriMatIndex = 15,
+	UAV_FirstMoment = 16,
+	UAV_SecondMoment = 17,
+	UAV_OldFirstMoment = 18,
+	UAV_OldSecondMoment = 19,
+	SRV_FirstMoment = 20,
+	SRV_SecondMoment = 21,
+	SRV_OldFirstMoment = 22,
+	SRV_OldSecondMoment = 23,
 	UAV_TemporalRadiance = 24,
 	SRV_TemporalRadiance = 25,
 	SRV_AccumulationHistory = 26,
-	UAV_AlbedoTex        = 27,
-	SRV_AlbedoTex        = 28,
-	SRV_GroundTruth      = 29,
-	UAV_WorldPos         = 30,  // ReSTIR: first-hit world position (written by RayGen)
-	SRV_WorldPos         = 31,  // (unused currently – IS pass reads via UAV)
-	UAV_Reservoir        = 32,  // ReSTIR: written by IS compute
-	SRV_Reservoir        = 33,  // ReSTIR: read by Hit shader
-	HEAP_SLOT_COUNT      = 34,  // fixed slots before per-scene textures
+	UAV_AlbedoTex = 27,
+	SRV_AlbedoTex = 28,
+	SRV_GroundTruth = 29,
+	UAV_WorldPos = 30,  // ReSTIR: first-hit world position (written by RayGen)
+	SRV_WorldPos = 31,  // (unused currently – IS pass reads via UAV)
+	UAV_Reservoir = 32,  // ReSTIR: written by IS compute
+	SRV_Reservoir = 33,  // ReSTIR: read by Hit shader
+	HEAP_SLOT_COUNT = 34,  // fixed slots before per-scene textures
 };
 
 // CPU-only UAV heap layout (m_SrvUavCPUHeap). Order must match CreateShaderResourceCPUHeap().
 enum
 {
-	CPU_UAV_Accumulation       = 0,
-	CPU_UAV_OldFirstMoment     = 1,
-	CPU_UAV_OldSecondMoment    = 2,
-	CPU_UAV_FirstMoment        = 3,
-	CPU_UAV_SecondMoment       = 4,
-	CPU_UAV_TemporalRadiance   = 5,
+	CPU_UAV_Accumulation = 0,
+	CPU_UAV_OldFirstMoment = 1,
+	CPU_UAV_OldSecondMoment = 2,
+	CPU_UAV_FirstMoment = 3,
+	CPU_UAV_SecondMoment = 4,
+	CPU_UAV_TemporalRadiance = 5,
 };
-;

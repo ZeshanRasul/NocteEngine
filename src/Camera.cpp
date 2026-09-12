@@ -8,7 +8,7 @@ using namespace DirectX;
 
 Camera::Camera()
 {
-	SetLens(0.25f * MathHelper::Pi, 1920.0f/1080.0f, 1.00f, 1000.0f);
+	SetLens(0.25f * MathHelper::Pi, 1920.0f/1080.0f, 0.01f, 1000.0f);
 }
 
 Camera::~Camera()
@@ -178,7 +178,7 @@ XMFLOAT4X4 Camera::GetProj4x4f()const
 
 void Camera::Strafe(float d)
 {
-	d *= 3.0f;
+	d *= 0.1f;
 	// mPosition += d*mRight
 	XMVECTOR s = XMVectorReplicate(d);
 	XMVECTOR r = XMLoadFloat3(&mRight);
@@ -190,7 +190,7 @@ void Camera::Strafe(float d)
 
 void Camera::Walk(float d)
 {
-	d *= 3.0f;
+	d *= 0.1f;
 	// mPosition += d*mLook
 	XMVECTOR s = XMVectorReplicate(d);
 	XMVECTOR l = XMLoadFloat3(&mLook);
