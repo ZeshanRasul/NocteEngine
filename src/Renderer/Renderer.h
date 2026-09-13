@@ -410,6 +410,7 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_ReadbackBuffer;
 	void CreateReadbackBuffer();
 	bool m_SaveImage = false;
+	UINT m_CurrentRunCapture = 001;
 	void RequestCapture(int spp);
 	int m_TargetCaptureSPP = 0;      // 0 = no capture pending
 	int m_CurrentAccumSPP = 0;       // how many spp accumulated so far

@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.24)
 # Project
 project(NocteEngine LANGUAGES CXX)
 
+include(FetchContent)
+
 # This project is Windows-only (uses Win32 API and D3D12)
 if(NOT WIN32)
     message(FATAL_ERROR "This D3D12 project builds on Windows only.")
@@ -102,10 +104,45 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     dxcompiler
 )
 
+# ---------------------------------------------------------
+# OpenEXR
+# ---------------------------------------------------------
+
+set(OPENEXR_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+set(OPENEXR_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(OPENEXR_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(OPENEXR_INSTALL OFF CACHE BOOL "" FORCE)
+
+# Let OpenEXR manage its own compatible Imath dependency.
+set(OPENEXR_FORCE_INTERNAL_IMATH ON CACHE BOOL "" FORCE)
+
+# Pin the Imath version rather than letting it use a moving branch.
+set(OPENEXR_IMATH_TAG v3.2.2 CACHE STRING "" FORCE)
+
+FetchContent_Declare(
+    OpenEXR
+    GIT_REPOSITORY https://github.com/AcademySoftwareFoundation/openexr.git
+    GIT_TAG v3.4.4
+    GIT_SHALLOW TRUE
+)
+
+FetchContent_MakeAvailable(OpenEXR)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    OpenEXR::OpenEXR
+)
+
 # --- Post-build: copy runtime assets next to the executable ---
 # $<TARGET_FILE_DIR:...> already resolves to bin/<Config>, so no prefix needed.
 add_custom_command(
     TARGET ${PROJECT_NAME} POST_BUILD
+
+    # Runtime DLL dependencies
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_RUNTIME_DLLS:${PROJECT_NAME}>
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>
+    COMMAND_EXPAND_LISTS
+
 
     # HLSL shaders (compiled + source files consumed at runtime)
     COMMAND ${CMAKE_COMMAND} -E copy_directory

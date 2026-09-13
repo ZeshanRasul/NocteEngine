@@ -13,6 +13,9 @@
 #include "Renderer.h"
 #include <iostream>
 
+#include <ImfRgbaFile.h>
+#include <ImfArray.h>
+
 #include "SamplingModes.h"
 #include "../RL/q_table.hpp"
 
@@ -361,7 +364,7 @@ void Renderer::Update(float dt, Camera& cam, float x, float y)
 	//	m_Instances[2].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(10.0f, -10.0f, 0.0f);;
 	//	m_Instances[3].second = XMMatrixRotationAxis({ 0.0f, 1.0f, 0.0f }, static_cast<float>(m_AnimationCounter) / -1000.0f) * XMMatrixTranslation(-10.0f, -10.0f, 0.0f);;
 
-		//	UpdateCameraBuffer();
+	//	UpdateCameraBuffer();
 	UpdateObjectCBs();
 	UpdateMainPassCB();
 	UpdateAreaLightConstantBuffer();
@@ -785,6 +788,41 @@ bool Renderer::DoImageCapture(float x, float y)
 		D3D12_RESOURCE_STATE_COPY_SOURCE,
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 
+	if (m_SaveImage)
+	{
+		std::string folderName = m_RunTimestamp + GetSceneSetUpName(m_SceneID) + "_" + std::to_string(m_CurrentRunCapture);
+		std::filesystem::path runPath = std::filesystem::path("captures/runs") / folderName;
+		std::filesystem::create_directories(runPath);
+		std::string filename = "radiance.exr";
+		std::filesystem::path fullPath = runPath / filename;
+
+		int width = desc.Width;
+		int height = desc.Height;
+
+		Imf::Array2D<Imf::Rgba> pixels(height, width);
+		for (int y = 0; y < height; y++)
+		{
+			for (int x = 0; x < width; x++)
+				pixels[y][x] = Imf::Rgba(image[(y * width + x) * 4 + 0], image[(y * width + x) * 4 + 1], image[(y * width + x) * 4 + 2], image[(y * width + x) * 4 + 3]);
+		}
+
+
+		try {
+			Imf::RgbaOutputFile file(fullPath.string().c_str(), width, height, Imf::WRITE_RGBA);
+			file.setFrameBuffer(&pixels[0][0], 1, width);
+			file.writePixels(height);
+			m_CurrentRunCapture++;
+			m_SaveImage = false;
+		}
+		catch (const std::exception& e) {
+			std::cerr << "error writing image file " << fullPath << ":" << e.what() << std::endl;
+			m_SaveImage = false;
+			return false;
+		}
+		return true;
+
+	}
+
 	return true;
 
 	//std::string folderName = m_RunTimestamp + GetSceneSetUpName(m_SceneID);
@@ -975,50 +1013,50 @@ bool Renderer::Draw(bool useRaster, float x, float y)
 	RenderImGuiDebugWindow(x, y);
 
 
-	// --- Image capture (if requested) ---
-	if (m_TargetCaptureSPP >= 1)
-	{
-		m_CurrentAccumSPP++;
-		if (m_CurrentAccumSPP > m_TargetCaptureSPP)
-		{
-			m_SaveImage = true;
-			m_CurrentAccumSPP = 0;
-			m_TargetCaptureSPP = 0;
-			m_StartCaptureSequenceNextFrame = false;
-			m_CaptureRequested = false;
-		}
-		else
-		{
-			m_ClearAccumulation = false;
-		}
+	//// --- Image capture (if requested) ---
+	//if (m_TargetCaptureSPP >= 1)
+	//{
+	//	m_CurrentAccumSPP++;
+	//	if (m_CurrentAccumSPP > m_TargetCaptureSPP)
+	//	{
+	//		m_SaveImage = true;
+	//		m_CurrentAccumSPP = 0;
+	//		m_TargetCaptureSPP = 0;
+	//		m_StartCaptureSequenceNextFrame = false;
+	//		m_CaptureRequested = false;
+	//	}
+	//	else
+	//	{
+	//		m_ClearAccumulation = false;
+	//	}
 
-		if (m_SaveImage)
-		{
-			// Capturing must not end the session: an A/B pair has to be shot from
-			// one identical viewpoint, which is impossible if the app exits after
-			// the first image. Batch experiment runs can opt back in.
-			if (!DoImageCapture(x, y) && m_ExitAfterCapture)
-				return false;
-		}
-	}
+	//	if (m_SaveImage)
+	//	{
+	//		// Capturing must not end the session: an A/B pair has to be shot from
+	//		// one identical viewpoint, which is impossible if the app exits after
+	//		// the first image. Batch experiment runs can opt back in.
+	//		if (!DoImageCapture(x, y) && m_ExitAfterCapture)
+	//			return false;
+	//	}
+	//}
 
-	if (m_FrameIndex == m_MaxFrames)
-	{
-		m_SaveImage = true;
-		if (!DoImageCapture(x, y) && m_ExitAfterCapture)
-			return false;
-	}
+	//if (m_FrameIndex == m_MaxFrames)
+	//{
+	//	m_SaveImage = true;
+	//	if (!DoImageCapture(x, y) && m_ExitAfterCapture)
+	//		return false;
+	//}
 
-	if (m_CaptureRequested)
-	{
-		m_ClearAccumulation = true;
-		m_StartCaptureSequenceNextFrame = true;
-	}
+	//if (m_CaptureRequested)
+	//{
+	//	m_ClearAccumulation = true;
+	//	m_StartCaptureSequenceNextFrame = true;
+	//}
 
-	// --- Update per-frame state ---
-	m_PrevFrameStats = m_FrameStats;
-	m_HasPrevState = true;
-	m_MaxIterations = (m_UseRL || m_UseQTable || !m_UseTemporal) ? 256 : 8192;
+	//// --- Update per-frame state ---
+	//m_PrevFrameStats = m_FrameStats;
+	//m_HasPrevState = true;
+	//m_MaxIterations = (m_UseRL || m_UseQTable || !m_UseTemporal) ? 256 : 8192;
 
 	UpdateFrameIndexRNGCBuffer();
 
