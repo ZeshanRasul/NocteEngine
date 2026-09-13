@@ -3433,16 +3433,16 @@ void Renderer::CreatePlaneGeometry()
 {
 	Vertex planeVertices[] =
 	{
-		{{-1.0f, 0.0f,  1.0f}, { 0.0f, -1.0f, 0.0f }}, // 0
-		{{-1.0f, 0.0f, -1.0f}, { 0.0f, -1.0f, 0.0f }}, // 1
-		{{ 1.0f, 0.0f,  1.0f}, { 0.0f, -1.0f, 0.0f }}, // 2
-		{{ 1.0f, 0.0f, -1.0f}, { 0.0f, -1.0f, 0.0f }}, // 3
+		{{-1.0f, 0.0f,  1.0f}, { 0.0f, 1.0f, 0.0f }}, // 0
+		{{-1.0f, 0.0f, -1.0f}, { 0.0f, 1.0f, 0.0f }}, // 1
+		{{ 1.0f, 0.0f,  1.0f}, { 0.0f, 1.0f, 0.0f }}, // 2
+		{{ 1.0f, 0.0f, -1.0f}, { 0.0f, 1.0f, 0.0f }}, // 3
 	};
 
 	// Two triangles: (0,1,2) and (2,1,3) � matches your original winding
 	uint32_t planeIndices[] =
 	{
-		0, 1, 2,
+		0, 2, 1,
 		2, 1, 3
 	};
 
@@ -4191,20 +4191,29 @@ void Renderer::RenderImGuiDebugWindow(UINT x, UINT y)
 		ImGui::SetTooltip("Off = uniform light selection (baseline for A/B comparison).\n"
 			"Resets accumulation so both sides start from frame 0.");
 
-	UINT index = (static_cast<UINT>(y) * m_AccumulationBuffer.Get()->GetDesc().Width + static_cast<UINT>(x)) * 4;
-	XMFLOAT4 pixelColor;
-	pixelColor.x = image[index];
-	pixelColor.y = image[index + 1];
-	pixelColor.z = image[index + 2];
-	pixelColor.w = image[index + 3];
 
-	ImGui::Text("Cursor: X=%d Y=%d", x, y);
+	if (x < 0 || y < 0 || x >= m_AccumulationBuffer.Get()->GetDesc().Width || y >= m_AccumulationBuffer.Get()->GetDesc().Height)
+	{
+		ImGui::Text("Cursor: X=%d Y=%d", x, y);
+		ImGui::SameLine();
+		ImGui::Text("Pixel under cursor: out of bounds");
+	}
+	else
+	{
+		UINT index = (static_cast<UINT>(y) * m_AccumulationBuffer.Get()->GetDesc().Width + static_cast<UINT>(x)) * 4;
+		XMFLOAT4 pixelColor;
+		pixelColor.x = image[index];
+		pixelColor.y = image[index + 1];
+		pixelColor.z = image[index + 2];
+		pixelColor.w = image[index + 3];
 
-	ImGui::SameLine();
+		ImGui::Text("Cursor: X=%d Y=%d", x, y);
 
-	ImGui::Text("Pixel under cursor: R=%.6f G=%.6f B=%.6f A=%.6f",
-		pixelColor.x, pixelColor.y, pixelColor.z, pixelColor.w);
+		ImGui::SameLine();
 
+		ImGui::Text("Pixel under cursor: R=%.6f G=%.6f B=%.6f A=%.6f",
+			pixelColor.x, pixelColor.y, pixelColor.z, pixelColor.w);
+	}
 	ImGui::SeparatorText("Capture");
 
 	if (ImGui::Checkbox("Lock Camera", &m_CameraLocked))

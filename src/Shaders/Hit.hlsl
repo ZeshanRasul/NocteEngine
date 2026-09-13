@@ -441,7 +441,7 @@ LightSample SampleAreaLight(uint lightIndex, float3 p, float3 n, inout uint seed
     s.dist = d;
     s.Li = light.Radiance;
     s.pdf = pdf;
-    s.pointOnLight = p + s.dir * s.dist;
+    s.pointOnLight = pL;
 
     return s;
 
@@ -586,7 +586,10 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     {
         if (mat.isEmissive)
         {
-            payload.emission = mat.EmissiveColor;
+            float3 wo = -WorldRayDirection();
+            bool emittingSide = dot(Ngeom, wo) > 0.0f;
+            
+            payload.emission = emittingSide ? mat.EmissiveColor : 0.0f;
             payload.isEmissive = 1;
             payload.done = 1;
             return;
