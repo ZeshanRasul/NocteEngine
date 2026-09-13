@@ -61,6 +61,8 @@ public:
 	inline virtual void* GetNativeWindow() const { return m_Window; }
 	HWND GetWindowHandle() { return m_Hwnd; }
 
+	float GetLastMousePosX() const { return m_LastMousePos.x; }
+	float GetLastMousePosY() const { return m_LastMousePos.y; }
 private:
 	struct WindowData
 	{
@@ -77,6 +79,7 @@ private:
 	static LRESULT CALLBACK HandleMessageSetup(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	static LRESULT CALLBACK HandleMessageThunk(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	LRESULT HandleMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 
 public:
 	void OnMouseDown(WPARAM btnState, int x, int y);
@@ -107,5 +110,5 @@ private:
 	Camera m_Camera;
 	GameTimer m_GameTimer;
 
-	POINT m_LastMousePos;
+	POINT m_LastMousePos{0, 0};
 };

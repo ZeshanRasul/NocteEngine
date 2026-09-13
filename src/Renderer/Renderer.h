@@ -33,8 +33,8 @@ public:
 
 	bool InitializeD3D12(HWND& windowHandle);
 	bool Shutdown();
-	void Update(float dt, Camera& cam);
-	bool Draw(bool useRaster);
+	void Update(float dt, Camera& cam, float x, float y);
+	bool Draw(bool useRaster, float x, float y);
 
 private:
 	void CreateDebugController();
@@ -93,7 +93,7 @@ private:
 	void DoFinalPass(ID3D12Resource* srcResource, UINT srcSRVIndex);
 	void DoPresentBlit();
 	void DoImGuiPass();
-	bool DoImageCapture();  // returns false when the run is complete
+	bool DoImageCapture(float x, float y);  // returns false when the run is complete
 
 	Microsoft::WRL::ComPtr<ID3D12Device5> m_Device;
 	Microsoft::WRL::ComPtr<IDXGIAdapter> m_WarpAdapter;
@@ -402,7 +402,9 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_ImGuiSrvHeap;
 	D3D12_CPU_DESCRIPTOR_HANDLE imguiCpuStart;
 	D3D12_GPU_DESCRIPTOR_HANDLE imguiGpuStart;
-	void RenderImGuiDebugWindow();
+	void RenderImGuiDebugWindow(UINT x, UINT y);
+	XMFLOAT4 m_PixelColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_ReadbackBuffer;
 	void CreateReadbackBuffer();
@@ -583,8 +585,13 @@ private:
 		}
 	}
 
+////////// Renderer Correctness
+
 	SceneSetUp m_SceneID = SceneSetUp::DIFFUSE_PLANE;
 	std::string m_RunTimestamp;
+
+	XMFLOAT4 ReadPixel(ID3D12Resource* resource, UINT x, UINT y);
+	std::vector<float> image;
 };
 
 struct Reservoir

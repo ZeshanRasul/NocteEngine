@@ -323,7 +323,7 @@ static inline UINT64 Align(UINT64 v, UINT64 alignment) {
 	return (v + (alignment - 1)) & ~(alignment - 1);
 }
 
-void Renderer::Update(float dt, Camera& cam)
+void Renderer::Update(float dt, Camera& cam, float x, float y)
 {
 	// Push the UI's camera-lock state onto the camera each frame.
 	cam.SetLocked(m_CameraLocked);
@@ -367,7 +367,6 @@ void Renderer::Update(float dt, Camera& cam)
 	UpdateMaterialCBs();
 	UpdateAreaLightConstantBuffer();
 	UpdateMediumConstantBuffer();
-
 }
 
 static inline void TransitionIfNeeded(
@@ -718,9 +717,9 @@ void Renderer::DoImGuiPass()
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_CommandList.Get());
 }
 
-bool Renderer::DoImageCapture()
+bool Renderer::DoImageCapture(float x, float y)
 {
-	auto desc = m_PresentUAV->GetDesc();
+	auto desc = m_AccumulationBuffer.Get()->GetDesc();
 
 	D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
 	UINT numRows = 0;
@@ -733,8 +732,14 @@ bool Renderer::DoImageCapture()
 	m_Device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &descRB,
 		D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&m_ReadbackBuffer));
 
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition
+	(
+		m_AccumulationBuffer.Get(),
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		D3D12_RESOURCE_STATE_COPY_SOURCE));
+
 	D3D12_TEXTURE_COPY_LOCATION srcLoc = {};
-	srcLoc.pResource = m_PresentUAV.Get();
+	srcLoc.pResource = m_AccumulationBuffer.Get();
 	srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
 	srcLoc.SubresourceIndex = 0;
 
@@ -743,7 +748,13 @@ bool Renderer::DoImageCapture()
 	dstLoc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
 	dstLoc.PlacedFootprint = footprint;
 
-	m_CommandList->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, nullptr);
+	m_CommandList->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, &CD3DX12_BOX(0, 0, 0, static_cast<UINT>(desc.Width), static_cast<UINT>(desc.Height), 1));
+
+	//m_CommandList->CopyTextureRegion(
+	//&dstLoc,
+	//0, 0, 0,
+	//&srcLoc,
+	//&CD3DX12_BOX(x, y, x + 1, y + 1));
 
 	ThrowIfFailed(m_CommandList->Close());
 	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
@@ -757,38 +768,46 @@ bool Renderer::DoImageCapture()
 
 	void* mapped = nullptr;
 	m_ReadbackBuffer->Map(0, nullptr, &mapped);
-	unsigned char* base = reinterpret_cast<unsigned char*>(mapped);
-	std::vector<unsigned char> image(width * height * 4);
+	float* base = reinterpret_cast<float*>(mapped);
+	image.resize(width * height * 4);
 	for (UINT y = 0; y < height; ++y)
 	{
 		memcpy(image.data() + y * width * 4,
-			base + footprint.Offset + y * footprint.Footprint.RowPitch,
-			width * 4);
+			base + footprint.Offset / sizeof(float) + y * footprint.Footprint.RowPitch / sizeof(float),
+			width * 4 * sizeof(float));
 	}
 	m_ReadbackBuffer->Unmap(0, nullptr);
 
-	std::string folderName = m_RunTimestamp + GetSceneSetUpName(m_SceneID);
-	std::filesystem::path runPath = std::filesystem::path("experiments/runs") / folderName;
-	std::filesystem::create_directories(runPath);
-	std::string tag = m_UseQTable ? "QTable" : (m_UseTemporal ? "GT" : (m_UseRL ? "RL" : "Baseline"));
-	// Tag the RIS state so an A/B pair cannot be mixed up after the fact.
-	tag += m_UseReSTIR ? "_RIS" : "_NoRIS";
-	std::string filename = tag + std::to_string(m_FrameIndex) + "SPP.png";
-	std::filesystem::path fullPath = runPath / filename;
+	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition
+	(
+		m_AccumulationBuffer.Get(),
+		D3D12_RESOURCE_STATE_COPY_SOURCE,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 
-	// PNG, not JPEG: these captures are used to measure noise, and JPEG's block
-	// artefacts sit in exactly the frequency band being compared. (The previous
-	// call wrote JPEG data under a .png extension, and passed width*4 as the JPEG
-	// quality argument; for stbi_write_png that same value is the correct stride.)
-	if (!stbi_write_png(fullPath.string().c_str(), width, height, 4, image.data(), width * 4))
-		std::cerr << "Failed to write image: " << fullPath << std::endl;
+	return true;
 
-	m_SaveImage = false;
+	//std::string folderName = m_RunTimestamp + GetSceneSetUpName(m_SceneID);
+	//std::filesystem::path runPath = std::filesystem::path("experiments/runs") / folderName;
+	//std::filesystem::create_directories(runPath);
+	//std::string tag = m_UseQTable ? "QTable" : (m_UseTemporal ? "GT" : (m_UseRL ? "RL" : "Baseline"));
+	//// Tag the RIS state so an A/B pair cannot be mixed up after the fact.
+	//tag += m_UseReSTIR ? "_RIS" : "_NoRIS";
+	//std::string filename = tag + std::to_string(m_FrameIndex) + "SPP.png";
+	//std::filesystem::path fullPath = runPath / filename;
 
-	return (m_FrameIndex < m_MaxIterations);
+	//// PNG, not JPEG: these captures are used to measure noise, and JPEG's block
+	//// artefacts sit in exactly the frequency band being compared. (The previous
+	//// call wrote JPEG data under a .png extension, and passed width*4 as the JPEG
+	//// quality argument; for stbi_write_png that same value is the correct stride.)
+	//if (!stbi_write_png(fullPath.string().c_str(), width, height, 4, image.data(), width * 4))
+	//	std::cerr << "Failed to write image: " << fullPath << std::endl;
+
+	//m_SaveImage = false;
+
+	//return (m_FrameIndex < m_MaxIterations);
 }
 
-bool Renderer::Draw(bool useRaster)
+bool Renderer::Draw(bool useRaster, float x, float y)
 {
 	// --- ImGui frame setup (must happen before command list reset) ---
 	ImGui_ImplDX12_NewFrame();
@@ -831,7 +850,7 @@ bool Renderer::Draw(bool useRaster)
 	if (ImGui::IsKeyPressed(ImGuiKey_H, false) && !ImGui::GetIO().WantTextInput)
 		m_ShowUI = !m_ShowUI;
 
-	RenderImGuiDebugWindow();
+
 	UpdateDenoiseConstantBuffer(0, 0);
 
 	// --- Command list reset ---
@@ -914,6 +933,7 @@ bool Renderer::Draw(bool useRaster)
 
 	// --- Raytracing pass ---
 	DoRaytracingPass(desc);
+	//m_PixelColor = ReadPixel(m_AccumulationBuffer.Get(), x, y);
 
 	// --- RIS initial sampling (reads the G-Buffer written above, writes reservoirs for next frame) ---
 	UpdateReSTIRConstantBuffer();
@@ -943,8 +963,16 @@ bool Renderer::Draw(bool useRaster)
 		DoFinalPass(m_AccumulationBuffer.Get(), SRV_Accumulation);
 	}
 
+
 	// --- Present UAV → backbuffer ---
 	DoPresentBlit();
+
+//	ReadPixel(m_PresentUAV.Get(), x, y);
+
+	DoImageCapture(x, y);
+
+	RenderImGuiDebugWindow(x, y);
+
 
 	// --- Image capture (if requested) ---
 	if (m_TargetCaptureSPP >= 1)
@@ -968,7 +996,7 @@ bool Renderer::Draw(bool useRaster)
 			// Capturing must not end the session: an A/B pair has to be shot from
 			// one identical viewpoint, which is impossible if the app exits after
 			// the first image. Batch experiment runs can opt back in.
-			if (!DoImageCapture() && m_ExitAfterCapture)
+			if (!DoImageCapture(x, y) && m_ExitAfterCapture)
 				return false;
 		}
 	}
@@ -976,7 +1004,7 @@ bool Renderer::Draw(bool useRaster)
 	if (m_FrameIndex == m_MaxFrames)
 	{
 		m_SaveImage = true;
-		if (!DoImageCapture() && m_ExitAfterCapture)
+		if (!DoImageCapture(x, y) && m_ExitAfterCapture)
 			return false;
 	}
 
@@ -992,6 +1020,8 @@ bool Renderer::Draw(bool useRaster)
 	m_MaxIterations = (m_UseRL || m_UseQTable || !m_UseTemporal) ? 256 : 8192;
 
 	UpdateFrameIndexRNGCBuffer();
+
+
 
 	// --- ImGui overlay ---
 	DoImGuiPass();
@@ -4114,7 +4144,7 @@ void Renderer::CreateImGuiDescriptorHeap()
 
 }
 
-void Renderer::RenderImGuiDebugWindow()
+void Renderer::RenderImGuiDebugWindow(UINT x, UINT y)
 {
 	if (!m_ShowUI)
 	{
@@ -4160,6 +4190,20 @@ void Renderer::RenderImGuiDebugWindow()
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("Off = uniform light selection (baseline for A/B comparison).\n"
 			"Resets accumulation so both sides start from frame 0.");
+
+	UINT index = (static_cast<UINT>(y) * m_AccumulationBuffer.Get()->GetDesc().Width + static_cast<UINT>(x)) * 4;
+	XMFLOAT4 pixelColor;
+	pixelColor.x = image[index];
+	pixelColor.y = image[index + 1];
+	pixelColor.z = image[index + 2];
+	pixelColor.w = image[index + 3];
+
+	ImGui::Text("Cursor: X=%d Y=%d", x, y);
+
+	ImGui::SameLine();
+
+	ImGui::Text("Pixel under cursor: R=%.6f G=%.6f B=%.6f A=%.6f",
+		pixelColor.x, pixelColor.y, pixelColor.z, pixelColor.w);
 
 	ImGui::SeparatorText("Capture");
 
@@ -4677,6 +4721,83 @@ bool Renderer::LoadTextureFromFileToSRV(ID3D12Device* device, ID3D12GraphicsComm
 	stbi_image_free(pixels);
 
 	return true;
+}
+
+XMFLOAT4 Renderer::ReadPixel(ID3D12Resource* resource, UINT x, UINT y)
+{
+	//m_CommandList->CopyTextureRegion(
+	//	&CD3DX12_TEXTURE_COPY_LOCATION(m_ReadbackBuffer.Get(), 0),
+	//	0, 0, 0,
+	//	&CD3DX12_TEXTURE_COPY_LOCATION(m_AccumulationBuffer.Get(), 0),
+	//	&CD3DX12_BOX(x, y, x + 1, y + 1));
+
+	//void* mappedData = nullptr;
+	//CD3DX12_RANGE readRange(0, sizeof(XMFLOAT4));
+
+	//ThrowIfFailed(m_ReadbackBuffer->Map(0, &readRange, &mappedData));
+	//XMFLOAT4 pixelColor = *reinterpret_cast<XMFLOAT4*>(mappedData);
+	//m_ReadbackBuffer->Unmap(0, nullptr);
+
+	//return pixelColor;
+
+	auto desc = resource->GetDesc();
+	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+		resource,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		D3D12_RESOURCE_STATE_COPY_SOURCE);
+	m_CommandList->ResourceBarrier(1, &barrier);
+
+	D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
+	UINT numRows = 0;
+	UINT64 rowSizeInBytes = 0;
+	UINT64 totalBytes = 0;
+	m_Device->GetCopyableFootprints(&desc, 0, 1, 0, &footprint, &numRows, &rowSizeInBytes, &totalBytes);
+
+	CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_READBACK);
+	CD3DX12_RESOURCE_DESC descRB = CD3DX12_RESOURCE_DESC::Buffer(totalBytes);
+	m_Device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &descRB,
+		D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&m_ReadbackBuffer));
+
+	D3D12_TEXTURE_COPY_LOCATION srcLoc = {};
+	srcLoc.pResource = resource;
+	srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+	srcLoc.SubresourceIndex = 0;
+
+	D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
+	dstLoc.pResource = m_ReadbackBuffer.Get();
+	dstLoc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+	dstLoc.PlacedFootprint = footprint;
+
+	m_CommandList->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, &CD3DX12_BOX(x, y, x + 1, y + 1));
+
+	ThrowIfFailed(m_CommandList->Close());
+	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
+	m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+	m_CurrentFrameResource->Fence = ++m_CurrentFence;
+	FlushCommandQueue();
+	m_CommandList->Reset(m_CommandAllocator.Get(), m_PipelineStateObjects["opaque"].Get());
+
+	const UINT width = static_cast<UINT>(desc.Width);
+	const UINT height = desc.Height;
+
+	void* mapped = nullptr;
+	m_ReadbackBuffer->Map(0, nullptr, &mapped);
+	float* base = reinterpret_cast<float*>(mapped);
+	for (UINT y = 0; y < height; ++y)
+	{
+		memcpy(image.data() + y * width * 4,
+			base + footprint.Offset / sizeof(float) + y * footprint.Footprint.RowPitch / sizeof(float),
+			width * 4 * sizeof(float));
+	}
+	m_ReadbackBuffer->Unmap(0, nullptr);
+
+	desc = resource->GetDesc();
+	barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+		resource,
+		D3D12_RESOURCE_STATE_COPY_SOURCE,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	m_CommandList->ResourceBarrier(1, &barrier);
+
 }
 
 void Renderer::UploadRLQTable(const std::vector<RLQValue>& qTable)
