@@ -58,6 +58,9 @@ struct PassConstants
 	int UseQTable = 0;
 	XMFLOAT3 SunColor = { 1.0f, 0.95f, 0.85f };
 
+	UINT useSimpleIntegrator = 1;
+	float pad[3];
+
 	Light Lights[MaxLights];
 };
 
@@ -69,7 +72,7 @@ struct AreaLight
 	float Pad2 = 0.0f;
 	XMFLOAT3 V;
 	float Pad3 = 0.0f;
-	XMFLOAT3 Radiance = { 0.1f, 0.1f, 0.0f };
+	XMFLOAT3 Radiance = { 1.0f, 0.0f, 0.1f };
 	float Area;
 };
 

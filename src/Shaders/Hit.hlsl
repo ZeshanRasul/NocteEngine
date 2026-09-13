@@ -90,6 +90,9 @@ cbuffer cbPass : register(b0)
     int UseQTable;
     float3 gSunColor;
 
+    uint gUseSimpleIntegrator;
+    float3 mainPassPadding;
+    
     Light gLights[MaxLights];
 };
 
@@ -394,6 +397,13 @@ struct LightSample
     float dist; // distance to light point
     float3 Li; // radiance from light along -dir
     float pdf; // pdf in solid angle
+    float3 pointOnLight;
+};
+
+struct SampledLight
+{
+    AreaLight light;
+    float p;
 };
 
 LightSample SampleAreaLight(uint lightIndex, float3 p, float3 n, inout uint seed)
@@ -413,6 +423,9 @@ LightSample SampleAreaLight(uint lightIndex, float3 p, float3 n, inout uint seed
     if (d <= 0.0f)
         return s;
 
+    if (light.Area <= 0.0f)
+        return s;
+    
     L /= d;
 
     float3 nL = normalize(cross(light.U, light.V));
@@ -420,20 +433,33 @@ LightSample SampleAreaLight(uint lightIndex, float3 p, float3 n, inout uint seed
     if (cosOnLight <= 0.0f)
         return s;
 
-    float pdfArea = 1.0f / max(light.Area, 1e-4f);
+    float pdfArea = 1.0f / light.Area;
 
-    float pdf = pdfArea * (d * d) / max(cosOnLight, 1e-4f);
-
-    pdf *= (1.0f / gNumAreaLights);
+    float pdf = pdfArea * (d * d) / cosOnLight;
 
     s.dir = L;
     s.dist = d;
     s.Li = light.Radiance;
     s.pdf = pdf;
+    s.pointOnLight = p + s.dir * s.dist;
 
     return s;
 
 }
+
+SampledLight Sample(float u, float lightSeed)
+{
+    if (gNumAreaLights == 0)
+        return (SampledLight) 0;
+    
+    int lightIndex = min((uint) (Rand(lightSeed) * gNumAreaLights), gNumAreaLights - 1);
+    SampledLight S;
+
+    S.light = gAreaLights[lightIndex];
+    S.p = 1.0f / gNumAreaLights;
+    return S;
+}
+
 
 [shader("closesthit")]
 void ShadowClosestHit(inout ShadowPayload hit, Attributes attrib)
@@ -444,6 +470,9 @@ void ShadowClosestHit(inout ShadowPayload hit, Attributes attrib)
 [shader("closesthit")]
 void ClosestHit(inout PathPayload payload, Attributes attrib)
 {
+
+    
+    
     uint prevWasDelta = payload.lastBounceWasDelta;
     float prevSegmentPdf = payload.prevBsdfPdf;
     float3 prevSegmentOrigin = payload.prevHitPos;
@@ -551,6 +580,45 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         payload.done = 1;
         payload.isEmissive = 1;
         return;
+    }
+    
+    if (gUseSimpleIntegrator)
+    {
+        if (mat.isEmissive)
+        {
+            payload.emission = mat.EmissiveColor;
+            payload.isEmissive = 1;
+            payload.done = 1;
+            return;
+        }
+        else
+        {
+            payload.emission = 0.0f;
+            payload.isEmissive = 0;
+            uint lightIndex = 0;
+            LightSample lightSample = SampleAreaLight(lightIndex, pW, N, payload.seed);
+            float pdf = lightSample.pdf * (1.0f / gNumAreaLights);
+            if (lightSample.pdf > 0.0f)
+            {
+                float3 wi = lightSample.dir;
+                
+                float3 shadowOrigin = pW + Ng * SHADOW_RAY_OFFSET;
+                float3 shadowVector = lightSample.pointOnLight - shadowOrigin;
+                float shadowDistance = length(shadowVector);
+                float3 shadowDirection = shadowVector / shadowDistance;
+                
+                uint V = IsOccluded(shadowOrigin, shadowDirection, shadowDistance) ? 0 : 1;
+               
+                float3 f = mat.DiffuseAlbedo.rgb / PI;
+                float cosReceiver = max(dot(N, lightSample.dir), 0.0f);
+                
+                
+                V = 1;
+                payload.emission = V * f * lightSample.Li * (cosReceiver / pdf);
+            }
+            payload.done = 1;
+            return;
+        }
     }
     
     payload.emission = 0.0f;

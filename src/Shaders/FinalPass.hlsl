@@ -39,17 +39,7 @@ float3 LinearToSRGB(float3 x)
 [numthreads(8, 8, 1)]
 void CSMain(uint3 dtid : SV_DispatchThreadID)
 {
-    float3 hdr = AccumInput[dtid.xy].rgb;
-    hdr /= max((float) AccumulatedSPP, 1.0);
-
-    // EV-based exposure (matches Denoise.hlsl)
-    hdr *= exp2(Exposure);
-
-    float3 mapped;
-    if (ToneMapMode == 0)
-        mapped = ToneMapReinhard(hdr);
-    else
-        mapped = ToneMapACES(hdr);
-
-    Output[dtid.xy] = float4(LinearToSRGB(mapped), 1.0);
+    float3 linearRadiance = AccumInput[dtid.xy].rgb;
+    float3 displayLinear = linearRadiance * exp2(Exposure);
+    Output[dtid.xy] = float4(LinearToSRGB(displayLinear), 1.0f);
 }

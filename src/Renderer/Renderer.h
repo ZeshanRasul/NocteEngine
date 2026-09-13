@@ -339,7 +339,7 @@ private:
 	UINT MAX_PASSES = 7;
 	PostProcessData m_PostProcessData[7];
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_PostProcessConstantBuffer[7];
-	float m_Exposure = -0.5f;
+	float m_Exposure = 0.0f;
 	int m_ToneMapMode = 1;
 	int m_DebugMode = 0;
 	int m_IsLastPass = 0;

@@ -1363,7 +1363,7 @@ void Renderer::BuildMaterials()
 	groundMat->Name = "ground";
 	groundMat->MatCBIndex = 0;
 	groundMat->DiffuseSrvHeapIndex = 0;
-	groundMat->DiffuseAlbedo = XMFLOAT4(0.1, 0.3, 0.1, 1.0);
+	groundMat->DiffuseAlbedo = XMFLOAT4(0.5, 0.5, 0.5, 1.0);
 	groundMat->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	groundMat->Roughness = 0.99f;
 	groundMat->metallic = 0.01f;
@@ -2004,7 +2004,6 @@ void Renderer::UpdateMainPassCB()
 	XMStoreFloat4x4(&m_MainPassCB.InvViewProj, XMMatrixTranspose(invViewProj));
 	XMStoreFloat4x4(&m_MainPassCB.PrevViewProj, XMMatrixTranspose(XMLoadFloat4x4(&m_PrevViewProj)));
 
-
 	m_MainPassCB.EyePosW = m_EyePos;
 	m_MainPassCB.SPP = m_SPP;
 	m_MainPassCB.RenderTargetSize = XMFLOAT2((float)m_ClientWidth, (float)m_ClientHeight);
@@ -2030,6 +2029,11 @@ void Renderer::UpdateMainPassCB()
 	m_MainPassCB.UseRL = m_UseRL ? 1 : 0;
 
 	m_MainPassCB.UseQTable = m_UseQTable ? 1 : 0;
+
+	m_MainPassCB.useSimpleIntegrator = 1u;
+	m_MainPassCB.pad[0] = 0.0f;
+	m_MainPassCB.pad[1] = 0.0f;
+	m_MainPassCB.pad[2] = 0.0f;
 
 	m_MainPassCB.Lights[0].Strength = { 0.0f, 0.0f, 0.0f };
 	m_MainPassCB.Lights[0].Direction = { 0.3f, -0.46f, 0.7f };
@@ -3372,7 +3376,7 @@ void Renderer::CreateAccelerationStructures()
 		{
 			// AreaLight
 			{ planeBottomLevelBuffers.pResult,
-			  XMMatrixScaling(m_AreaLights.gAreaLights[0].U.x, 1.0f, m_AreaLights.gAreaLights[0].V.z) *
+			  XMMatrixScaling(m_AreaLights.gAreaLights[0].U.x * 0.5f, 1.0f, m_AreaLights.gAreaLights[0].V.z * 0.5f) *
 			  XMMatrixRotationAxis({1, 0, 0}, XMConvertToRadians(180.0f)) *
 			  XMMatrixTranslation(m_AreaLights.gAreaLights[0].Position.x, m_AreaLights.gAreaLights[0].Position.y, m_AreaLights.gAreaLights[0].Position.z)},
 
@@ -3627,7 +3631,7 @@ void Renderer::CreatePostProcessConstantBuffer()
 		uint8_t* pData;
 		ThrowIfFailed(m_PostProcessConstantBuffer[pass]->Map(0, nullptr, (void**)&pData));
 		memcpy(pData, (void*)&m_PostProcessData[pass], sizeof(PostProcessData));
-		m_PostProcessConstantBuffer[0]->Unmap(0, nullptr);
+		m_PostProcessConstantBuffer[pass]->Unmap(0, nullptr);
 	}
 
 
@@ -3655,9 +3659,9 @@ void Renderer::CreateAreaLightConstantBuffer()
 {
 	AreaLight areaLight{};
 	areaLight.Position = XMFLOAT3(0.01f, 2.0f, 0.01f);
-	areaLight.Radiance = XMFLOAT3(0.1f, 0.5f, 0.0f);
-	areaLight.U = XMFLOAT3(0.1f, 0.0f, 0.0f);
-	areaLight.V = XMFLOAT3(0.0f, 0.0f, 0.1f);
+	areaLight.Radiance = XMFLOAT3(0.5f, 0.8f, 0.5f);
+	areaLight.U = XMFLOAT3(0.5f, 0.0f, 0.0f);
+	areaLight.V = XMFLOAT3(0.0f, 0.0f, 0.5f);
 
 	XMVECTOR U = XMLoadFloat3(&areaLight.U);
 	XMVECTOR V = XMLoadFloat3(&areaLight.V);
