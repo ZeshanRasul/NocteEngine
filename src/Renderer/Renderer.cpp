@@ -364,8 +364,9 @@ void Renderer::Update(float dt, Camera& cam, float x, float y)
 		//	UpdateCameraBuffer();
 	UpdateObjectCBs();
 	UpdateMainPassCB();
-	UpdateMaterialCBs();
 	UpdateAreaLightConstantBuffer();
+	UpdatePerInstanceConstantBuffers();
+	UpdateMaterialCBs();
 	UpdateMediumConstantBuffer();
 }
 
@@ -967,7 +968,7 @@ bool Renderer::Draw(bool useRaster, float x, float y)
 	// --- Present UAV → backbuffer ---
 	DoPresentBlit();
 
-//	ReadPixel(m_PresentUAV.Get(), x, y);
+	//	ReadPixel(m_PresentUAV.Get(), x, y);
 
 	DoImageCapture(x, y);
 
@@ -2008,6 +2009,7 @@ void Renderer::UpdateMaterialCBs()
 			matConstants.FresnelR0 = mat->FresnelR0;
 			matConstants.Roughness = mat->Roughness;
 			matConstants.MatTransform = mat->MatTransform;
+			matConstants.Emission = mat->emission;
 
 			currentMaterialCB->CopyData(mat->MatCBIndex, matConstants);
 
@@ -3775,7 +3777,20 @@ void Renderer::UpdateAreaLightConstantBuffer()
 	XMVECTOR crossUV = (XMVector3Cross(U, V));
 	float area = XMVectorGetX(XMVector3Length(crossUV));
 	m_AreaLights.gAreaLights[0].Area = area;
-	m_AreaLights.gAreaLights[0].Radiance = m_AreaLights.gAreaLights[0].Radiance;  // Update radiance if needed
+
+	auto result = std::find_if(begin(m_Materials), end(m_Materials),
+		[](const std::shared_ptr<Material>& m) { return m->Name == "areaLight"; });
+
+	if (result != m_Materials.end())
+	{
+		int index = std::distance(m_Materials.begin(), result);
+		m_Materials[index]->emission = m_AreaLights.gAreaLights[0].Radiance;
+		m_Materials[index]->DiffuseAlbedo.x = m_AreaLights.gAreaLights[0].Radiance.x;
+		m_Materials[index]->DiffuseAlbedo.y = m_AreaLights.gAreaLights[0].Radiance.y;
+		m_Materials[index]->DiffuseAlbedo.z = m_AreaLights.gAreaLights[0].Radiance.z;
+		m_Materials[index]->DiffuseAlbedo.w = 1.0f;
+	}
+
 	//U = XMLoadFloat3(&m_AreaLights.gAreaLights[2].U);
 	//V = XMLoadFloat3(&m_AreaLights.gAreaLights[2].V);
 
@@ -3865,11 +3880,11 @@ void Renderer::CreatePerInstanceBuffers()
 	memcpy(pData, m_MaterialsGPU.data(), bufferSize);
 	m_UploadCBuffer->Unmap(0, nullptr);
 
-//	matIndices.clear();
+	//	matIndices.clear();
 	matIndices.resize(m_PerInstanceCBCount);
 	matIndices[0] = 0; // AreaLight
 	matIndices[1] = 1; // Ground Plane
-	
+
 	const uint32_t matIdxBufferSize = static_cast<uint32_t>(sizeof(int) * matIndices.size());
 
 
@@ -3885,6 +3900,49 @@ void Renderer::CreatePerInstanceBuffers()
 	ThrowIfFailed(m_TriMatIndexCB->Map(0, nullptr, (void**)&pData2));
 	memcpy(pData2, matIndices.data(), matIdxBufferSize);
 	m_TriMatIndexCB->Unmap(0, nullptr);
+}
+
+void Renderer::UpdatePerInstanceConstantBuffers()
+{
+	m_MaterialsGPU.clear();
+	m_MaterialsGPU.resize(m_Materials.size());
+
+	for (size_t i = 0; i < m_Materials.size(); ++i)
+	{
+		MaterialDataGPU matGpu{};
+		std::shared_ptr<Material> mat = m_Materials[i];
+
+		matGpu.DiffuseAlbedo = mat->DiffuseAlbedo;
+		matGpu.FresnelR0 = mat->FresnelR0;
+		matGpu.Ior = mat->Ior;
+		matGpu.Reflectivity = mat->Reflectivity;
+		matGpu.Absorption = mat->Absorption;
+		matGpu.Roughness = mat->Roughness;
+		matGpu.pad = 1.0f;
+		matGpu.pad2 = 1.0f;
+		matGpu.metallic = mat->metallic;
+		matGpu.isReflective = mat->IsReflective;
+		matGpu.isRefractive = mat->IsRefractive;
+		matGpu.pad3 = 0.0f;
+		matGpu.TexIndex = -1;
+		matGpu.NormalIndex = -1;
+		matGpu.SpecularIndex = -1;
+		matGpu.AlphaIndex = -1;
+		matGpu.isEmissive = mat->isEmissive;
+		matGpu.Emission = mat->emission;
+		matGpu.isNEELight = mat->isNEELight;
+		matGpu.LightIndex = mat->LightIndex;
+		matGpu.pad4 = XMFLOAT3(0.0f, 0.0f, 0.0f);
+
+		m_MaterialsGPU[i] = matGpu;
+	}
+
+	const uint32_t bufferSize = static_cast<uint32_t>(m_MaterialsGPU.size() * sizeof(MaterialDataGPU));
+
+	uint8_t* pData = nullptr;
+	ThrowIfFailed(m_UploadCBuffer->Map(0, nullptr, (void**)&pData));
+	memcpy(pData, m_MaterialsGPU.data(), bufferSize);
+	m_UploadCBuffer->Unmap(0, nullptr);
 }
 
 void Renderer::LoadTextures(Model& model)

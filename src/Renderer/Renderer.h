@@ -360,6 +360,7 @@ private:
 	uint32_t m_AnimationCounter = 0;
 
 	void CreatePerInstanceBuffers();
+	void UpdatePerInstanceConstantBuffers();
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_PerInstanceCBs;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_TriMatIndexCB;
 	UINT m_PerInstanceCBCount = 2;
