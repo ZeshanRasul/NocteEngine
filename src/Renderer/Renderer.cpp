@@ -15,6 +15,7 @@
 
 #include <ImfRgbaFile.h>
 #include <ImfArray.h>
+#include <nlohmann/json.hpp>
 
 #include "SamplingModes.h"
 #include "../RL/q_table.hpp"
@@ -721,7 +722,7 @@ void Renderer::DoImGuiPass()
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_CommandList.Get());
 }
 
-bool Renderer::DoImageCapture(float x, float y)
+bool Renderer::DoImageCapture(float x, float y, Camera camera)
 {
 	auto desc = m_AccumulationBuffer.Get()->GetDesc();
 
@@ -813,6 +814,57 @@ bool Renderer::DoImageCapture(float x, float y)
 			file.writePixels(height);
 			m_CurrentRunCapture++;
 			m_SaveImage = false;
+
+			nlohmann::json captureInfo;
+			captureInfo["scene"] = GetSceneSetUpName(m_SceneID);
+			captureInfo["timestamp"] = m_RunTimestamp;
+			captureInfo["frame_index"] = m_FrameIndex;
+			captureInfo["spp"] = m_CurrentAccumSPP;
+			captureInfo["Area Light U x"] = float(m_AreaLights.gAreaLights[0].U.x);
+			captureInfo["Area Light U y"] = float(m_AreaLights.gAreaLights[0].U.y);
+			captureInfo["Area Light U z"] = float(m_AreaLights.gAreaLights[0].U.z);
+			captureInfo["Area Light V x"] = float(m_AreaLights.gAreaLights[0].V.x);
+			captureInfo["Area Light V y"] = float(m_AreaLights.gAreaLights[0].V.y);
+			captureInfo["Area Light V z"] = float(m_AreaLights.gAreaLights[0].V.z);
+			captureInfo["Area Light Radiance x"] = float(m_AreaLights.gAreaLights[0].Radiance.x);
+			captureInfo["Area Light Radiance y"] = float(m_AreaLights.gAreaLights[0].Radiance.y);
+			captureInfo["Area Light Radiance z"] = float(m_AreaLights.gAreaLights[0].Radiance.z);
+			captureInfo["Area Light Position x"] = float(m_AreaLights.gAreaLights[0].Position.x);
+			captureInfo["Area Light Position y"] = float(m_AreaLights.gAreaLights[0].Position.y);
+			captureInfo["Area Light Position z"] = float(m_AreaLights.gAreaLights[0].Position.z);
+			captureInfo["Receiver Position x"] = float(m_ReceiverPlanePos.x);
+			captureInfo["Receiver Position y"] = float(m_ReceiverPlanePos.y);
+			captureInfo["Receiver Position z"] = float(m_ReceiverPlanePos.z);
+			captureInfo["Receiver Scale x"] = float(m_ReceiverPlaneScale.x);
+			captureInfo["Receiver Scale y"] = float(m_ReceiverPlaneScale.y);
+			captureInfo["Receiver Scale z"] = float(m_ReceiverPlaneScale.z);
+			captureInfo["Receiver DiffuseAlbedo x"] = float(m_ReceiverPlaneDiffuseAlbedo.x);
+			captureInfo["Receiver DiffuseAlbedo y"] = float(m_ReceiverPlaneDiffuseAlbedo.y);
+			captureInfo["Receiver DiffuseAlbedo z"] = float(m_ReceiverPlaneDiffuseAlbedo.z);
+
+			captureInfo["Camera Position x"] = float(camera.GetPosition3f().x);
+			captureInfo["Camera Position y"] = float(camera.GetPosition3f().y);
+			captureInfo["Camera Position z"] = float(camera.GetPosition3f().z);
+			captureInfo["Camera LookAt x"] = float(camera.GetLook3f().x);
+			captureInfo["Camera LookAt y"] = float(camera.GetLook3f().y);
+			captureInfo["Camera LookAt z"] = float(camera.GetLook3f().z);
+			captureInfo["Camera Up x"] = float(camera.GetUp3f().x);
+			captureInfo["Camera Up y"] = float(camera.GetUp3f().y);
+			captureInfo["Camera Up z"] = float(camera.GetUp3f().z);
+			captureInfo["Camera Near"] = float(camera.GetNearZ());
+			captureInfo["Camera Far"] = float(camera.GetFarZ());
+			captureInfo["Camera Aspect Ratio"] = float(camera.GetAspect());
+			captureInfo["Camera FOV X"] = float(camera.GetFovX());
+			captureInfo["Camera FOV Y"] = float(camera.GetFovY());
+
+			captureInfo["Client Width"] = m_ClientWidth;
+			captureInfo["Client Height"] = m_ClientHeight;
+
+			std::filesystem::path jsonPath = runPath / "capture_info.json";
+			std::ofstream jsonFile(jsonPath);
+			jsonFile << captureInfo.dump(4);
+			jsonFile.close();
+
 		}
 		catch (const std::exception& e) {
 			std::cerr << "error writing image file " << fullPath << ":" << e.what() << std::endl;
@@ -846,7 +898,7 @@ bool Renderer::DoImageCapture(float x, float y)
 	//return (m_FrameIndex < m_MaxIterations);
 }
 
-bool Renderer::Draw(bool useRaster, float x, float y)
+bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 {
 	// --- ImGui frame setup (must happen before command list reset) ---
 	ImGui_ImplDX12_NewFrame();
@@ -1008,7 +1060,7 @@ bool Renderer::Draw(bool useRaster, float x, float y)
 
 	//	ReadPixel(m_PresentUAV.Get(), x, y);
 
-	DoImageCapture(x, y);
+	DoImageCapture(x, y, camera);
 
 	RenderImGuiDebugWindow(x, y);
 
@@ -1432,7 +1484,7 @@ void Renderer::BuildMaterials()
 	groundMat->Name = "ground";
 	groundMat->MatCBIndex = 0;
 	groundMat->DiffuseSrvHeapIndex = 0;
-	groundMat->DiffuseAlbedo = XMFLOAT4(0.5, 0.5, 0.5, 1.0);
+	groundMat->DiffuseAlbedo = XMFLOAT4(m_ReceiverPlaneDiffuseAlbedo.x, m_ReceiverPlaneDiffuseAlbedo.y, m_ReceiverPlaneDiffuseAlbedo.z, 1.0);
 	groundMat->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	groundMat->Roughness = 0.99f;
 	groundMat->metallic = 0.01f;
@@ -3452,8 +3504,8 @@ void Renderer::CreateAccelerationStructures()
 
 			// Ground Plane
 			{ planeBottomLevelBuffers.pResult,
-					  XMMatrixScaling(1.0f, 1.0f, 1.0f) *
-					  XMMatrixTranslation(0.0f, 0.0f, 0.0f) },
+					  XMMatrixScaling(m_ReceiverPlaneScale.x, m_ReceiverPlaneScale.y, m_ReceiverPlaneScale.z) *
+					  XMMatrixTranslation(m_ReceiverPlanePos.x, m_ReceiverPlanePos.y, m_ReceiverPlanePos.z) },
 		};
 
 	};

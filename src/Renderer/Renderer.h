@@ -34,7 +34,7 @@ public:
 	bool InitializeD3D12(HWND& windowHandle);
 	bool Shutdown();
 	void Update(float dt, Camera& cam, float x, float y);
-	bool Draw(bool useRaster, float x, float y);
+	bool Draw(bool useRaster, float x, float y, Camera camera);
 
 private:
 	void CreateDebugController();
@@ -93,7 +93,7 @@ private:
 	void DoFinalPass(ID3D12Resource* srcResource, UINT srcSRVIndex);
 	void DoPresentBlit();
 	void DoImGuiPass();
-	bool DoImageCapture(float x, float y);  // returns false when the run is complete
+	bool DoImageCapture(float x, float y, Camera camera);  // returns false when the run is complete
 
 	Microsoft::WRL::ComPtr<ID3D12Device5> m_Device;
 	Microsoft::WRL::ComPtr<IDXGIAdapter> m_WarpAdapter;
@@ -207,6 +207,12 @@ private:
 	nv_helpers_dx12::TopLevelASGenerator m_topLevelASGenerator;
 	AccelerationStructureBuffers m_topLevelASBuffers;
 	std::vector<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, DirectX::XMMATRIX>> m_Instances;
+	float m_ReceiverPlanePosX = 0.0f;
+	float m_ReceiverPlanePosY = 0.0f;
+	float m_ReceiverPlanePosZ = 0.0f;
+	XMFLOAT3 m_ReceiverPlanePos = { 0.0f, 0.0f, 0.0f };
+	XMFLOAT3 m_ReceiverPlaneScale = { 1.0f, 1.0f, 1.0f };
+	XMFLOAT3 m_ReceiverPlaneDiffuseAlbedo = { 0.8f, 0.8f, 0.8f };
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> CreateRayGenSignature();
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> CreateHitSignature();
@@ -410,7 +416,7 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_ReadbackBuffer;
 	void CreateReadbackBuffer();
 	bool m_SaveImage = false;
-	UINT m_CurrentRunCapture = 001;
+	UINT m_CurrentRunCapture = 1;
 	void RequestCapture(int spp);
 	int m_TargetCaptureSPP = 0;      // 0 = no capture pending
 	int m_CurrentAccumSPP = 0;       // how many spp accumulated so far

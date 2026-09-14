@@ -42,7 +42,7 @@ int Application::Run()
 			return *ecode;
 		}
 		m_Renderer->Update(m_GameTimer.DeltaTime(), m_Window->GetCamera(), m_Window->GetLastMousePosX(), m_Window->GetLastMousePosY());
-		if (!(m_Renderer->Draw(m_Window->m_Raster, m_Window->GetLastMousePosX(), m_Window->GetLastMousePosY())))
+		if (!(m_Renderer->Draw(m_Window->m_Raster, m_Window->GetLastMousePosX(), m_Window->GetLastMousePosY(), m_Window->GetCamera())))
 		{
 			m_Running = false;
 			return 0;

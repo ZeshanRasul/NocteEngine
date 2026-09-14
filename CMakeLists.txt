@@ -132,6 +132,11 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     OpenEXR::OpenEXR
 )
 
+FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz)
+FetchContent_MakeAvailable(json)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json)
+
 # --- Post-build: copy runtime assets next to the executable ---
 # $<TARGET_FILE_DIR:...> already resolves to bin/<Config>, so no prefix needed.
 add_custom_command(
