@@ -94,6 +94,7 @@ private:
 	void DoPresentBlit();
 	void DoImGuiPass();
 	bool DoImageCapture(float x, float y, Camera camera);  // returns false when the run is complete
+	bool CompareAllRGBPixels(const std::vector<XMFLOAT3>& pixelsA, const std::vector<XMFLOAT3>& pixelsB, float tolerance);
 
 	Microsoft::WRL::ComPtr<ID3D12Device5> m_Device;
 	Microsoft::WRL::ComPtr<IDXGIAdapter> m_WarpAdapter;

@@ -800,6 +800,10 @@ bool Renderer::DoImageCapture(float x, float y, Camera camera)
 		int width = desc.Width;
 		int height = desc.Height;
 
+		std::vector<XMFLOAT3> exrPixels;
+		std::vector<XMFLOAT3> imagePixels;
+
+
 		Imf::Array2D<Imf::Rgba> pixels(height, width);
 		for (int y = 0; y < height; y++)
 		{
@@ -814,63 +818,103 @@ bool Renderer::DoImageCapture(float x, float y, Camera camera)
 			file.writePixels(height);
 			m_CurrentRunCapture++;
 			m_SaveImage = false;
-
-			nlohmann::json captureInfo;
-			captureInfo["scene"] = GetSceneSetUpName(m_SceneID);
-			captureInfo["timestamp"] = m_RunTimestamp;
-			captureInfo["frame_index"] = m_FrameIndex;
-			captureInfo["spp"] = m_CurrentAccumSPP;
-			captureInfo["Area Light U x"] = float(m_AreaLights.gAreaLights[0].U.x);
-			captureInfo["Area Light U y"] = float(m_AreaLights.gAreaLights[0].U.y);
-			captureInfo["Area Light U z"] = float(m_AreaLights.gAreaLights[0].U.z);
-			captureInfo["Area Light V x"] = float(m_AreaLights.gAreaLights[0].V.x);
-			captureInfo["Area Light V y"] = float(m_AreaLights.gAreaLights[0].V.y);
-			captureInfo["Area Light V z"] = float(m_AreaLights.gAreaLights[0].V.z);
-			captureInfo["Area Light Radiance x"] = float(m_AreaLights.gAreaLights[0].Radiance.x);
-			captureInfo["Area Light Radiance y"] = float(m_AreaLights.gAreaLights[0].Radiance.y);
-			captureInfo["Area Light Radiance z"] = float(m_AreaLights.gAreaLights[0].Radiance.z);
-			captureInfo["Area Light Position x"] = float(m_AreaLights.gAreaLights[0].Position.x);
-			captureInfo["Area Light Position y"] = float(m_AreaLights.gAreaLights[0].Position.y);
-			captureInfo["Area Light Position z"] = float(m_AreaLights.gAreaLights[0].Position.z);
-			captureInfo["Receiver Position x"] = float(m_ReceiverPlanePos.x);
-			captureInfo["Receiver Position y"] = float(m_ReceiverPlanePos.y);
-			captureInfo["Receiver Position z"] = float(m_ReceiverPlanePos.z);
-			captureInfo["Receiver Scale x"] = float(m_ReceiverPlaneScale.x);
-			captureInfo["Receiver Scale y"] = float(m_ReceiverPlaneScale.y);
-			captureInfo["Receiver Scale z"] = float(m_ReceiverPlaneScale.z);
-			captureInfo["Receiver DiffuseAlbedo x"] = float(m_ReceiverPlaneDiffuseAlbedo.x);
-			captureInfo["Receiver DiffuseAlbedo y"] = float(m_ReceiverPlaneDiffuseAlbedo.y);
-			captureInfo["Receiver DiffuseAlbedo z"] = float(m_ReceiverPlaneDiffuseAlbedo.z);
-
-			captureInfo["Camera Position x"] = float(camera.GetPosition3f().x);
-			captureInfo["Camera Position y"] = float(camera.GetPosition3f().y);
-			captureInfo["Camera Position z"] = float(camera.GetPosition3f().z);
-			captureInfo["Camera LookAt x"] = float(camera.GetLook3f().x);
-			captureInfo["Camera LookAt y"] = float(camera.GetLook3f().y);
-			captureInfo["Camera LookAt z"] = float(camera.GetLook3f().z);
-			captureInfo["Camera Up x"] = float(camera.GetUp3f().x);
-			captureInfo["Camera Up y"] = float(camera.GetUp3f().y);
-			captureInfo["Camera Up z"] = float(camera.GetUp3f().z);
-			captureInfo["Camera Near"] = float(camera.GetNearZ());
-			captureInfo["Camera Far"] = float(camera.GetFarZ());
-			captureInfo["Camera Aspect Ratio"] = float(camera.GetAspect());
-			captureInfo["Camera FOV X"] = float(camera.GetFovX());
-			captureInfo["Camera FOV Y"] = float(camera.GetFovY());
-
-			captureInfo["Client Width"] = m_ClientWidth;
-			captureInfo["Client Height"] = m_ClientHeight;
-
-			std::filesystem::path jsonPath = runPath / "capture_info.json";
-			std::ofstream jsonFile(jsonPath);
-			jsonFile << captureInfo.dump(4);
-			jsonFile.close();
-
 		}
 		catch (const std::exception& e) {
 			std::cerr << "error writing image file " << fullPath << ":" << e.what() << std::endl;
 			m_SaveImage = false;
 			return false;
 		}
+
+		try {
+			Imf::RgbaInputFile file(fullPath.string().c_str());
+			Imath::Box2i       dw = file.dataWindow();
+			int                width = dw.max.x - dw.min.x + 1;
+			int                height = dw.max.y - dw.min.y + 1;
+
+			Imf::Array2D<Imf::Rgba> readPixels(width, height);
+
+			file.setFrameBuffer(&readPixels[0][0], 1, width);
+			file.readPixels(dw.min.y, dw.max.y);
+
+			for (int y = 0; y < height; y++)
+			{
+				for (int x = 0; x < width; x++)
+				{
+					Imf::Rgba& px = readPixels[y][x];
+					XMFLOAT3 pixelColor(px.r, px.g, px.b);
+					exrPixels.push_back(pixelColor);
+				}
+			}
+
+			for (int y = 0; y < height; y++)
+			{
+				for (int x = 0; x < width; x++)
+				{
+					Imf::Rgba& px = pixels[y][x];
+					XMFLOAT3 pixelColor(px.r, px.g, px.b);
+					imagePixels.push_back(pixelColor);
+				}
+			}
+		}
+		catch (const std::exception& e) {
+			std::cerr << "error reading image file " << fullPath << ":" << e.what() << std::endl;
+			return 1;
+		}
+
+		bool bRenderMatchesEXR = CompareAllRGBPixels(exrPixels, imagePixels, 0.01f);
+
+		nlohmann::json captureInfo;
+		captureInfo["scene"] = GetSceneSetUpName(m_SceneID);
+		captureInfo["timestamp"] = m_RunTimestamp;
+		captureInfo["frame_index"] = m_FrameIndex;
+		captureInfo["spp"] = m_CurrentAccumSPP;
+		captureInfo["Area Light U x"] = float(m_AreaLights.gAreaLights[0].U.x);
+		captureInfo["Area Light U y"] = float(m_AreaLights.gAreaLights[0].U.y);
+		captureInfo["Area Light U z"] = float(m_AreaLights.gAreaLights[0].U.z);
+		captureInfo["Area Light V x"] = float(m_AreaLights.gAreaLights[0].V.x);
+		captureInfo["Area Light V y"] = float(m_AreaLights.gAreaLights[0].V.y);
+		captureInfo["Area Light V z"] = float(m_AreaLights.gAreaLights[0].V.z);
+		captureInfo["Area Light Radiance x"] = float(m_AreaLights.gAreaLights[0].Radiance.x);
+		captureInfo["Area Light Radiance y"] = float(m_AreaLights.gAreaLights[0].Radiance.y);
+		captureInfo["Area Light Radiance z"] = float(m_AreaLights.gAreaLights[0].Radiance.z);
+		captureInfo["Area Light Position x"] = float(m_AreaLights.gAreaLights[0].Position.x);
+		captureInfo["Area Light Position y"] = float(m_AreaLights.gAreaLights[0].Position.y);
+		captureInfo["Area Light Position z"] = float(m_AreaLights.gAreaLights[0].Position.z);
+		captureInfo["Receiver Position x"] = float(m_ReceiverPlanePos.x);
+		captureInfo["Receiver Position y"] = float(m_ReceiverPlanePos.y);
+		captureInfo["Receiver Position z"] = float(m_ReceiverPlanePos.z);
+		captureInfo["Receiver Scale x"] = float(m_ReceiverPlaneScale.x);
+		captureInfo["Receiver Scale y"] = float(m_ReceiverPlaneScale.y);
+		captureInfo["Receiver Scale z"] = float(m_ReceiverPlaneScale.z);
+		captureInfo["Receiver DiffuseAlbedo x"] = float(m_ReceiverPlaneDiffuseAlbedo.x);
+		captureInfo["Receiver DiffuseAlbedo y"] = float(m_ReceiverPlaneDiffuseAlbedo.y);
+		captureInfo["Receiver DiffuseAlbedo z"] = float(m_ReceiverPlaneDiffuseAlbedo.z);
+
+		captureInfo["Camera Position x"] = float(camera.GetPosition3f().x);
+		captureInfo["Camera Position y"] = float(camera.GetPosition3f().y);
+		captureInfo["Camera Position z"] = float(camera.GetPosition3f().z);
+		captureInfo["Camera LookAt x"] = float(camera.GetLook3f().x);
+		captureInfo["Camera LookAt y"] = float(camera.GetLook3f().y);
+		captureInfo["Camera LookAt z"] = float(camera.GetLook3f().z);
+		captureInfo["Camera Up x"] = float(camera.GetUp3f().x);
+		captureInfo["Camera Up y"] = float(camera.GetUp3f().y);
+		captureInfo["Camera Up z"] = float(camera.GetUp3f().z);
+		captureInfo["Camera Near"] = float(camera.GetNearZ());
+		captureInfo["Camera Far"] = float(camera.GetFarZ());
+		captureInfo["Camera Aspect Ratio"] = float(camera.GetAspect());
+		captureInfo["Camera FOV X"] = float(camera.GetFovX());
+		captureInfo["Camera FOV Y"] = float(camera.GetFovY());
+
+		captureInfo["Client Width"] = m_ClientWidth;
+		captureInfo["Client Height"] = m_ClientHeight;
+
+		captureInfo["Render matches EXR"] = bRenderMatchesEXR ? "True" : "False";
+
+		std::filesystem::path jsonPath = runPath / "capture_info.json";
+		std::ofstream jsonFile(jsonPath);
+		jsonFile << captureInfo.dump(4);
+		jsonFile.close();
+
 		return true;
 
 	}
@@ -896,6 +940,22 @@ bool Renderer::DoImageCapture(float x, float y, Camera camera)
 	//m_SaveImage = false;
 
 	//return (m_FrameIndex < m_MaxIterations);
+}
+
+bool Renderer::CompareAllRGBPixels(const std::vector<XMFLOAT3>& pixelsA, const std::vector<XMFLOAT3>& pixelsB, float tolerance)
+{
+	for (size_t i = 0; i < pixelsA.size(); i += 4)
+	{
+		float rA = pixelsA[i].x / 255.0f;
+		float gA = pixelsA[i].y / 255.0f;
+		float bA = pixelsA[i].z / 255.0f;
+		float rB = pixelsB[i].x / 255.0f;
+		float gB = pixelsB[i].y / 255.0f;
+		float bB = pixelsB[i].z / 255.0f;
+		if (fabs(rA - rB) > tolerance || fabs(gA - gB) > tolerance || fabs(bA - bB) > tolerance)
+			return false;
+	}
+	return true;
 }
 
 bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
