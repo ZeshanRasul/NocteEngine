@@ -15,6 +15,11 @@
 
 #include <ImfRgbaFile.h>
 #include <ImfArray.h>
+#include <ImfHeader.h>
+#include <ImfChannelList.h>
+#include <ImfFrameBuffer.h>
+#include <ImfOutputFile.h>
+#include <ImfInputFile.h>
 #include <nlohmann/json.hpp>
 
 #include "SamplingModes.h"
@@ -804,19 +809,37 @@ bool Renderer::DoImageCapture(float x, float y, Camera camera)
 		std::vector<XMFLOAT3> imagePixels;
 
 
-		Imf::Array2D<Imf::Rgba> pixels(height, width);
-		for (int y = 0; y < height; y++)
-		{
-			for (int x = 0; x < width; x++)
-				pixels[y][x] = Imf::Rgba(image[(y * width + x) * 4 + 0], image[(y * width + x) * 4 + 1], image[(y * width + x) * 4 + 2], image[(y * width + x) * 4 + 3]);
-		}
-
-
 		try {
-			Imf::RgbaOutputFile file(fullPath.string().c_str(), width, height, Imf::WRITE_RGBA);
-			file.setFrameBuffer(&pixels[0][0], 1, width);
-			file.writePixels(height);
-			m_CurrentRunCapture++;
+
+			Imf::Header header(width, height);
+			header.compression() = Imf::ZIP_COMPRESSION;
+
+			const char* channels[] = { "R", "G", "B", "A" };
+
+			Imf::FrameBuffer frameBuffer;
+
+			const size_t xStride = 4 * sizeof(float);
+			const size_t yStride = size_t(width) * xStride;
+
+			for (int c = 0; c < 4; ++c)
+			{
+				header.channels().insert(
+					channels[c], Imf::Channel(Imf::FLOAT));
+
+				frameBuffer.insert(
+					channels[c],
+					Imf::Slice(
+						Imf::FLOAT,
+						reinterpret_cast<char*>(image.data() + c),
+						xStride,
+						yStride));
+			}
+
+			{
+				Imf::OutputFile file(fullPath.string().c_str(), header);
+				file.setFrameBuffer(frameBuffer);
+				file.writePixels(height);
+			} 
 			m_SaveImage = false;
 		}
 		catch (const std::exception& e) {
@@ -826,22 +849,45 @@ bool Renderer::DoImageCapture(float x, float y, Camera camera)
 		}
 
 		try {
-			Imf::RgbaInputFile file(fullPath.string().c_str());
-			Imath::Box2i       dw = file.dataWindow();
-			int                width = dw.max.x - dw.min.x + 1;
-			int                height = dw.max.y - dw.min.y + 1;
+			Imf::InputFile file(fullPath.string().c_str());
 
-			Imf::Array2D<Imf::Rgba> readPixels(width, height);
+			const char* channels[] = { "R", "G", "B", "A" };
 
-			file.setFrameBuffer(&readPixels[0][0], 1, width);
-			file.readPixels(dw.min.y, dw.max.y);
+			Imf::FrameBuffer frameBuffer;
 
+			const size_t xStride = 4 * sizeof(float);
+			const size_t yStride = size_t(width) * xStride;
+
+			Imf::Header header(width, height);
+			std::vector<float> inputPixels(width * height * 4);
+			for (int c = 0; c < 4; ++c)
+			{
+				header.channels().insert(
+					channels[c], Imf::Channel(Imf::FLOAT));
+
+				frameBuffer.insert(
+					channels[c],
+					Imf::Slice(
+						Imf::FLOAT,
+						reinterpret_cast<char*>(inputPixels.data() + c),
+						xStride,
+						yStride));
+			}
+
+
+			{
+				file.setFrameBuffer(frameBuffer);
+				file.readPixels(0, height - 1);
+			} //
 			for (int y = 0; y < height; y++)
 			{
 				for (int x = 0; x < width; x++)
 				{
-					Imf::Rgba& px = readPixels[y][x];
-					XMFLOAT3 pixelColor(px.r, px.g, px.b);
+					float r = inputPixels[(y * width + x) * 4 + 0];
+					float g = inputPixels[(y * width + x) * 4 + 1];
+					float b = inputPixels[(y * width + x) * 4 + 2];
+
+					XMFLOAT3 pixelColor(r, g, b);
 					exrPixels.push_back(pixelColor);
 				}
 			}
@@ -850,8 +896,10 @@ bool Renderer::DoImageCapture(float x, float y, Camera camera)
 			{
 				for (int x = 0; x < width; x++)
 				{
-					Imf::Rgba& px = pixels[y][x];
-					XMFLOAT3 pixelColor(px.r, px.g, px.b);
+					float r = image[(y * width + x) * 4 + 0];
+					float g = image[(y * width + x) * 4 + 1];
+					float b = image[(y * width + x) * 4 + 2];
+					XMFLOAT3 pixelColor(r, g, b);
 					imagePixels.push_back(pixelColor);
 				}
 			}
@@ -915,43 +963,26 @@ bool Renderer::DoImageCapture(float x, float y, Camera camera)
 		jsonFile << captureInfo.dump(4);
 		jsonFile.close();
 
+
+		m_CurrentRunCapture++;
+
 		return true;
 
 	}
 
 	return true;
-
-	//std::string folderName = m_RunTimestamp + GetSceneSetUpName(m_SceneID);
-	//std::filesystem::path runPath = std::filesystem::path("experiments/runs") / folderName;
-	//std::filesystem::create_directories(runPath);
-	//std::string tag = m_UseQTable ? "QTable" : (m_UseTemporal ? "GT" : (m_UseRL ? "RL" : "Baseline"));
-	//// Tag the RIS state so an A/B pair cannot be mixed up after the fact.
-	//tag += m_UseReSTIR ? "_RIS" : "_NoRIS";
-	//std::string filename = tag + std::to_string(m_FrameIndex) + "SPP.png";
-	//std::filesystem::path fullPath = runPath / filename;
-
-	//// PNG, not JPEG: these captures are used to measure noise, and JPEG's block
-	//// artefacts sit in exactly the frequency band being compared. (The previous
-	//// call wrote JPEG data under a .png extension, and passed width*4 as the JPEG
-	//// quality argument; for stbi_write_png that same value is the correct stride.)
-	//if (!stbi_write_png(fullPath.string().c_str(), width, height, 4, image.data(), width * 4))
-	//	std::cerr << "Failed to write image: " << fullPath << std::endl;
-
-	//m_SaveImage = false;
-
-	//return (m_FrameIndex < m_MaxIterations);
 }
 
 bool Renderer::CompareAllRGBPixels(const std::vector<XMFLOAT3>& pixelsA, const std::vector<XMFLOAT3>& pixelsB, float tolerance)
 {
-	for (size_t i = 0; i < pixelsA.size(); i += 4)
+	for (size_t i = 0; i < pixelsA.size(); ++i)
 	{
-		float rA = pixelsA[i].x / 255.0f;
-		float gA = pixelsA[i].y / 255.0f;
-		float bA = pixelsA[i].z / 255.0f;
-		float rB = pixelsB[i].x / 255.0f;
-		float gB = pixelsB[i].y / 255.0f;
-		float bB = pixelsB[i].z / 255.0f;
+		float rA = pixelsA[i].x;
+		float gA = pixelsA[i].y;
+		float bA = pixelsA[i].z;
+		float rB = pixelsB[i].x;
+		float gB = pixelsB[i].y;
+		float bB = pixelsB[i].z;
 		if (fabs(rA - rB) > tolerance || fabs(gA - gB) > tolerance || fabs(bA - bB) > tolerance)
 			return false;
 	}
