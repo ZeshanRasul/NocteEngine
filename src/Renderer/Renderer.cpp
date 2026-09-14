@@ -12,6 +12,7 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "Renderer.h"
 #include <iostream>
+#include <numbers>
 
 #include <ImfRgbaFile.h>
 #include <ImfArray.h>
@@ -839,7 +840,7 @@ bool Renderer::DoImageCapture(float x, float y, Camera camera)
 				Imf::OutputFile file(fullPath.string().c_str(), header);
 				file.setFrameBuffer(frameBuffer);
 				file.writePixels(height);
-			} 
+			}
 			m_SaveImage = false;
 		}
 		catch (const std::exception& e) {
@@ -970,6 +971,92 @@ bool Renderer::DoImageCapture(float x, float y, Camera camera)
 
 	}
 
+	m_ComparisonResolutions = { 16, 32, 64, 128, 256 };
+
+	if (m_CompareToIntegral)
+	{
+		nlohmann::json captureInfo;
+		std::string folderName = m_RunTimestamp + GetSceneSetUpName(m_SceneID) + "_" + std::to_string(m_CurrentRunCapture);
+		std::filesystem::path runPath = std::filesystem::path("captures/runs") / folderName;
+		std::filesystem::create_directories(runPath);
+
+		for (UINT resolution : m_ComparisonResolutions)
+		{
+			m_IntegralResults.resize(3, 0.0);
+			{
+				double lightWidth = double(m_AreaLights.gAreaLights[0].U.x);
+				double lightDepth = double(m_AreaLights.gAreaLights[0].V.z);
+				double lightHeight = double(m_AreaLights.gAreaLights[0].Position.y);
+				double sum = 0.0;
+				double du = lightWidth / resolution;
+				double dv = lightDepth / resolution;
+
+				for (int j = 0; j < resolution; ++j)
+				{
+					double v = -lightDepth * 0.5 + (j + 0.5) * dv;
+
+					for (int i = 0; i < resolution; ++i)
+					{
+						double u = -lightWidth * 0.5 + (i + 0.5) * du;
+						double dx = m_AreaLights.gAreaLights[0].Position.x + u - m_ReceiverPlanePosX;
+						double dz = m_AreaLights.gAreaLights[0].Position.z + v - m_ReceiverPlanePosZ;
+						double r2 = dx * dx + lightHeight * lightHeight + dz * dz;
+
+						sum += (lightHeight * lightHeight) / (r2 * r2);
+					}
+				}
+
+				double geometricIntegral = sum * du * dv;
+				double reflectedR = double(m_ReceiverPlaneDiffuseAlbedo.x) * double(m_AreaLights.gAreaLights[0].Radiance.x) * geometricIntegral / std::numbers::pi_v<double>;
+				double reflectedG = double(m_ReceiverPlaneDiffuseAlbedo.y) * double(m_AreaLights.gAreaLights[0].Radiance.y) * geometricIntegral / std::numbers::pi_v<double>;
+				double reflectedB = double(m_ReceiverPlaneDiffuseAlbedo.z) * double(m_AreaLights.gAreaLights[0].Radiance.z) * geometricIntegral / std::numbers::pi_v<double>;
+
+				m_IntegralResults[0] = reflectedR;
+				m_IntegralResults[1] = reflectedG;
+				m_IntegralResults[2] = reflectedB;
+			}
+
+			bool pixelMatch = ReadPixel(970, 715, m_IntegralResults[0], m_IntegralResults[1], m_IntegralResults[2], 1.0, 1.e-4);
+
+			double r = image[(715 * m_AccumulationBuffer.Get()->GetDesc().Width + 970) * 4];
+			double g = image[(715 * m_AccumulationBuffer.Get()->GetDesc().Width + 970) * 4 + 1];
+			double b = image[(715 * m_AccumulationBuffer.Get()->GetDesc().Width + 970) * 4 + 2];
+			double a = image[(715 * m_AccumulationBuffer.Get()->GetDesc().Width + 970) * 4 + 3];
+
+
+			captureInfo["Recevier Point Position" + std::to_string(resolution)] = { m_ReceiverPlanePosX, m_ReceiverPlanePosY, m_ReceiverPlanePosZ };
+			captureInfo["Quadrature Resolution" + std::to_string(resolution)] = resolution;
+			captureInfo["Render matches Integral" + std::to_string(resolution)] = pixelMatch ? "True" : "False";
+			captureInfo["Integral Result" + std::to_string(resolution)] = { m_IntegralResults[0], m_IntegralResults[1], m_IntegralResults[2] };
+			captureInfo["Render Pixel Value" + std::to_string(resolution)] = { r, g, b };
+
+
+
+		}
+		std::filesystem::path jsonPath = runPath / "quadrature_integral.json";
+		std::ofstream jsonFile(jsonPath);
+		jsonFile << captureInfo.dump(4);
+		jsonFile.close();
+		m_CompareToIntegral = false;
+
+	}
+
+	return true;
+}
+
+bool Renderer::CompareAllRGBPixels(const std::vector<double>& pixelsA, const std::vector<XMFLOAT3>& pixelsB, float tolerance)
+{
+	for (size_t i = 0; i < pixelsA.size(); ++i)
+	{
+		float rA = pixelsA[i * 3 + 0];
+		float gA = pixelsA[i * 3 + 1];
+		float bA = pixelsA[i * 3 + 2];
+		float rB = pixelsB[i].x;
+		float gB = pixelsB[i].y;
+		float bB = pixelsB[i].z;
+		if (fabs(rA - rB) > tolerance || fabs(gA - gB) > tolerance || fabs(bA - bB) > tolerance)
+			return false;
+	}
 	return true;
 }
 
@@ -4503,6 +4590,11 @@ void Renderer::RenderImGuiDebugWindow(UINT x, UINT y)
 		m_SaveImage = true;
 	}
 
+	if (ImGui::Button("Compare to Integral"))
+	{
+		m_CompareToIntegral = true;
+	}
+
 	if (ImGui::Button("Capture 1 SPP"))
 		RequestCapture(1);
 
@@ -4971,80 +5063,17 @@ bool Renderer::LoadTextureFromFileToSRV(ID3D12Device* device, ID3D12GraphicsComm
 	return true;
 }
 
-XMFLOAT4 Renderer::ReadPixel(ID3D12Resource* resource, UINT x, UINT y)
+bool Renderer::ReadPixel(UINT x, UINT y, double inR, double inG, double inB, double inA, float tolerance)
 {
-	//m_CommandList->CopyTextureRegion(
-	//	&CD3DX12_TEXTURE_COPY_LOCATION(m_ReadbackBuffer.Get(), 0),
-	//	0, 0, 0,
-	//	&CD3DX12_TEXTURE_COPY_LOCATION(m_AccumulationBuffer.Get(), 0),
-	//	&CD3DX12_BOX(x, y, x + 1, y + 1));
+	double r = image[(y * m_AccumulationBuffer.Get()->GetDesc().Width + x) * 4];
+	double g = image[(y * m_AccumulationBuffer.Get()->GetDesc().Width + x) * 4 + 1];
+	double b = image[(y * m_AccumulationBuffer.Get()->GetDesc().Width + x) * 4 + 2];
+	double a = image[(y * m_AccumulationBuffer.Get()->GetDesc().Width + x) * 4 + 3];
 
-	//void* mappedData = nullptr;
-	//CD3DX12_RANGE readRange(0, sizeof(XMFLOAT4));
+	if (fabs(r - inR) > tolerance || fabs(g - inG) > tolerance || fabs(b - inB) > tolerance || fabs(a - inA) > tolerance)
+		return false;
 
-	//ThrowIfFailed(m_ReadbackBuffer->Map(0, &readRange, &mappedData));
-	//XMFLOAT4 pixelColor = *reinterpret_cast<XMFLOAT4*>(mappedData);
-	//m_ReadbackBuffer->Unmap(0, nullptr);
-
-	//return pixelColor;
-
-	auto desc = resource->GetDesc();
-	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-		resource,
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-		D3D12_RESOURCE_STATE_COPY_SOURCE);
-	m_CommandList->ResourceBarrier(1, &barrier);
-
-	D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
-	UINT numRows = 0;
-	UINT64 rowSizeInBytes = 0;
-	UINT64 totalBytes = 0;
-	m_Device->GetCopyableFootprints(&desc, 0, 1, 0, &footprint, &numRows, &rowSizeInBytes, &totalBytes);
-
-	CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_READBACK);
-	CD3DX12_RESOURCE_DESC descRB = CD3DX12_RESOURCE_DESC::Buffer(totalBytes);
-	m_Device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &descRB,
-		D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&m_ReadbackBuffer));
-
-	D3D12_TEXTURE_COPY_LOCATION srcLoc = {};
-	srcLoc.pResource = resource;
-	srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-	srcLoc.SubresourceIndex = 0;
-
-	D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
-	dstLoc.pResource = m_ReadbackBuffer.Get();
-	dstLoc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-	dstLoc.PlacedFootprint = footprint;
-
-	m_CommandList->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, &CD3DX12_BOX(x, y, x + 1, y + 1));
-
-	ThrowIfFailed(m_CommandList->Close());
-	ID3D12CommandList* cmdLists[] = { m_CommandList.Get() };
-	m_CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
-	m_CurrentFrameResource->Fence = ++m_CurrentFence;
-	FlushCommandQueue();
-	m_CommandList->Reset(m_CommandAllocator.Get(), m_PipelineStateObjects["opaque"].Get());
-
-	const UINT width = static_cast<UINT>(desc.Width);
-	const UINT height = desc.Height;
-
-	void* mapped = nullptr;
-	m_ReadbackBuffer->Map(0, nullptr, &mapped);
-	float* base = reinterpret_cast<float*>(mapped);
-	for (UINT y = 0; y < height; ++y)
-	{
-		memcpy(image.data() + y * width * 4,
-			base + footprint.Offset / sizeof(float) + y * footprint.Footprint.RowPitch / sizeof(float),
-			width * 4 * sizeof(float));
-	}
-	m_ReadbackBuffer->Unmap(0, nullptr);
-
-	desc = resource->GetDesc();
-	barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-		resource,
-		D3D12_RESOURCE_STATE_COPY_SOURCE,
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-	m_CommandList->ResourceBarrier(1, &barrier);
+	return true;
 
 }
 

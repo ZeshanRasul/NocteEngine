@@ -95,6 +95,11 @@ private:
 	void DoImGuiPass();
 	bool DoImageCapture(float x, float y, Camera camera);  // returns false when the run is complete
 	bool CompareAllRGBPixels(const std::vector<XMFLOAT3>& pixelsA, const std::vector<XMFLOAT3>& pixelsB, float tolerance);
+	bool CompareAllRGBPixels(const std::vector<double>& pixelsA, const std::vector<XMFLOAT3>& pixelsB, float tolerance);
+
+	bool m_CompareToIntegral = false;
+	std::vector<UINT> m_ComparisonResolutions;
+	std::vector<double> m_IntegralResults;
 
 	Microsoft::WRL::ComPtr<ID3D12Device5> m_Device;
 	Microsoft::WRL::ComPtr<IDXGIAdapter> m_WarpAdapter;
@@ -599,7 +604,7 @@ private:
 	SceneSetUp m_SceneID = SceneSetUp::DIFFUSE_PLANE;
 	std::string m_RunTimestamp;
 
-	XMFLOAT4 ReadPixel(ID3D12Resource* resource, UINT x, UINT y);
+	bool ReadPixel(UINT x, UINT y, double inR, double inG, double inB, double inA, float tolerance);
 	std::vector<float> image;
 };
 
