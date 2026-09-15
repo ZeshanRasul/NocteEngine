@@ -980,6 +980,49 @@ bool Renderer::DoImageCapture(float x, float y, Camera camera)
 		std::filesystem::path runPath = std::filesystem::path("captures/runs") / folderName;
 		std::filesystem::create_directories(runPath);
 
+		UINT pixelX = 970;
+		UINT pixelY = 715;
+
+		UINT imageWidth = m_AccumulationBuffer.Get()->GetDesc().Width;
+		UINT imageHeight = m_AccumulationBuffer.Get()->GetDesc().Height;
+
+		double ndcX = 2.0 * (double(pixelX) + 0.5) / imageWidth - 1.0;
+		double ndcY = 1.0 - 2.0 * (double(pixelY) + 0.5) / imageHeight;
+
+
+		XMMATRIX view = camera.GetView();
+		XMMATRIX proj = camera.GetProj();
+		XMMATRIX invViewProj = XMMatrixInverse(nullptr, view * proj);
+
+		//XMMATRIX invViewProjNormalized = invViewProj / invViewProj.r[3].m128_f32[3];
+
+		XMVECTOR ndcPos = XMVectorSet(float(ndcX), float(ndcY), 1.0f, 1.0f);
+
+		XMVECTOR unprojectedPos = XMVector4Transform(ndcPos, invViewProj);
+		XMVECTOR unprojectedPosNormalized = unprojectedPos / unprojectedPos.m128_f32[3];
+
+		XMVECTOR cameraPos = XMVectorSet(camera.GetPosition3f().x, camera.GetPosition3f().y, camera.GetPosition3f().z, 1.0f);
+
+		XMVECTOR rayDir = XMVector3Normalize(unprojectedPosNormalized - cameraPos);
+
+		if (std::abs(rayDir.m128_f32[1]) < 1e-12)
+		{
+			return false; // Ray is parallel to the receiver plane: reject this probe.
+		}
+
+		double t = (double(m_ReceiverPlanePosY) - cameraPos.m128_f32[1]) / rayDir.m128_f32[1];
+
+		if (t <= 0.0)
+		{
+			return false; // Intersection is behind the camera: reject this probe.
+		}
+
+		double probeWorld[3] = {
+			cameraPos.m128_f32[0] + t * rayDir.m128_f32[0],
+			cameraPos.m128_f32[1] + t * rayDir.m128_f32[1],
+			cameraPos.m128_f32[2] + t * rayDir.m128_f32[2]
+		};
+
 		for (UINT resolution : m_ComparisonResolutions)
 		{
 			m_IntegralResults.resize(3, 0.0);
@@ -991,6 +1034,8 @@ bool Renderer::DoImageCapture(float x, float y, Camera camera)
 				double du = lightWidth / resolution;
 				double dv = lightDepth / resolution;
 
+				double separationY = double(m_AreaLights.gAreaLights[0].Position.y) - probeWorld[1];
+
 				for (int j = 0; j < resolution; ++j)
 				{
 					double v = -lightDepth * 0.5 + (j + 0.5) * dv;
@@ -998,11 +1043,15 @@ bool Renderer::DoImageCapture(float x, float y, Camera camera)
 					for (int i = 0; i < resolution; ++i)
 					{
 						double u = -lightWidth * 0.5 + (i + 0.5) * du;
-						double dx = m_AreaLights.gAreaLights[0].Position.x + u - m_ReceiverPlanePosX;
-						double dz = m_AreaLights.gAreaLights[0].Position.z + v - m_ReceiverPlanePosZ;
-						double r2 = dx * dx + lightHeight * lightHeight + dz * dz;
 
-						sum += (lightHeight * lightHeight) / (r2 * r2);
+						// Inside the quadrature loops:
+						double dx = double(m_AreaLights.gAreaLights[0].Position.x) + u - probeWorld[0];
+
+						double dz = double(m_AreaLights.gAreaLights[0].Position.z) + v - probeWorld[2];
+
+						double r2 = dx * dx + separationY * separationY + dz * dz;
+
+						sum += (separationY * separationY) / (r2 * r2);
 					}
 				}
 
@@ -1031,8 +1080,13 @@ bool Renderer::DoImageCapture(float x, float y, Camera camera)
 			captureInfo["Render Pixel Value" + std::to_string(resolution)] = { r, g, b };
 
 
-
 		}
+		
+		captureInfo["probe"] = {
+			{"pixel", {pixelX, pixelY}},
+			{"world_position", {probeWorld[0], probeWorld[1], probeWorld[2]}}
+		};
+		
 		std::filesystem::path jsonPath = runPath / "quadrature_integral.json";
 		std::ofstream jsonFile(jsonPath);
 		jsonFile << captureInfo.dump(4);
@@ -5070,11 +5124,18 @@ bool Renderer::ReadPixel(UINT x, UINT y, double inR, double inG, double inB, dou
 	double b = image[(y * m_AccumulationBuffer.Get()->GetDesc().Width + x) * 4 + 2];
 	double a = image[(y * m_AccumulationBuffer.Get()->GetDesc().Width + x) * 4 + 3];
 
-	if (fabs(r - inR) > tolerance || fabs(g - inG) > tolerance || fabs(b - inB) > tolerance || fabs(a - inA) > tolerance)
+	if (!Matches(r, inR, tolerance) || !Matches(g, inG, tolerance) || !Matches(b, inB, tolerance))
 		return false;
 
 	return true;
 
+}
+
+bool Renderer::Matches(double actual, double expected, double tolerance)
+{
+	return std::isfinite(actual) &&
+		std::isfinite(expected) &&
+		std::abs(actual - expected) <= tolerance;
 }
 
 void Renderer::UploadRLQTable(const std::vector<RLQValue>& qTable)
