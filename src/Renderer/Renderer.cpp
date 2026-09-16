@@ -916,7 +916,8 @@ bool Renderer::DoImageCapture(float x, float y, Camera camera)
 		captureInfo["scene"] = GetSceneSetUpName(m_SceneID);
 		captureInfo["timestamp"] = m_RunTimestamp;
 		captureInfo["frame_index"] = m_FrameIndex;
-		captureInfo["spp"] = m_CurrentAccumSPP;
+		captureInfo["spp"] = m_SPP;
+		captureInfo["Accumulated SPP"] = m_CurrentAccumSPP;
 		captureInfo["Area Light U x"] = float(m_AreaLights.gAreaLights[0].U.x);
 		captureInfo["Area Light U y"] = float(m_AreaLights.gAreaLights[0].U.y);
 		captureInfo["Area Light U z"] = float(m_AreaLights.gAreaLights[0].U.z);
@@ -982,111 +983,146 @@ bool Renderer::DoImageCapture(float x, float y, Camera camera)
 
 		UINT pixelX = 970;
 		UINT pixelY = 715;
+		UINT pixelX2 = 1125;
+		UINT pixelY2 = 718;
+		UINT pixelX3 = 810;
+		UINT pixelY3 = 700;
 
-		UINT imageWidth = m_AccumulationBuffer.Get()->GetDesc().Width;
-		UINT imageHeight = m_AccumulationBuffer.Get()->GetDesc().Height;
+		std::vector<std::pair<UINT, UINT>> pixelCoords = { {pixelX, pixelY}, {pixelX2, pixelY2}, {pixelX3, pixelY3} };
 
-		double ndcX = 2.0 * (double(pixelX) + 0.5) / imageWidth - 1.0;
-		double ndcY = 1.0 - 2.0 * (double(pixelY) + 0.5) / imageHeight;
-
-
-		XMMATRIX view = camera.GetView();
-		XMMATRIX proj = camera.GetProj();
-		XMMATRIX invViewProj = XMMatrixInverse(nullptr, view * proj);
-
-		//XMMATRIX invViewProjNormalized = invViewProj / invViewProj.r[3].m128_f32[3];
-
-		XMVECTOR ndcPos = XMVectorSet(float(ndcX), float(ndcY), 1.0f, 1.0f);
-
-		XMVECTOR unprojectedPos = XMVector4Transform(ndcPos, invViewProj);
-		XMVECTOR unprojectedPosNormalized = unprojectedPos / unprojectedPos.m128_f32[3];
-
-		XMVECTOR cameraPos = XMVectorSet(camera.GetPosition3f().x, camera.GetPosition3f().y, camera.GetPosition3f().z, 1.0f);
-
-		XMVECTOR rayDir = XMVector3Normalize(unprojectedPosNormalized - cameraPos);
-
-		if (std::abs(rayDir.m128_f32[1]) < 1e-12)
+		for (const auto& [pixelX, pixelY] : pixelCoords)
 		{
-			return false; // Ray is parallel to the receiver plane: reject this probe.
-		}
+			UINT imageWidth = m_AccumulationBuffer.Get()->GetDesc().Width;
+			UINT imageHeight = m_AccumulationBuffer.Get()->GetDesc().Height;
 
-		double t = (double(m_ReceiverPlanePosY) - cameraPos.m128_f32[1]) / rayDir.m128_f32[1];
+			const size_t index = (size_t(pixelY) * size_t(imageWidth) + size_t(pixelX)) * 4;
 
-		if (t <= 0.0)
-		{
-			return false; // Intersection is behind the camera: reject this probe.
-		}
 
-		double probeWorld[3] = {
-			cameraPos.m128_f32[0] + t * rayDir.m128_f32[0],
-			cameraPos.m128_f32[1] + t * rayDir.m128_f32[1],
-			cameraPos.m128_f32[2] + t * rayDir.m128_f32[2]
-		};
+			double ndcX = 2.0 * (double(pixelX) + 0.5) / imageWidth - 1.0;
+			double ndcY = 1.0 - 2.0 * (double(pixelY) + 0.5) / imageHeight;
 
-		for (UINT resolution : m_ComparisonResolutions)
-		{
-			m_IntegralResults.resize(3, 0.0);
+
+			XMMATRIX view = camera.GetView();
+			XMMATRIX proj = camera.GetProj();
+			XMMATRIX invViewProj = XMMatrixInverse(nullptr, view * proj);
+
+			//XMMATRIX invViewProjNormalized = invViewProj / invViewProj.r[3].m128_f32[3];
+
+			XMVECTOR ndcPos = XMVectorSet(float(ndcX), float(ndcY), 1.0f, 1.0f);
+
+			XMVECTOR unprojectedPos = XMVector4Transform(ndcPos, invViewProj);
+			XMVECTOR unprojectedPosNormalized = unprojectedPos / unprojectedPos.m128_f32[3];
+
+			XMVECTOR cameraPos = XMVectorSet(camera.GetPosition3f().x, camera.GetPosition3f().y, camera.GetPosition3f().z, 1.0f);
+
+			XMVECTOR rayDir = XMVector3Normalize(unprojectedPosNormalized - cameraPos);
+
+			if (std::abs(rayDir.m128_f32[1]) < 1e-12)
 			{
-				double lightWidth = double(m_AreaLights.gAreaLights[0].U.x);
-				double lightDepth = double(m_AreaLights.gAreaLights[0].V.z);
-				double lightHeight = double(m_AreaLights.gAreaLights[0].Position.y);
-				double sum = 0.0;
-				double du = lightWidth / resolution;
-				double dv = lightDepth / resolution;
-
-				double separationY = double(m_AreaLights.gAreaLights[0].Position.y) - probeWorld[1];
-
-				for (int j = 0; j < resolution; ++j)
-				{
-					double v = -lightDepth * 0.5 + (j + 0.5) * dv;
-
-					for (int i = 0; i < resolution; ++i)
-					{
-						double u = -lightWidth * 0.5 + (i + 0.5) * du;
-
-						// Inside the quadrature loops:
-						double dx = double(m_AreaLights.gAreaLights[0].Position.x) + u - probeWorld[0];
-
-						double dz = double(m_AreaLights.gAreaLights[0].Position.z) + v - probeWorld[2];
-
-						double r2 = dx * dx + separationY * separationY + dz * dz;
-
-						sum += (separationY * separationY) / (r2 * r2);
-					}
-				}
-
-				double geometricIntegral = sum * du * dv;
-				double reflectedR = double(m_ReceiverPlaneDiffuseAlbedo.x) * double(m_AreaLights.gAreaLights[0].Radiance.x) * geometricIntegral / std::numbers::pi_v<double>;
-				double reflectedG = double(m_ReceiverPlaneDiffuseAlbedo.y) * double(m_AreaLights.gAreaLights[0].Radiance.y) * geometricIntegral / std::numbers::pi_v<double>;
-				double reflectedB = double(m_ReceiverPlaneDiffuseAlbedo.z) * double(m_AreaLights.gAreaLights[0].Radiance.z) * geometricIntegral / std::numbers::pi_v<double>;
-
-				m_IntegralResults[0] = reflectedR;
-				m_IntegralResults[1] = reflectedG;
-				m_IntegralResults[2] = reflectedB;
+				return false; // Ray is parallel to the receiver plane: reject this probe.
 			}
 
-			bool pixelMatch = ReadPixel(970, 715, m_IntegralResults[0], m_IntegralResults[1], m_IntegralResults[2], 1.0, 1.e-4);
+			double t = (double(m_ReceiverPlanePosY) - cameraPos.m128_f32[1]) / rayDir.m128_f32[1];
 
-			double r = image[(715 * m_AccumulationBuffer.Get()->GetDesc().Width + 970) * 4];
-			double g = image[(715 * m_AccumulationBuffer.Get()->GetDesc().Width + 970) * 4 + 1];
-			double b = image[(715 * m_AccumulationBuffer.Get()->GetDesc().Width + 970) * 4 + 2];
-			double a = image[(715 * m_AccumulationBuffer.Get()->GetDesc().Width + 970) * 4 + 3];
+			if (t <= 0.0)
+			{
+				return false; // Intersection is behind the camera: reject this probe.
+			}
 
+			double probeWorld[3] = {
+				cameraPos.m128_f32[0] + t * rayDir.m128_f32[0],
+				cameraPos.m128_f32[1] + t * rayDir.m128_f32[1],
+				cameraPos.m128_f32[2] + t * rayDir.m128_f32[2]
+			};
 
-			captureInfo["Recevier Point Position" + std::to_string(resolution)] = { m_ReceiverPlanePosX, m_ReceiverPlanePosY, m_ReceiverPlanePosZ };
-			captureInfo["Quadrature Resolution" + std::to_string(resolution)] = resolution;
-			captureInfo["Render matches Integral" + std::to_string(resolution)] = pixelMatch ? "True" : "False";
-			captureInfo["Integral Result" + std::to_string(resolution)] = { m_IntegralResults[0], m_IntegralResults[1], m_IntegralResults[2] };
-			captureInfo["Render Pixel Value" + std::to_string(resolution)] = { r, g, b };
+			double tolerance = 1.e-5;
 
+			for (UINT resolution : m_ComparisonResolutions)
+			{
+				m_IntegralResults.resize(3, 0.0);
+				{
+					double lightWidth = double(m_AreaLights.gAreaLights[0].U.x);
+					double lightDepth = double(m_AreaLights.gAreaLights[0].V.z);
+					double lightHeight = double(m_AreaLights.gAreaLights[0].Position.y);
+					double sum = 0.0;
+					double du = lightWidth / resolution;
+					double dv = lightDepth / resolution;
+
+					double separationY = double(m_AreaLights.gAreaLights[0].Position.y) - probeWorld[1];
+
+					for (int j = 0; j < resolution; ++j)
+					{
+						double v = -lightDepth * 0.5 + (j + 0.5) * dv;
+
+						for (int i = 0; i < resolution; ++i)
+						{
+							double u = -lightWidth * 0.5 + (i + 0.5) * du;
+
+							// Inside the quadrature loops:
+							double dx = double(m_AreaLights.gAreaLights[0].Position.x) + u - probeWorld[0];
+
+							double dz = double(m_AreaLights.gAreaLights[0].Position.z) + v - probeWorld[2];
+
+							double r2 = dx * dx + separationY * separationY + dz * dz;
+
+							sum += (separationY * separationY) / (r2 * r2);
+						}
+					}
+
+					double geometricIntegral = sum * du * dv;
+					double reflectedR = double(m_ReceiverPlaneDiffuseAlbedo.x) * double(m_AreaLights.gAreaLights[0].Radiance.x) * geometricIntegral / std::numbers::pi_v<double>;
+					double reflectedG = double(m_ReceiverPlaneDiffuseAlbedo.y) * double(m_AreaLights.gAreaLights[0].Radiance.y) * geometricIntegral / std::numbers::pi_v<double>;
+					double reflectedB = double(m_ReceiverPlaneDiffuseAlbedo.z) * double(m_AreaLights.gAreaLights[0].Radiance.z) * geometricIntegral / std::numbers::pi_v<double>;
+
+					m_IntegralResults[0] = reflectedR;
+					m_IntegralResults[1] = reflectedG;
+					m_IntegralResults[2] = reflectedB;
+				}
+
+				double r = image[index];
+				double g = image[index + 1];
+				double b = image[index + 2];
+				double a = image[index + 3];
+
+				const double errorR = std::abs(r - m_IntegralResults[0]);
+				const double errorG = std::abs(g - m_IntegralResults[1]);
+				const double errorB = std::abs(b - m_IntegralResults[2]);
+
+				const bool pixelMatch =
+					Matches(r, m_IntegralResults[0], tolerance) &&
+					Matches(g, m_IntegralResults[1], tolerance) &&
+					Matches(b, m_IntegralResults[2], tolerance);
+
+				captureInfo["Quadrature Resolution" + std::to_string(pixelX) + "_" + std::to_string(pixelY) + "_" + std::to_string(resolution)] = resolution;
+				captureInfo["Render matches Integral" + std::to_string(pixelX) + "_" + std::to_string(pixelY) + "_" + std::to_string(resolution)] = pixelMatch ? "True" : "False";
+				captureInfo["Integral Result" + std::to_string(pixelX) + "_" + std::to_string(pixelY) + "_" + std::to_string(resolution)] = { m_IntegralResults[0], m_IntegralResults[1], m_IntegralResults[2] };
+				captureInfo["Render Pixel Value" + std::to_string(pixelX) + "_" + std::to_string(pixelY) + "_" + std::to_string(resolution)] = { r, g, b };
+
+				captureInfo["Absolute Error" + std::to_string(pixelX) + "_" + std::to_string(pixelY) + "_" + std::to_string(resolution)] = {
+					{"R",errorR},
+					{"G", errorG},
+					{"B", errorB}
+				};
+				captureInfo["Relative Error" + std::to_string(pixelX) + "_" + std::to_string(pixelY) + "_" + std::to_string(resolution)] = {
+					{"R", errorR / m_IntegralResults[0]},
+					{"G", errorG / m_IntegralResults[1]},
+					{"B", errorB / m_IntegralResults[2]}
+				};
+
+				captureInfo["spp" + std::to_string(pixelX) + "_" + std::to_string(pixelY) + "_" + std::to_string(resolution)] = m_SPP;
+				captureInfo["Accumulated SPP" + std::to_string(pixelX) + "_" + std::to_string(pixelY) + "_" + std::to_string(resolution)] = m_FrameIndex;
+			}
+
+			captureInfo["probe" + std::to_string(pixelX) + "_" + std::to_string(pixelY)] = {
+				{"pixel", {pixelX, pixelY}},
+				{"world_position", {probeWorld[0], probeWorld[1], probeWorld[2]}}
+			};
+
+			captureInfo["Tolerance"] = tolerance;
 
 		}
-		
-		captureInfo["probe"] = {
-			{"pixel", {pixelX, pixelY}},
-			{"world_position", {probeWorld[0], probeWorld[1], probeWorld[2]}}
-		};
-		
+
+
 		std::filesystem::path jsonPath = runPath / "quadrature_integral.json";
 		std::ofstream jsonFile(jsonPath);
 		jsonFile << captureInfo.dump(4);
