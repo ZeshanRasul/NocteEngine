@@ -199,4 +199,40 @@ float3 PostProcessColor(float3 hdrColor)
     return color;
 }
 
+struct SampleDiagnostic
+{
+    uint valid;
+    uint baseSeed;
+    uint globalSampleIndex;
+    uint initialRngState;
+
+    float2 xi; // Actual random coordinates used
+    float2 padding;
+
+    float3 pointOnLight; // Actual sampled world position
+    uint lightIndex;
+};
+
+int DiagnosticSlot(uint sampleIndex)
+{
+    switch (sampleIndex)
+    {
+        case 0:
+            return 0;
+        case 1:
+            return 1;
+        case 7:
+            return 2;
+        case 8:
+            return 3;
+        case 255:
+            return 4;
+        default:
+            return -1;
+    }
+}
+
+float2 gSampledDianosticPixel = float2(970.0f, 715.0f);
+uint isDiagnosticPixel = 0;
+uint gSampleIndex = 0;
 #endif

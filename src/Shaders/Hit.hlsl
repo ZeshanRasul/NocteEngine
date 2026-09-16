@@ -44,6 +44,9 @@ struct STriVertex
     float2 UV;
 };
 
+
+RWStructuredBuffer<SampleDiagnostic> gSampleDiagnostics : register(u6);
+
 StructuredBuffer<STriVertex> BTriVertex : register(t0);
 StructuredBuffer<int> indices : register(t1);
 RaytracingAccelerationStructure SceneBVH : register(t2);
@@ -419,6 +422,13 @@ LightSample SampleAreaLight(uint lightIndex, float3 p, float3 n, inout uint seed
                 (xi.x - 0.5f) * light.U +
                 (xi.y - 0.5f) * light.V;
 
+    if (isDiagnosticPixel)
+    {
+        gSampleDiagnostics[DiagnosticSlot(gSampleIndex)].xi = xi;
+        gSampleDiagnostics[DiagnosticSlot(gSampleIndex)].pointOnLight = pL;
+        gSampleDiagnostics[DiagnosticSlot(gSampleIndex)].lightIndex = lightIndex;
+    }
+    
     float3 L = pL - p;
     float d = length(L);
     if (d <= 0.0f)
@@ -472,7 +482,6 @@ void ShadowClosestHit(inout ShadowPayload hit, Attributes attrib)
 void ClosestHit(inout PathPayload payload, Attributes attrib)
 {
 
-    
     
     uint prevWasDelta = payload.lastBounceWasDelta;
     float prevSegmentPdf = payload.prevBsdfPdf;

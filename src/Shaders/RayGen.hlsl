@@ -30,12 +30,14 @@ RWTexture2D<float4> gNormal : register(u2);
 RWTexture2D<float> gDepth : register(u3);
 RWTexture2D<float4> gPresent  : register(u4);
 RWTexture2D<float4> gWorldPos : register(u5); // xyz = first-hit world pos, w = 1 if surface
+RWStructuredBuffer<SampleDiagnostic> gSampleDiagnostics : register(u6);
 
 // Raytracing acceleration structure, accessed as a SRV
 RaytracingAccelerationStructure SceneBVH : register(t0);
 Texture2D<float4> gAccumHistory : register(t1);
 //StructuredBuffer<RLQValue> gQTable : register(t2);
 //Texture2D<float4> gGroundTruth : register(t3);
+
 cbuffer cbPass : register(b0)
 {
     float4x4 gView;
@@ -78,6 +80,8 @@ cbuffer FrameData : register(b5)
     float gFireflyClamp;
     uint gDebugReservoirView;
     uint gBaseSeed;
+    uint gSamplesStart;
+    uint gSamplesThisFrame;
 }
 
 cbuffer MediumParams : register(b6)
@@ -103,7 +107,6 @@ float HashToUnitFloat(uint x)
     return (x & 0x00FFFFFF) / 16777216.0f;
 }
 
-
 // Ray-generation shaders take their dispatch dimensions from DispatchRays(),
 // not from a thread-group declaration. Declaring [numthreads] here makes newer
 // DXC classify this entry as compute and reject TraceRay/DispatchRaysIndex.
@@ -116,6 +119,7 @@ void RayGen()
     uint linearIndex = DispatchRaysIndex().y * dims.x + DispatchRaysIndex().x;
 
     float2 pixel = (float2) DispatchRaysIndex() + 0.5f;
+    
     float2 ndc = pixel / float2(DispatchRaysDimensions().xy);
     ndc = ndc * 2.0f - 1.0f;
     ndc.y = -ndc.y;
@@ -153,17 +157,19 @@ void RayGen()
     uint lastTransitionIndex = 0;
     int index = 0;
     
-    for (int s = 0; s < SPP; ++s)
+    for (uint s = 0; s < gSamplesThisFrame; ++s)
     {
+        uint globalSampleIndex = gSamplesStart + s;
         
-        seed += s * 374761393u; // change seed per sample
-    // Initialize payload
+        seed += globalSampleIndex * 374761393u; // change seed per sample
+        
+        // Initialize payload
         PathPayload payload;
         payload.radiance = 0.0f;
         payload.throughput = 1.0f;
         payload.depth = 0;
         payload.done = 0;
-        payload.seed = Hash(seed + s * 9781u);
+        payload.seed = Hash(seed + globalSampleIndex * 9781u);
         if (payload.seed == 0u)
             payload.seed = 1u;
         
@@ -195,6 +201,17 @@ void RayGen()
         ray.TMin = 0.001f;
         ray.TMax = 1e38f;
 
+        if (pixel == gSampledDianosticPixel)
+        {
+            isDiagnosticPixel = 1;
+            gSampleDiagnostics[DiagnosticSlot(s)].valid = 1;
+            gSampleDiagnostics[DiagnosticSlot(s)].baseSeed = gBaseSeed;
+            gSampleDiagnostics[DiagnosticSlot(s)].globalSampleIndex = globalSampleIndex;
+            gSampleDiagnostics[DiagnosticSlot(s)].initialRngState = payload.seed;
+            gSampleIndex = s;
+        }
+
+        
         float3 finalRadiance = 0.0f;
 
         const int MaxBounces = 12;

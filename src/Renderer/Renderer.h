@@ -613,6 +613,8 @@ private:
 	bool ReadPixel(UINT x, UINT y, double inR, double inG, double inB, double inA, float tolerance);
 	bool Matches(double actual, double expected, double tolerance);
 	std::vector<float> image;
+	UINT m_SampleStart = 0;
+	UINT m_SamplesThisFrame = 0;
 };
 
 struct Reservoir

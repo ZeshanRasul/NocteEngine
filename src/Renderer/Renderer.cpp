@@ -1318,6 +1318,8 @@ bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 		DoAccumulationClear();
 	}
 
+	m_SamplesThisFrame = m_SPP;
+
 	UpdateFrameIndexRNGCBuffer();
 
 	// Initialize all timestamp slots so skipped passes show 0 ms
@@ -1461,6 +1463,8 @@ bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 		D3D12_RANGE writeRange = { 0, 0 };
 		m_TimestampReadback->Unmap(0, &writeRange);
 	}
+
+	m_SampleStart += m_SPP;
 
 	return true;
 
@@ -4521,7 +4525,9 @@ struct alignas(256) FrameIndexCB
 	float FireflyClamp;
 	UINT  DebugReservoirView;
 	UINT  BaseSeed;
-	UINT  Padding[58];
+	UINT  SamplesStart;
+	UINT  SamplesThisFrame;
+	UINT  Padding[54];
 };
 
 static_assert(sizeof(FrameIndexCB) == 256);
@@ -4541,6 +4547,8 @@ void Renderer::CreateFrameIndexRNGCBuffer()
 	FrameIndexCB data = {};
 	data.FrameIndex = m_FrameIndex;
 	data.BaseSeed = m_BaseSeed;
+	data.SamplesStart = m_SampleStart;
+	data.SamplesThisFrame = m_SamplesThisFrame;
 
 	uint8_t* pData = nullptr;
 	ThrowIfFailed(m_RNGUploadCBuffer->Map(0, nullptr, reinterpret_cast<void**>(&pData)));
@@ -4562,6 +4570,8 @@ void Renderer::UpdateFrameIndexRNGCBuffer()
 	data.DebugReservoirView = m_DebugReservoirView ? 1u : 0u;
 	data.FocalDistance = m_FocalDistance;
 	data.BaseSeed = m_BaseSeed;
+	data.SamplesStart = m_SampleStart;
+	data.SamplesThisFrame = m_SamplesThisFrame;
 
 	uint8_t* pData = nullptr;
 	ThrowIfFailed(m_RNGUploadCBuffer->Map(0, nullptr, reinterpret_cast<void**>(&pData)));
