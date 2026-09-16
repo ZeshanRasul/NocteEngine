@@ -19,6 +19,7 @@
 #include <iomanip>
 #include <sstream>
 #include <filesystem>
+#include <nlohmann/json.hpp>
 
 #include "imgui/imgui.h"
 #include "imgui/imgui_internal.h"
@@ -100,6 +101,10 @@ private:
 	bool m_CompareToIntegral = false;
 	std::vector<UINT> m_ComparisonResolutions;
 	std::vector<double> m_IntegralResults;
+	nlohmann::json m_IntegralCaptureInfo;
+	std::filesystem::path m_RunPath;
+	std::filesystem::path m_IntegralJsonPath = m_RunPath / "quadrature_integral.json";
+
 
 	Microsoft::WRL::ComPtr<ID3D12Device5> m_Device;
 	Microsoft::WRL::ComPtr<IDXGIAdapter> m_WarpAdapter;
