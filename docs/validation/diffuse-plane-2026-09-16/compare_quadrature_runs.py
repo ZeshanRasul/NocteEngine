@@ -1,7 +1,7 @@
 """Compare independent NocteEngine quadrature captures (Python 3.10+, stdlib only).
 
 One input JSON = one run. Select a single quadrature resolution (default 256).
-Usage: python tools/compare_quadrature_runs.py "captures/validation/*/quadrature_integral.json" --csv comparison.csv
+From this script's directory: python compare_quadrature_runs.py "runs/*/quadrature_integral.json" --csv statistics.csv
 Reported SPP is checked for internal consistency, not verified against GPU work.
 Record a top-level base_seed in each capture and keep all scene/camera settings fixed.
 """
@@ -53,7 +53,11 @@ def read_run(path, resolution):
         if (x, y) in probes and probes[x, y] != (ref, pos):
             raise ValueError(f"{path}: reference/position changed across SPP for {(x, y)}")
         probes[x, y] = (ref, pos)
-    return samples, data.get("base_seed")
+    seeds = [v for k, v in data.items()
+             if k == "base_seed" or re.fullmatch(r"(?:base_seed|Base Seed)\d+_\d+_\d+_\d+", k)]
+    if seeds and any(seed != seeds[0] for seed in seeds):
+        raise ValueError(f"{path}: inconsistent seeds within run")
+    return samples, seeds[0] if seeds else None
 
 
 def summarize(runs):

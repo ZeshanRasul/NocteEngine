@@ -1,0 +1,42 @@
+[
+  {
+    "path": "runs/2026-09-16_12-34-53Diffuse_Plane_1/quadrature_integral.json",
+    "sha256": "d8d210fb04c9afc02671a86fec33e906183cca58a649599891cf456bc4d6eb62",
+    "base_seed": 1
+  },
+  {
+    "path": "runs/2026-09-16_12-34-53Diffuse_Plane_2/quadrature_integral.json",
+    "sha256": "5597e7c85dc64eecc3eb6f4e22c37fd02b285511db07776ea2a655b6d5ffa597",
+    "base_seed": 2
+  },
+  {
+    "path": "runs/2026-09-16_12-34-53Diffuse_Plane_3/quadrature_integral.json",
+    "sha256": "cfa14a54cac9c6905446fcee9a405509349cedf5650b9728eb9be6f6399e4407",
+    "base_seed": 3
+  },
+  {
+    "path": "runs/2026-09-16_12-34-53Diffuse_Plane_4/quadrature_integral.json",
+    "sha256": "eaf934a901198352cf03131081f2ba169594648ba5e4492d21b24a443619e80d",
+    "base_seed": 4
+  },
+  {
+    "path": "runs/2026-09-16_12-34-53Diffuse_Plane_5/quadrature_integral.json",
+    "sha256": "f165d7376a53229fcc91d6e6720c8cf9a049a89072636b66d57ec09f15a954c0",
+    "base_seed": 5
+  },
+  {
+    "path": "runs/2026-09-16_12-34-53Diffuse_Plane_6/quadrature_integral.json",
+    "sha256": "a1501a66af346c27cc52a908a3a65f92461f95e23f6ff677b30ccdcb1446f278",
+    "base_seed": 6
+  },
+  {
+    "path": "runs/2026-09-16_12-34-53Diffuse_Plane_7/quadrature_integral.json",
+    "sha256": "2c8a7797eac1e5663790cdcfa01ebac2acaa4d663920c3d245ed5605129a9069",
+    "base_seed": 7
+  },
+  {
+    "path": "runs/2026-09-16_12-34-53Diffuse_Plane_8/quadrature_integral.json",
+    "sha256": "d332bd490c5349111a1c32d393d7c1eb69474e7aaf0beb7c05a78958548f6da2",
+    "base_seed": 8
+  }
+]
