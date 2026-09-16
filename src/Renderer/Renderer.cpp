@@ -1091,6 +1091,7 @@ bool Renderer::DoImageCapture(float x, float y, Camera camera)
 						Matches(g, m_IntegralResults[1], tolerance) &&
 						Matches(b, m_IntegralResults[2], tolerance);
 
+					m_IntegralCaptureInfo["base_seed"] = m_BaseSeed;
 					m_IntegralCaptureInfo["Quadrature Resolution" + std::to_string(pixelX) + "_" + std::to_string(pixelY) + "_" + std::to_string(resolution) + "_" + std::to_string(m_CurrentAccumSPP)] = resolution;
 					m_IntegralCaptureInfo["Render matches Integral" + std::to_string(pixelX) + "_" + std::to_string(pixelY) + "_" + std::to_string(resolution) + "_" + std::to_string(m_CurrentAccumSPP)] = pixelMatch ? "True" : "False";
 					m_IntegralCaptureInfo["Integral Result" + std::to_string(pixelX) + "_" + std::to_string(pixelY) + "_" + std::to_string(resolution) + "_" + std::to_string(m_CurrentAccumSPP)] = { m_IntegralResults[0], m_IntegralResults[1], m_IntegralResults[2] };
@@ -1134,8 +1135,18 @@ bool Renderer::DoImageCapture(float x, float y, Camera camera)
 			//std::ofstream jsonFile(jsonPath);
 			//jsonFile << captureInfo.dump(4);
 			//jsonFile.close();
-			m_CompareToIntegral = false;
-			m_CurrentAccumSPP = 0;
+			if (m_CurrentRunCapture < m_NumRuns)
+			{
+				m_CurrentRunCapture++;
+				m_BaseSeed++;
+				m_CurrentAccumSPP = 0;
+			}
+			else
+			{
+				m_BaseSeed = 1;
+				m_CurrentAccumSPP = 0;
+				m_CompareToIntegral = false;
+			}
 		}
 
 	}
@@ -1177,6 +1188,11 @@ bool Renderer::CompareAllRGBPixels(const std::vector<XMFLOAT3>& pixelsA, const s
 
 bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 {
+	std::string folderName = m_RunTimestamp + GetSceneSetUpName(m_SceneID) + "_" + std::to_string(m_CurrentRunCapture);
+	m_RunPath = std::filesystem::path("captures/runs") / folderName;
+	std::filesystem::create_directories(m_RunPath);
+	m_IntegralJsonPath = m_RunPath / "quadrature_integral.json";
+
 	// --- ImGui frame setup (must happen before command list reset) ---
 	ImGui_ImplDX12_NewFrame();
 	ImGui_ImplWin32_NewFrame();
@@ -1302,6 +1318,8 @@ bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 		DoAccumulationClear();
 	}
 
+	UpdateFrameIndexRNGCBuffer();
+
 	// Initialize all timestamp slots so skipped passes show 0 ms
 	for (UINT tsi = 0; tsi < 8; ++tsi)
 		m_CommandList->EndQuery(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, tsi);
@@ -1346,18 +1364,14 @@ bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 
 	if (m_CompareToIntegral && m_CurrentAccumSPP == 0)
 	{
-		std::string folderName = m_RunTimestamp + GetSceneSetUpName(m_SceneID) + "_" + std::to_string(m_CurrentRunCapture);
-		m_RunPath = std::filesystem::path("captures/runs") / folderName;
-		std::filesystem::create_directories(m_RunPath);
-		m_IntegralJsonPath = m_RunPath / "quadrature_integral.json";
 
-		DoImageCapture(x, y, camera);
 		m_CurrentAccumSPP += m_SPP;
+		DoImageCapture(x, y, camera);
 	}
 	else if (m_CompareToIntegral && m_CurrentAccumSPP > 0)
 	{
-		DoImageCapture(x, y, camera);
 		m_CurrentAccumSPP += m_SPP;
+		DoImageCapture(x, y, camera);
 	}
 	else
 	{
@@ -1413,7 +1427,6 @@ bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 	//m_HasPrevState = true;
 	//m_MaxIterations = (m_UseRL || m_UseQTable || !m_UseTemporal) ? 256 : 8192;
 
-	UpdateFrameIndexRNGCBuffer();
 
 
 
@@ -4507,8 +4520,12 @@ struct alignas(256) FrameIndexCB
 	float FocalDistance;
 	float FireflyClamp;
 	UINT  DebugReservoirView;
-	UINT  Padding[59];
+	UINT  BaseSeed;
+	UINT  Padding[58];
 };
+
+static_assert(sizeof(FrameIndexCB) == 256);
+static_assert(offsetof(FrameIndexCB, BaseSeed) == 20);
 
 void Renderer::CreateFrameIndexRNGCBuffer()
 {
@@ -4523,6 +4540,7 @@ void Renderer::CreateFrameIndexRNGCBuffer()
 
 	FrameIndexCB data = {};
 	data.FrameIndex = m_FrameIndex;
+	data.BaseSeed = m_BaseSeed;
 
 	uint8_t* pData = nullptr;
 	ThrowIfFailed(m_RNGUploadCBuffer->Map(0, nullptr, reinterpret_cast<void**>(&pData)));
@@ -4543,6 +4561,7 @@ void Renderer::UpdateFrameIndexRNGCBuffer()
 	data.FireflyClamp = m_FireflyClamp;
 	data.DebugReservoirView = m_DebugReservoirView ? 1u : 0u;
 	data.FocalDistance = m_FocalDistance;
+	data.BaseSeed = m_BaseSeed;
 
 	uint8_t* pData = nullptr;
 	ThrowIfFailed(m_RNGUploadCBuffer->Map(0, nullptr, reinterpret_cast<void**>(&pData)));

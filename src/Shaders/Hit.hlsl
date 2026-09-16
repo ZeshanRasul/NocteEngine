@@ -142,6 +142,7 @@ cbuffer FrameData : register(b5)
     float _focalDistance;
     float _fireflyClamp;
     uint  gDebugReservoirView; // 0 = off, 1 = false-colour the selected light
+    uint  gBaseSeed;
 }
 
 // False-colour the light the RIS reservoir selected for this pixel. Used to tell

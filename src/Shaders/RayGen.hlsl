@@ -76,6 +76,8 @@ cbuffer FrameData : register(b5)
     float ApertureRadius;
     float FocalDistance;
     float gFireflyClamp;
+    uint gDebugReservoirView;
+    uint gBaseSeed;
 }
 
 cbuffer MediumParams : register(b6)
@@ -130,6 +132,8 @@ void RayGen()
             frameIndex * 26699u;
 
     seed ^= (launchIndex.x + launchIndex.y) * 1013904223u;
+    
+    seed = Hash(seed ^ Hash(gBaseSeed));
 
     // Capture first-hit guides for denoising
     float3 primaryNormal = float3(0, 0, 1);
@@ -160,6 +164,9 @@ void RayGen()
         payload.depth = 0;
         payload.done = 0;
         payload.seed = Hash(seed + s * 9781u);
+        if (payload.seed == 0u)
+            payload.seed = 1u;
+        
         payload.lastBounceWasDelta = 0;
         payload.prevBsdfPdf = 1.0f;
         payload.prevHitPos = originWS;

@@ -104,7 +104,8 @@ private:
 	nlohmann::json m_IntegralCaptureInfo;
 	std::filesystem::path m_RunPath;
 	std::filesystem::path m_IntegralJsonPath = m_RunPath / "quadrature_integral.json";
-
+	UINT m_NumRuns = 8;
+	UINT m_BaseSeed = 1;
 
 	Microsoft::WRL::ComPtr<ID3D12Device5> m_Device;
 	Microsoft::WRL::ComPtr<IDXGIAdapter> m_WarpAdapter;
