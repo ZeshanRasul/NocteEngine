@@ -1108,7 +1108,7 @@ bool Renderer::DoImageCapture(float x, float y, Camera camera)
 					};
 
 					m_IntegralCaptureInfo["spp" + std::to_string(pixelX) + "_" + std::to_string(pixelY) + "_" + std::to_string(resolution) + "_" + std::to_string(m_CurrentAccumSPP)] = m_SPP;
-					m_IntegralCaptureInfo["Accumulated SPP" + std::to_string(pixelX) + "_" + std::to_string(pixelY) + "_" + std::to_string(resolution) + "_" + std::to_string(m_CurrentAccumSPP)] = m_FrameIndex;
+					m_IntegralCaptureInfo["Accumulated SPP" + std::to_string(pixelX) + "_" + std::to_string(pixelY) + "_" + std::to_string(resolution) + "_" + std::to_string(m_CurrentAccumSPP)] = m_CurrentAccumSPP;
 				}
 
 				m_IntegralCaptureInfo["probe" + std::to_string(pixelX) + "_" + std::to_string(pixelY) + "_" + std::to_string(m_CurrentAccumSPP)] = {
@@ -1295,6 +1295,13 @@ bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 		}
 	}
 
+	if (m_CompareToIntegral && m_CurrentAccumSPP == 0)
+	{
+		m_FrameIndex = 0;
+
+		DoAccumulationClear();
+	}
+
 	// Initialize all timestamp slots so skipped passes show 0 ms
 	for (UINT tsi = 0; tsi < 8; ++tsi)
 		m_CommandList->EndQuery(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, tsi);
@@ -1339,23 +1346,18 @@ bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 
 	if (m_CompareToIntegral && m_CurrentAccumSPP == 0)
 	{
-		m_FrameIndex = 0;
-		m_ClearAccumulation = true;
-
-		DoAccumulationClear();
-
 		std::string folderName = m_RunTimestamp + GetSceneSetUpName(m_SceneID) + "_" + std::to_string(m_CurrentRunCapture);
 		m_RunPath = std::filesystem::path("captures/runs") / folderName;
 		std::filesystem::create_directories(m_RunPath);
 		m_IntegralJsonPath = m_RunPath / "quadrature_integral.json";
 
 		DoImageCapture(x, y, camera);
-		m_CurrentAccumSPP++;
+		m_CurrentAccumSPP += m_SPP;
 	}
 	else if (m_CompareToIntegral && m_CurrentAccumSPP > 0)
 	{
 		DoImageCapture(x, y, camera);
-		m_CurrentAccumSPP++;
+		m_CurrentAccumSPP += m_SPP;
 	}
 	else
 	{
@@ -4717,6 +4719,7 @@ void Renderer::RenderImGuiDebugWindow(UINT x, UINT y)
 	{
 		m_CompareToIntegral = true;
 		m_FrameIndex = 0;
+		m_CurrentAccumSPP = 0;
 		m_ClearAccumulation = true;
 		m_ResetAccumulation = true;
 	}
