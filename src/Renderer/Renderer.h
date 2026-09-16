@@ -615,6 +615,22 @@ private:
 	std::vector<float> image;
 	UINT m_SampleStart = 0;
 	UINT m_SamplesThisFrame = 0;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_SampleDiagnosticsUAV;
+	void CreateSampleDiagnosticsBuffer(uint32_t width, uint32_t height);
+};
+
+struct SampleDiagnostic
+{
+	UINT valid;
+	UINT baseSeed;
+	UINT globalSampleIndex;
+	UINT initialRngState;
+
+	XMFLOAT2 xi; // Actual random coordinates used
+	XMFLOAT2 padding;
+
+	XMFLOAT3 pointOnLight; // Actual sampled world position
+	UINT lightIndex;
 };
 
 struct Reservoir
@@ -683,7 +699,8 @@ enum
 	SRV_WorldPos = 31,  // (unused currently – IS pass reads via UAV)
 	UAV_Reservoir = 32,  // ReSTIR: written by IS compute
 	SRV_Reservoir = 33,  // ReSTIR: read by Hit shader
-	HEAP_SLOT_COUNT = 34,  // fixed slots before per-scene textures
+	UAV_SampleDiagnostics = 34,  // for correctness testing
+	HEAP_SLOT_COUNT = 35,  // fixed slots before per-scene textures
 };
 
 // CPU-only UAV heap layout (m_SrvUavCPUHeap). Order must match CreateShaderResourceCPUHeap().

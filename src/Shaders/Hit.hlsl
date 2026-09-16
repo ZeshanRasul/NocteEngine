@@ -45,7 +45,6 @@ struct STriVertex
 };
 
 
-RWStructuredBuffer<SampleDiagnostic> gSampleDiagnostics : register(u6);
 
 StructuredBuffer<STriVertex> BTriVertex : register(t0);
 StructuredBuffer<int> indices : register(t1);
@@ -54,11 +53,11 @@ StructuredBuffer<Material> materials : register(t3);
 StructuredBuffer<int> matIndices : register(t4);
 Texture2D<float4> gAlbedoHistory : register(t5);
 
-Texture2D textures[] : register(t6);
 
 // Reservoir buffer written by the RIS initial-sampling compute pass last frame.
 // Space 1 avoids overlap with the unbounded textures[] array in space 0.
 StructuredBuffer<Reservoir> gReservoirs : register(t7, space1);
+RWStructuredBuffer<SampleDiagnostic> gSampleDiagnostics : register(u1);
 
 SamplerState sampAniso : register(s0);
 
@@ -410,7 +409,7 @@ struct SampledLight
     float p;
 };
 
-LightSample SampleAreaLight(uint lightIndex, float3 p, float3 n, inout uint seed)
+LightSample SampleAreaLight(uint lightIndex, float3 p, float3 n, inout uint seed, PathPayload payload)
 {
     LightSample s = (LightSample) 0;
 
@@ -422,13 +421,16 @@ LightSample SampleAreaLight(uint lightIndex, float3 p, float3 n, inout uint seed
                 (xi.x - 0.5f) * light.U +
                 (xi.y - 0.5f) * light.V;
 
-    if (isDiagnosticPixel)
+    if (payload.diagnosticDetails.isDiagnosticPixel)
     {
-        gSampleDiagnostics[DiagnosticSlot(gSampleIndex)].xi = xi;
-        gSampleDiagnostics[DiagnosticSlot(gSampleIndex)].pointOnLight = pL;
-        gSampleDiagnostics[DiagnosticSlot(gSampleIndex)].lightIndex = lightIndex;
+        gSampleDiagnostics[DiagnosticSlot(payload.diagnosticDetails.gSampleIndex)].xi = xi;
+        gSampleDiagnostics[DiagnosticSlot(payload.diagnosticDetails.gSampleIndex)].pointOnLight = pL;
+        gSampleDiagnostics[DiagnosticSlot(payload.diagnosticDetails.gSampleIndex)].lightIndex = lightIndex;
     }
-    
+    else
+    {
+        gSampleDiagnostics[DiagnosticSlot(payload.diagnosticDetails.gSampleIndex)].valid = 0;
+    }
     float3 L = pL - p;
     float d = length(L);
     if (d <= 0.0f)
@@ -609,7 +611,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
             payload.emission = 0.0f;
             payload.isEmissive = 0;
             uint lightIndex = 0;
-            LightSample lightSample = SampleAreaLight(lightIndex, pW, N, payload.seed);
+            LightSample lightSample = SampleAreaLight(lightIndex, pW, N, payload.seed, payload);
             float pdf = lightSample.pdf * (1.0f / gNumAreaLights);
             if (lightSample.pdf > 0.0f)
             {
@@ -636,90 +638,6 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     
     payload.emission = 0.0f;
     payload.isEmissive = 0;
-
-    if (mat.TexIndex >= 0)
-    {
-        mat.DiffuseAlbedo = textures[mat.TexIndex].SampleLevel(sampAniso, uv, 0);
-    }
-    
-    if (mat.NormalIndex >= 0)
-    {
-        float3 Nbase = normalize(N);
-
-        float4 nSample = textures[mat.NormalIndex].SampleLevel(sampAniso, uv, 4.0f);
-
-        float3x3 objToWorld = (float3x3) ObjectToWorld3x4();
-
-        float3 e1 = mul(v1.Vertex - v0.Vertex, objToWorld);
-        float3 e2 = mul(v2.Vertex - v0.Vertex, objToWorld);
-
-        float2 duv1 = v1.UV - v0.UV;
-        float2 duv2 = v2.UV - v0.UV;
-
-        float det = duv1.x * duv2.y - duv1.y * duv2.x;
-
-        if (abs(det) > 1e-6f)
-        {
-            float invDet = rcp(det);
-            float3 T = (duv2.y * e1 - duv1.y * e2) * invDet;
-
-            if (dot(T, T) > 1e-8f && all(isfinite(T)))
-            {
-                T = normalize(T - Nbase * dot(Nbase, T));
-
-                float handedness = (det < 0.0f) ? -1.0f : 1.0f;
-                float3 B = normalize(cross(Nbase, T)) * handedness;
-
-                if (dot(B, B) > 1e-8f && all(isfinite(B)))
-                {
-                    float3x3 TBN = transpose(float3x3(T, B, Nbase));
-                    
-                    float3 nTexRGB = nSample.xyz * 2.0f - 1.0f;
-                    nTexRGB.y = -nTexRGB.y;
-                    float2 nXY_AG = float2(nSample.a, nSample.g) * 2.0f - 1.0f;
-                    float3 nTexAG = float3(nXY_AG, sqrt(saturate(1.0f - dot(nXY_AG, nXY_AG))));
-                    float3 bestN = Nbase;
-                    float bestDot = 0.05f;
-
-                    if (dot(nTexRGB, nTexRGB) > 1e-8f && all(isfinite(nTexRGB)))
-                    {
-                        float3 NmRGB = normalize(mul(TBN, nTexRGB));
-                        float dRGB = dot(NmRGB, Nbase);
-                        if (all(isfinite(NmRGB)) && dRGB > bestDot)
-                        {
-                            bestDot = dRGB;
-                            bestN = NmRGB;
-                        }
-                    }
-
-                    if (dot(nTexAG, nTexAG) > 1e-8f && all(isfinite(nTexAG)))
-                    {
-                        float3 NmAG = normalize(mul(TBN, normalize(nTexAG)));
-                        float dAG = dot(NmAG, Nbase);
-                        if (all(isfinite(NmAG)) && dAG > bestDot)
-                        {
-                            bestDot = dAG;
-                            bestN = NmAG;
-                        }
-                    }
-
-                    N = bestN;
-                }
-                else
-                {
-                    N = Nbase;
-                }
-            }
-            else
-            {
-                N = Nbase;
-            }
-        }
-        else
-        {
-            N = Nbase;
-        }
-    }
     
     float NoV = saturate(dot(Ng, V));
     float normalBlend = saturate((0.25f - NoV) / 0.25f);
@@ -727,31 +645,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
 // At grazing angles, fade normal map back to geometric normal.
     N = normalize(lerp(N, Ng, normalBlend));
     
-    if (mat.SpecularIndex >= 0)
-    {
-        float gloss = textures[mat.SpecularIndex].SampleLevel(sampAniso, uv, 0).r;
-        mat.Roughness = 1.0f - gloss;
-    }
-    
-    if (mat.AlphaIndex >= 0)
-    {
-        float alpha = textures[mat.AlphaIndex].SampleLevel(sampAniso, uv, 0).a;
-        if (alpha < 0.5f)
-        {
-            float3 rayDir = normalize(WorldRayDirection());
-            payload.wi = rayDir;
-            payload.bsdfOverPdf = 1.0f;
-            payload.pdf = 1.0f;
-            payload.prevHitPos = pW + rayDir * 0.01f;
-            payload.hitPos = payload.prevHitPos;
-            payload.normal = rayDir;
-            payload.lastBounceWasDelta = 1;
-            payload.prevBsdfPdf = 1.0f;
-            payload.emission = 0.0f;
-            payload.done = 0;
-            return;
-        }
-    }
+
     
     // Refractive materials (glass) – handle with dedicated BSDF
     if (mat.IsRefractive != 0)
@@ -881,7 +775,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         // --- Fallback: independent sun + area-light NEE estimators, summed ---
         sunContrib = EvaluateDirectionalLightNEE(pW, N, Ng, V, mat, sun);
 
-        LightSample lightSample = SampleAreaLight(lightIndex, pW, N, payload.seed);
+        LightSample lightSample = SampleAreaLight(lightIndex, pW, N, payload.seed, payload);
 
         if (lightSample.pdf > 0.0f)
         {

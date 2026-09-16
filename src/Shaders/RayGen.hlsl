@@ -113,6 +113,9 @@ float HashToUnitFloat(uint x)
 [shader("raygeneration")]
 void RayGen()
 {
+    DiagnosticDetails diagnosticDetails;
+    diagnosticDetails.gSampledDiagnosticPixel = float2(970.0f, 715.0f);
+    
     uint2 launchIndex = DispatchRaysIndex().xy;
     uint2 dims = DispatchRaysDimensions().xy;
 
@@ -201,16 +204,21 @@ void RayGen()
         ray.TMin = 0.001f;
         ray.TMax = 1e38f;
 
-        if (pixel == gSampledDianosticPixel)
+        if (pixel.x == diagnosticDetails.gSampledDiagnosticPixel.x && pixel.y == diagnosticDetails.gSampledDiagnosticPixel.y)
         {
-            isDiagnosticPixel = 1;
+            diagnosticDetails.isDiagnosticPixel = 1;
             gSampleDiagnostics[DiagnosticSlot(s)].valid = 1;
             gSampleDiagnostics[DiagnosticSlot(s)].baseSeed = gBaseSeed;
             gSampleDiagnostics[DiagnosticSlot(s)].globalSampleIndex = globalSampleIndex;
             gSampleDiagnostics[DiagnosticSlot(s)].initialRngState = payload.seed;
-            gSampleIndex = s;
+            diagnosticDetails.gSampleIndex = s;
+        }
+        else
+        {
+            diagnosticDetails.isDiagnosticPixel = 0;
         }
 
+        payload.diagnosticDetails = diagnosticDetails;
         
         float3 finalRadiance = 0.0f;
 

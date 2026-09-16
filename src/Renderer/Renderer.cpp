@@ -225,6 +225,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRLQTableUploadBuffer();
 	CreateRLTransitionBuffer(m_ClientWidth, m_ClientHeight);
 	CreateRLTransitionReadbackBuffer();*/
+	CreateSampleDiagnosticsBuffer(m_ClientWidth, m_ClientHeight);
 	CreateDenoisingResources();
 	CreateWorldPosTex();
 	CreateReservoirBuffer();
@@ -2538,6 +2539,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRayGenSignature()
 		{ 4, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 9},
 		{ 1, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 26},
 		{ 5, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, UAV_WorldPos},
+		{ 6, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, UAV_SampleDiagnostics },
 		}
 	);
 	rsc.AddHeapRangesParameter(
@@ -2568,7 +2570,8 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateHitSignature()
 		{ 5, 1, 0,  D3D12_DESCRIPTOR_RANGE_TYPE_SRV, SRV_AlbedoTex },   // albedo history SRV
 		{ 0, 1, 0,  D3D12_DESCRIPTOR_RANGE_TYPE_UAV, UAV_AlbedoTex },   // albedo write UAV
 		{ 7, 1, 1,  D3D12_DESCRIPTOR_RANGE_TYPE_SRV, SRV_Reservoir },   // reservoir (space 1)
-		{ 6, textureCount, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, HEAP_SLOT_COUNT },
+		{ 1, 1, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, UAV_SampleDiagnostics },
+		{ 7, textureCount, 0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, HEAP_SLOT_COUNT },
 		});
 	rsc.AddHeapRangesParameter(
 		{
@@ -2614,7 +2617,7 @@ void Renderer::CreateRaytracingPipeline()
 	pipeline.AddRootSignatureAssociation(m_MissSignature.Get(), { L"Miss", L"ShadowMiss" });
 	pipeline.AddRootSignatureAssociation(m_HitSignature.Get(), { L"HitGroup", L"ShadowHitGroup" });
 
-	pipeline.SetMaxPayloadSize(48 * sizeof(float));
+	pipeline.SetMaxPayloadSize(52 * sizeof(float));
 	pipeline.SetMaxAttributeSize(2 * sizeof(float));
 	pipeline.SetMaxRecursionDepth(16);
 
@@ -3033,6 +3036,18 @@ void Renderer::CreateShaderResourceHeap()
 	m_Device->CreateShaderResourceView(m_ReservoirBuffer.Get(), &srvDesc, srvHandle);
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
+	// Slot 34: UAV_SampleDiagnostics (written by IS compute)
+	uavDesc = {};
+	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+	uavDesc.Buffer.FirstElement = 0;
+	uavDesc.Buffer.NumElements = 1;
+	uavDesc.Buffer.StructureByteStride = sizeof(SampleDiagnostic);
+	m_SampleDiagnosticsUAV->SetName(L"SampleDiagnostics UAV");
+	m_Device->CreateUnorderedAccessView(m_SampleDiagnosticsUAV.Get(), nullptr, &uavDesc, srvHandle);
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> tex2DList;
 
 	for (auto& tex : m_Textures)
@@ -3109,6 +3124,8 @@ void Renderer::CreateAccumulationBuffer()
 	resDesc.SampleDesc.Count = 1;
 
 	ThrowIfFailed(m_Device->CreateCommittedResource(&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&m_TemporalRadianceBuffer)));
+
+	
 }
 
 void Renderer::CreateDenoisingResources()
@@ -5091,6 +5108,22 @@ void Renderer::CreateRLTransitionBuffer(uint32_t width, uint32_t height)
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 		nullptr,
 		IID_PPV_ARGS(&m_RLTransitionBuffer)));
+}
+
+void Renderer::CreateSampleDiagnosticsBuffer(uint32_t width, uint32_t height)
+{
+	CD3DX12_HEAP_PROPERTIES defaultHeapProps(D3D12_HEAP_TYPE_DEFAULT);
+	CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(
+		sizeof(SampleDiagnostic),
+		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+
+	ThrowIfFailed(m_Device->CreateCommittedResource(
+		&defaultHeapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&bufferDesc,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		nullptr,
+		IID_PPV_ARGS(&m_SampleDiagnosticsUAV)));
 }
 
 void Renderer::CreateRLTransitionReadbackBuffer()

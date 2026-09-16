@@ -37,6 +37,8 @@ struct PathPayload
     uint isReflective;
     float matRoughness;
     float cosTheta;
+    
+    DiagnosticDetails diagnosticDetails;
 };
 
 struct Attributes

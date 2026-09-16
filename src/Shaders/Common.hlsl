@@ -232,7 +232,10 @@ int DiagnosticSlot(uint sampleIndex)
     }
 }
 
-float2 gSampledDianosticPixel = float2(970.0f, 715.0f);
-uint isDiagnosticPixel = 0;
-uint gSampleIndex = 0;
+struct DiagnosticDetails
+{
+    float2 gSampledDiagnosticPixel;
+    uint isDiagnosticPixel;
+    uint gSampleIndex;
+};
 #endif
