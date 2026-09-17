@@ -234,7 +234,7 @@ int DiagnosticSlot(uint sampleIndex)
 
 struct DiagnosticDetails
 {
-    float2 gSampledDiagnosticPixel;
+    uint2 gSampledDiagnosticPixel;
     uint isDiagnosticPixel;
     uint gSampleIndex;
 };

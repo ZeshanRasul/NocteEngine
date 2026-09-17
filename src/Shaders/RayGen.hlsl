@@ -114,7 +114,7 @@ float HashToUnitFloat(uint x)
 void RayGen()
 {
     DiagnosticDetails diagnosticDetails;
-    diagnosticDetails.gSampledDiagnosticPixel = float2(970.0f, 715.0f);
+    diagnosticDetails.gSampledDiagnosticPixel = uint2(970, 715);
     
     uint2 launchIndex = DispatchRaysIndex().xy;
     uint2 dims = DispatchRaysDimensions().xy;
@@ -204,20 +204,14 @@ void RayGen()
         ray.TMin = 0.001f;
         ray.TMax = 1e38f;
 
-        if (abs(pixel.x - diagnosticDetails.gSampledDiagnosticPixel.x) < 1.0f && abs(pixel.y - diagnosticDetails.gSampledDiagnosticPixel.y) < 1.0f && DiagnosticSlot(globalSampleIndex) >= 0)
+        if (all(launchIndex == diagnosticDetails.gSampledDiagnosticPixel) && DiagnosticSlot(globalSampleIndex) >= 0)
         {
             diagnosticDetails.isDiagnosticPixel = 1;
-            gSampleDiagnostics[DiagnosticSlot(s)].valid = 1;
-            gSampleDiagnostics[DiagnosticSlot(s)].baseSeed = gBaseSeed;
-            gSampleDiagnostics[DiagnosticSlot(s)].globalSampleIndex = globalSampleIndex;
-            gSampleDiagnostics[DiagnosticSlot(s)].initialRngState = payload.seed;
-            diagnosticDetails.gSampleIndex = s;
-        }
-        else
-        {
-            diagnosticDetails.isDiagnosticPixel = 0;
-            gSampleDiagnostics[DiagnosticSlot(s)].valid = 0;
-            gSampleDiagnostics[DiagnosticSlot(s)].baseSeed = 3000;
+            gSampleDiagnostics[DiagnosticSlot(globalSampleIndex)].valid = 1;
+            gSampleDiagnostics[DiagnosticSlot(globalSampleIndex)].baseSeed = gBaseSeed;
+            gSampleDiagnostics[DiagnosticSlot(globalSampleIndex)].globalSampleIndex = globalSampleIndex;
+            gSampleDiagnostics[DiagnosticSlot(globalSampleIndex)].initialRngState = payload.seed;
+            diagnosticDetails.gSampleIndex = globalSampleIndex;
         }
 
         payload.diagnosticDetails = diagnosticDetails;

@@ -10,7 +10,7 @@
 struct DirectionalLight
 {
     float3 direction; // *towards* the surface
-    float3 radiance; 
+    float3 radiance;
 };
 
 struct ShadowHitInfo
@@ -139,12 +139,12 @@ cbuffer AreaLights : register(b4)
 // focal-distance and firefly-clamp fields; only the flag below is read here.
 cbuffer FrameData : register(b5)
 {
-    uint  frameIndex;
+    uint frameIndex;
     float _apertureRadius;
     float _focalDistance;
     float _fireflyClamp;
-    uint  gDebugReservoirView; // 0 = off, 1 = false-colour the selected light
-    uint  gBaseSeed;
+    uint gDebugReservoirView; // 0 = off, 1 = false-colour the selected light
+    uint gBaseSeed;
 }
 
 // False-colour the light the RIS reservoir selected for this pixel. Used to tell
@@ -154,17 +154,22 @@ cbuffer FrameData : register(b5)
 float3 DebugReservoirColour(int lightIndex, bool valid, uint numAreaLights)
 {
     if (!valid)
-        return float3(0.05f, 0.05f, 0.05f);       // grey  — fell back to uniform NEE
-    if (lightIndex >= (int)numAreaLights)
-        return float3(1.0f, 0.85f, 0.1f);          // amber — sun
+        return float3(0.05f, 0.05f, 0.05f); // grey  — fell back to uniform NEE
+    if (lightIndex >= (int) numAreaLights)
+        return float3(1.0f, 0.85f, 0.1f); // amber — sun
 
     switch (lightIndex)
     {
-        case 0:  return float3(0.9f, 0.15f, 0.15f); // red
-        case 1:  return float3(0.15f, 0.9f, 0.2f);  // green
-        case 2:  return float3(0.2f, 0.4f, 1.0f);   // blue
-        case 3:  return float3(0.9f, 0.2f, 0.9f);   // magenta
-        default: return float3(0.2f, 0.9f, 0.9f);   // cyan
+        case 0:
+            return float3(0.9f, 0.15f, 0.15f); // red
+        case 1:
+            return float3(0.15f, 0.9f, 0.2f); // green
+        case 2:
+            return float3(0.2f, 0.4f, 1.0f); // blue
+        case 3:
+            return float3(0.9f, 0.2f, 0.9f); // magenta
+        default:
+            return float3(0.2f, 0.9f, 0.9f); // cyan
     }
 }
 
@@ -217,13 +222,13 @@ bool IsOccluded(float3 origin, float3 dir, float maxDistance)
 // ---------------------------------------------------------------------------
 float3 ShadeLightSample(
     Material mat,
-    float3   pW,
-    float3   N,      // shading normal (normal-mapped) — used for the BRDF
-    float3   Ng,     // geometric normal — used for guards, cosine and ray offset
-    float3   V,
-    float3   toLight,// normalised, surface -> light
-    float    dist,   // distance to the light sample
-    float3   Li)     // radiance / irradiance arriving from that light
+    float3 pW,
+    float3 N, // shading normal (normal-mapped) — used for the BRDF
+    float3 Ng, // geometric normal — used for guards, cosine and ray offset
+    float3 V,
+    float3 toLight, // normalised, surface -> light
+    float dist, // distance to the light sample
+    float3 Li)     // radiance / irradiance arriving from that light
 {
     float NdotL = saturate(dot(Ng, toLight));
     float NdotV = saturate(dot(Ng, V));
@@ -423,14 +428,17 @@ LightSample SampleAreaLight(uint lightIndex, float3 p, float3 n, inout uint seed
 
     if (payload.diagnosticDetails.isDiagnosticPixel)
     {
-        gSampleDiagnostics[DiagnosticSlot(payload.diagnosticDetails.gSampleIndex)].xi = xi;
-        gSampleDiagnostics[DiagnosticSlot(payload.diagnosticDetails.gSampleIndex)].pointOnLight = pL;
-        gSampleDiagnostics[DiagnosticSlot(payload.diagnosticDetails.gSampleIndex)].lightIndex = lightIndex;
+        int slot = DiagnosticSlot(payload.diagnosticDetails.gSampleIndex);
+        
+        if (slot >= 0)
+        {
+            gSampleDiagnostics[slot].xi = xi;
+            gSampleDiagnostics[slot].pointOnLight = pL;
+            gSampleDiagnostics[slot].lightIndex = lightIndex;
+            gSampleDiagnostics[slot].valid = 1;
+        }
     }
-    else
-    {
-        gSampleDiagnostics[DiagnosticSlot(payload.diagnosticDetails.gSampleIndex)].valid = 0;
-    }
+
     float3 L = pL - p;
     float d = length(L);
     if (d <= 0.0f)
@@ -666,18 +674,18 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
     Reservoir res = EmptyReservoir();
     if (payload.depth == 1 && frameIndex > 0)
     {
-        uint2 px       = DispatchRaysIndex().xy;
-        uint  dispWidth = DispatchRaysDimensions().x;
+        uint2 px = DispatchRaysIndex().xy;
+        uint dispWidth = DispatchRaysDimensions().x;
         res = gReservoirs[px.y * dispWidth + px.x];
         useReservoir = (res.LightIndex >= 0 && res.W > 0.0f);
 
         if (gDebugReservoirView != 0)
         {
             // Emit the selection as flat colour and stop the path here.
-            payload.emission    = DebugReservoirColour(res.LightIndex, useReservoir, gNumAreaLights);
-            payload.isEmissive  = 1;   // keeps the denoiser from smearing the view
+            payload.emission = DebugReservoirColour(res.LightIndex, useReservoir, gNumAreaLights);
+            payload.isEmissive = 1; // keeps the denoiser from smearing the view
             payload.bsdfOverPdf = 0.0f;
-            payload.done        = 1;
+            payload.done = 1;
             return;
         }
     }
@@ -734,7 +742,7 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         }
     }
     
-    float3 LdContrib  = 0.0f;
+    float3 LdContrib = 0.0f;
     float3 sunContrib = 0.0f;
 
     DirectionalLight sun;
@@ -747,24 +755,24 @@ void ClosestHit(inout PathPayload payload, Attributes attrib)
         // The candidate pool in ReSTIR_IS.hlsl spans area lights *and* the sun,
         // so the separate directional NEE term is deliberately not added here.
         // Adding it would double count the sun whenever WRS selected it.
-        bool isSun = (res.LightIndex >= (int)gNumAreaLights);
+        bool isSun = (res.LightIndex >= (int) gNumAreaLights);
 
         float3 toLight;
         float3 Li;
-        float  dist;
+        float dist;
 
         if (isSun)
         {
             toLight = normalize(-gSunDir.xyz);
-            Li      = gSunColor;
-            dist    = 1e6f;
+            Li = gSunColor;
+            dist = 1e6f;
         }
         else
         {
             toLight = res.PointOnLight - pW;
-            dist    = max(length(toLight), 1e-4f);
+            dist = max(length(toLight), 1e-4f);
             toLight /= dist;
-            Li      = gAreaLights[res.LightIndex].Radiance;
+            Li = gAreaLights[res.LightIndex].Radiance;
         }
 
         // res.W = (1/p_hat) * W_sum/M — the RIS unbiased contribution weight.

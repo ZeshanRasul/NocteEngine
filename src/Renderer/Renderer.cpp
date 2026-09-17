@@ -4801,11 +4801,11 @@ void Renderer::RenderImGuiDebugWindow(UINT x, UINT y)
 	for (const auto& diag : m_SampleDiagnostics)
 	{
 		ImGui::Text("Sample Index: %d", diag.globalSampleIndex);
-		diag.valid ? ImGui::Text("Sample Valid: true") : ImGui::Text("Sample Valid: false");
-		ImGui::Text("Base Seed: %.6f", diag.baseSeed);
-		ImGui::Text("Initial RNG State: %d", diag.initialRngState);
-		ImGui::Text("Light Index: %.6f", diag.lightIndex);
-		ImGui::Text("Point on Light: R=%.6f G=%.6f B=%.6f",
+		diag.valid == 1 ? ImGui::Text("Sample Valid: true") : ImGui::Text("Sample Valid: false");
+		ImGui::Text("Base Seed: %d", diag.baseSeed);
+		ImGui::Text("Initial RNG State: %u", diag.initialRngState);
+		ImGui::Text("Light Index: %d", diag.lightIndex);
+		ImGui::Text("Point on Light: x=%.6f y=%.6f z=%.6f",
 			diag.pointOnLight.x,
 			diag.pointOnLight.y,
 			diag.pointOnLight.z);
