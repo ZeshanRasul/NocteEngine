@@ -636,6 +636,7 @@ private:
 	void CopySampleDiagnosticsToCpu();
 	std::vector<SampleDiagnostic> ReadBackSampleDiagnostics();
 	std::vector<SampleDiagnostic> m_SampleDiagnostics = std::vector<SampleDiagnostic>(5);
+	bool m_SampleDiagnosticsRun = false;
 };
 
 struct Reservoir
@@ -717,4 +718,5 @@ enum
 	CPU_UAV_FirstMoment = 3,
 	CPU_UAV_SecondMoment = 4,
 	CPU_UAV_TemporalRadiance = 5,
+	CPU_UAV_SampleDiagnostics = 6,
 };

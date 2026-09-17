@@ -28,7 +28,7 @@ RWTexture2D<float4> gOutput : register(u0);
 RWTexture2D<float4> gAccumBuf : register(u1);
 RWTexture2D<float4> gNormal : register(u2);
 RWTexture2D<float> gDepth : register(u3);
-RWTexture2D<float4> gPresent  : register(u4);
+RWTexture2D<float4> gPresent : register(u4);
 RWTexture2D<float4> gWorldPos : register(u5); // xyz = first-hit world pos, w = 1 if surface
 RWStructuredBuffer<SampleDiagnostic> gSampleDiagnostics : register(u6);
 
@@ -74,7 +74,7 @@ cbuffer cbPass : register(b0)
 
 cbuffer FrameData : register(b5)
 {
-    uint  frameIndex;
+    uint frameIndex;
     float ApertureRadius;
     float FocalDistance;
     float gFireflyClamp;
@@ -113,9 +113,6 @@ float HashToUnitFloat(uint x)
 [shader("raygeneration")]
 void RayGen()
 {
-    DiagnosticDetails diagnosticDetails;
-    diagnosticDetails.gSampledDiagnosticPixel = uint2(970, 715);
-    
     uint2 launchIndex = DispatchRaysIndex().xy;
     uint2 dims = DispatchRaysDimensions().xy;
 
@@ -136,7 +133,7 @@ void RayGen()
 
     uint seed = launchIndex.x * 1973u ^
             launchIndex.y * 9277u ^
-            frameIndex * 26699u;
+            26699u;
 
     seed ^= (launchIndex.x + launchIndex.y) * 1013904223u;
     
@@ -160,11 +157,13 @@ void RayGen()
     uint lastTransitionIndex = 0;
     int index = 0;
     
+    const uint pixelRunSeed = seed;
+    
     for (uint s = 0; s < gSamplesThisFrame; ++s)
     {
         uint globalSampleIndex = gSamplesStart + s;
         
-        seed += globalSampleIndex * 374761393u; // change seed per sample
+        uint sampleSeed = Hash(pixelRunSeed ^ Hash(globalSampleIndex));
         
         // Initialize payload
         PathPayload payload;
@@ -172,7 +171,7 @@ void RayGen()
         payload.throughput = 1.0f;
         payload.depth = 0;
         payload.done = 0;
-        payload.seed = Hash(seed + globalSampleIndex * 9781u);
+        payload.seed = sampleSeed;
         if (payload.seed == 0u)
             payload.seed = 1u;
         
@@ -187,31 +186,36 @@ void RayGen()
         payload.pdf = 1.0f;
         payload.isEmissive = 0.0f;
         RayDesc ray;
-        ray.Origin    = originWS;
+        ray.Origin = originWS;
         ray.Direction = dirWS;
         if (ApertureRadius > 0.0f)
         {
             float3 focusPoint = originWS + dirWS * FocalDistance;
-            float r   = sqrt(Rand(payload.seed)) * ApertureRadius;
+            float r = sqrt(Rand(payload.seed)) * ApertureRadius;
             float ang = Rand(payload.seed) * 6.28318530f;
             float3 right = normalize(cross(float3(0, 1, 0), dirWS));
-            float3 up    = cross(dirWS, right);
-            ray.Origin    = originWS + right * (r * cos(ang)) + up * (r * sin(ang));
+            float3 up = cross(dirWS, right);
+            ray.Origin = originWS + right * (r * cos(ang)) + up * (r * sin(ang));
             ray.Direction = normalize(focusPoint - ray.Origin);
             payload.prevHitPos = ray.Origin;
-            payload.hitPos     = ray.Origin;
+            payload.hitPos = ray.Origin;
         }
         ray.TMin = 0.001f;
         ray.TMax = 1e38f;
 
-        if (all(launchIndex == diagnosticDetails.gSampledDiagnosticPixel) && DiagnosticSlot(globalSampleIndex) >= 0)
+        DiagnosticDetails diagnosticDetails;
+        diagnosticDetails.gSampledDiagnosticPixel = uint2(970, 715);
+        diagnosticDetails.gSampleIndex = globalSampleIndex;
+        
+        int slot = DiagnosticSlot(globalSampleIndex);
+        
+        diagnosticDetails.isDiagnosticPixel = all(launchIndex == diagnosticDetails.gSampledDiagnosticPixel) && slot >= 0;
+
+        if (diagnosticDetails.isDiagnosticPixel)
         {
-            diagnosticDetails.isDiagnosticPixel = 1;
-            gSampleDiagnostics[DiagnosticSlot(globalSampleIndex)].valid = 1;
-            gSampleDiagnostics[DiagnosticSlot(globalSampleIndex)].baseSeed = gBaseSeed;
-            gSampleDiagnostics[DiagnosticSlot(globalSampleIndex)].globalSampleIndex = globalSampleIndex;
-            gSampleDiagnostics[DiagnosticSlot(globalSampleIndex)].initialRngState = payload.seed;
-            diagnosticDetails.gSampleIndex = globalSampleIndex;
+            gSampleDiagnostics[slot].baseSeed = gBaseSeed;
+            gSampleDiagnostics[slot].globalSampleIndex = globalSampleIndex;
+            gSampleDiagnostics[slot].initialRngState = payload.seed;
         }
 
         payload.diagnosticDetails = diagnosticDetails;
@@ -276,8 +280,8 @@ void RayGen()
             if (s == 0 && !primarySet)
             {
                 primaryNormal = payload.normal;
-                primaryDepth  = length(payload.hitPos - gEyePosW);
-                primarySet    = true;
+                primaryDepth = length(payload.hitPos - gEyePosW);
+                primarySet = true;
                 gWorldPos[launchIndex] = float4(payload.hitPos,
                                                float(payload.hitSomething));
             }

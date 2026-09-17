@@ -436,6 +436,11 @@ void Renderer::DoAccumulationClear()
 		CD3DX12_CPU_DESCRIPTOR_HANDLE(m_SrvUavCPUHeap->GetCPUDescriptorHandleForHeapStart(), CPU_UAV_SecondMoment, m_CbvSrvUavDescriptorSize),
 		m_SecondMomentBuffer.Get(), clearColor, 0, nullptr);
 
+	m_CommandList->ClearUnorderedAccessViewFloat(
+		CD3DX12_GPU_DESCRIPTOR_HANDLE(m_SrvUavHeap->GetGPUDescriptorHandleForHeapStart(), UAV_SampleDiagnostics, m_CbvSrvUavDescriptorSize),
+		CD3DX12_CPU_DESCRIPTOR_HANDLE(m_SrvUavCPUHeap->GetCPUDescriptorHandleForHeapStart(), CPU_UAV_SampleDiagnostics, m_CbvSrvUavDescriptorSize),
+		m_SampleDiagnosticsUAV.Get(), clearColor, 0, nullptr);
+
 	m_CommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 		m_OldFirstMomentBuffer.Get(),
 		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
@@ -1320,6 +1325,19 @@ bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 		DoAccumulationClear();
 	}
 
+	if (m_CurrentAccumSPP == 256)
+	{
+		m_SampleDiagnosticsRun = false;
+	}
+
+	if (m_SampleDiagnosticsRun && m_ClearAccumulation)
+	{
+		m_FrameIndex = 0;
+		DoAccumulationClear();
+		m_CurrentAccumSPP = 0;
+		m_ClearAccumulation = false;
+	}
+
 	m_SamplesThisFrame = m_SPP;
 
 	UpdateFrameIndexRNGCBuffer();
@@ -1373,6 +1391,11 @@ bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 		DoImageCapture(x, y, camera);
 	}
 	else if (m_CompareToIntegral && m_CurrentAccumSPP > 0)
+	{
+		m_CurrentAccumSPP += m_SPP;
+		DoImageCapture(x, y, camera);
+	}
+	else if (m_SampleDiagnosticsRun)
 	{
 		m_CurrentAccumSPP += m_SPP;
 		DoImageCapture(x, y, camera);
@@ -1469,6 +1492,7 @@ bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 	}
 
 	m_SampleStart += m_SPP;
+	m_CurrentAccumSPP += m_SPP;
 
 	return true;
 
@@ -2701,7 +2725,14 @@ void Renderer::CreateShaderResourceCPUHeap()
 
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
+	uavDesc = {};
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+	uavDesc.Buffer.FirstElement = 0;
+	uavDesc.Buffer.NumElements = 5;
+	uavDesc.Buffer.StructureByteStride = sizeof(SampleDiagnostic);
+	m_Device->CreateUnorderedAccessView(m_SampleDiagnosticsUAV.Get(), nullptr, &uavDesc, srvHandle);
 
+	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 }
 
@@ -4791,6 +4822,16 @@ void Renderer::RenderImGuiDebugWindow(UINT x, UINT y)
 
 	if (ImGui::Button("Capture 4096 SPP"))
 		RequestCapture(4096);
+
+	if (ImGui::Button("Begin Sample Diagnostics Run"))
+	{
+		m_SampleDiagnostics.clear();
+		m_SampleDiagnosticsRun = true;
+		m_CurrentAccumSPP = 0;
+		m_ClearAccumulation = true;
+		m_SampleStart = 0;
+		m_SamplesThisFrame = m_SPP;
+	}
 
 	ImGui::Text("FrameIndex: %d", m_FrameIndex);
 
