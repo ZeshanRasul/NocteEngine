@@ -204,7 +204,7 @@ void RayGen()
         ray.TMin = 0.001f;
         ray.TMax = 1e38f;
 
-        if (pixel.x == diagnosticDetails.gSampledDiagnosticPixel.x && pixel.y == diagnosticDetails.gSampledDiagnosticPixel.y)
+        if (abs(pixel.x - diagnosticDetails.gSampledDiagnosticPixel.x) < 1.0f && abs(pixel.y - diagnosticDetails.gSampledDiagnosticPixel.y) < 1.0f && DiagnosticSlot(globalSampleIndex) >= 0)
         {
             diagnosticDetails.isDiagnosticPixel = 1;
             gSampleDiagnostics[DiagnosticSlot(s)].valid = 1;
@@ -216,6 +216,8 @@ void RayGen()
         else
         {
             diagnosticDetails.isDiagnosticPixel = 0;
+            gSampleDiagnostics[DiagnosticSlot(s)].valid = 0;
+            gSampleDiagnostics[DiagnosticSlot(s)].baseSeed = 3000;
         }
 
         payload.diagnosticDetails = diagnosticDetails;

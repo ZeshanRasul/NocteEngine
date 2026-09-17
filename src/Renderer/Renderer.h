@@ -27,6 +27,20 @@
 #include "imgui/backends/imgui_impl_dx12.h"
 using namespace DirectX;
 
+struct SampleDiagnostic
+{
+	UINT valid;
+	UINT baseSeed;
+	UINT globalSampleIndex;
+	UINT initialRngState;
+
+	XMFLOAT2 xi; // Actual random coordinates used
+	XMFLOAT2 padding;
+
+	XMFLOAT3 pointOnLight; // Actual sampled world position
+	UINT lightIndex;
+};
+
 class Renderer {
 public:
 	Renderer(HWND& windowHandle, UINT width, UINT height);
@@ -616,21 +630,12 @@ private:
 	UINT m_SampleStart = 0;
 	UINT m_SamplesThisFrame = 0;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_SampleDiagnosticsUAV;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_SampleDiagnosticsReadback;
 	void CreateSampleDiagnosticsBuffer(uint32_t width, uint32_t height);
-};
-
-struct SampleDiagnostic
-{
-	UINT valid;
-	UINT baseSeed;
-	UINT globalSampleIndex;
-	UINT initialRngState;
-
-	XMFLOAT2 xi; // Actual random coordinates used
-	XMFLOAT2 padding;
-
-	XMFLOAT3 pointOnLight; // Actual sampled world position
-	UINT lightIndex;
+	void CreateSampleDiagnosticsReadbackBuffer(uint32_t width, uint32_t height);
+	void CopySampleDiagnosticsToCpu();
+	std::vector<SampleDiagnostic> ReadBackSampleDiagnostics();
+	std::vector<SampleDiagnostic> m_SampleDiagnostics = std::vector<SampleDiagnostic>(5);
 };
 
 struct Reservoir

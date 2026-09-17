@@ -226,6 +226,7 @@ bool Renderer::InitializeD3D12(HWND& windowHandle)
 	CreateRLTransitionBuffer(m_ClientWidth, m_ClientHeight);
 	CreateRLTransitionReadbackBuffer();*/
 	CreateSampleDiagnosticsBuffer(m_ClientWidth, m_ClientHeight);
+	CreateSampleDiagnosticsReadbackBuffer(m_ClientWidth, m_ClientHeight);
 	CreateDenoisingResources();
 	CreateWorldPosTex();
 	CreateReservoirBuffer();
@@ -1382,6 +1383,8 @@ bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 	}
 
 
+	CopySampleDiagnosticsToCpu();
+	m_SampleDiagnostics = ReadBackSampleDiagnostics();
 	RenderImGuiDebugWindow(x, y);
 
 
@@ -3036,15 +3039,16 @@ void Renderer::CreateShaderResourceHeap()
 	m_Device->CreateShaderResourceView(m_ReservoirBuffer.Get(), &srvDesc, srvHandle);
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	// Slot 34: UAV_SampleDiagnostics (written by IS compute)
+	// Slot 34: UAV_SampleDiagnostics
 	uavDesc = {};
 	uavDesc.Format = DXGI_FORMAT_UNKNOWN;
 	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
 	uavDesc.Buffer.FirstElement = 0;
-	uavDesc.Buffer.NumElements = 1;
+	uavDesc.Buffer.NumElements = 5;
 	uavDesc.Buffer.StructureByteStride = sizeof(SampleDiagnostic);
 	m_SampleDiagnosticsUAV->SetName(L"SampleDiagnostics UAV");
 	m_Device->CreateUnorderedAccessView(m_SampleDiagnosticsUAV.Get(), nullptr, &uavDesc, srvHandle);
+	
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 
@@ -4792,6 +4796,25 @@ void Renderer::RenderImGuiDebugWindow(UINT x, UINT y)
 
 	ImGui::End();
 
+	ImGui::Begin("Sample Diagnostics");
+
+	for (const auto& diag : m_SampleDiagnostics)
+	{
+		ImGui::Text("Sample Index: %d", diag.globalSampleIndex);
+		diag.valid ? ImGui::Text("Sample Valid: true") : ImGui::Text("Sample Valid: false");
+		ImGui::Text("Base Seed: %.6f", diag.baseSeed);
+		ImGui::Text("Initial RNG State: %d", diag.initialRngState);
+		ImGui::Text("Light Index: %.6f", diag.lightIndex);
+		ImGui::Text("Point on Light: R=%.6f G=%.6f B=%.6f",
+			diag.pointOnLight.x,
+			diag.pointOnLight.y,
+			diag.pointOnLight.z);
+		ImGui::Text("Random Coordinates Used : U=%.6f V=%.6f", diag.xi.x, diag.xi.y);
+		ImGui::Separator();
+	}
+
+	ImGui::End();
+
 	ImGui::Begin("Scene Settings");
 
 	ImGui::SeparatorText("Sun");
@@ -5114,7 +5137,7 @@ void Renderer::CreateSampleDiagnosticsBuffer(uint32_t width, uint32_t height)
 {
 	CD3DX12_HEAP_PROPERTIES defaultHeapProps(D3D12_HEAP_TYPE_DEFAULT);
 	CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(
-		sizeof(SampleDiagnostic),
+		sizeof(SampleDiagnostic) * 5,
 		D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 
 	ThrowIfFailed(m_Device->CreateCommittedResource(
@@ -5125,6 +5148,58 @@ void Renderer::CreateSampleDiagnosticsBuffer(uint32_t width, uint32_t height)
 		nullptr,
 		IID_PPV_ARGS(&m_SampleDiagnosticsUAV)));
 }
+
+void Renderer::CreateSampleDiagnosticsReadbackBuffer(uint32_t width, uint32_t height)
+{
+	CD3DX12_HEAP_PROPERTIES readbackHeapProps(D3D12_HEAP_TYPE_READBACK);
+	CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(sizeof(SampleDiagnostic) * 5);
+
+	ThrowIfFailed(m_Device->CreateCommittedResource(
+		&readbackHeapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&bufferDesc,
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
+		IID_PPV_ARGS(&m_SampleDiagnosticsReadback)));
+
+}
+
+void Renderer::CopySampleDiagnosticsToCpu()
+{
+	auto barrierToCopy = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_SampleDiagnosticsUAV.Get(),
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+		D3D12_RESOURCE_STATE_COPY_SOURCE);
+
+	m_CommandList->ResourceBarrier(1, &barrierToCopy);
+
+	m_CommandList->CopyResource(
+		m_SampleDiagnosticsReadback.Get(),
+		m_SampleDiagnosticsUAV.Get());
+
+	auto barrierBack = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_SampleDiagnosticsUAV.Get(),
+		D3D12_RESOURCE_STATE_COPY_SOURCE,
+		D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+	m_CommandList->ResourceBarrier(1, &barrierBack);
+}
+
+std::vector<SampleDiagnostic> Renderer::ReadBackSampleDiagnostics()
+{
+	std::vector<SampleDiagnostic> diagnostics(5);
+
+	void* mappedData = nullptr;
+	CD3DX12_RANGE readRange(0, sizeof(SampleDiagnostic) * diagnostics.size());
+
+	ThrowIfFailed(m_SampleDiagnosticsReadback->Map(0, &readRange, &mappedData));
+	std::memcpy(diagnostics.data(), mappedData, static_cast<size_t>(sizeof(SampleDiagnostic) * diagnostics.size()));
+	m_SampleDiagnosticsReadback->Unmap(0, nullptr);
+
+	return diagnostics;
+}
+
+
 
 void Renderer::CreateRLTransitionReadbackBuffer()
 {
