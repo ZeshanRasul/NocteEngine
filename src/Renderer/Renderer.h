@@ -637,6 +637,7 @@ private:
 	std::vector<SampleDiagnostic> ReadBackSampleDiagnostics();
 	std::vector<SampleDiagnostic> m_SampleDiagnostics = std::vector<SampleDiagnostic>(5);
 	bool m_SampleDiagnosticsRun = false;
+	bool m_LogSampleDiagnostics = false;
 };
 
 struct Reservoir

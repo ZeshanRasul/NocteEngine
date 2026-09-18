@@ -1328,6 +1328,7 @@ bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 	if (m_CurrentAccumSPP == 256)
 	{
 		m_SampleDiagnosticsRun = false;
+		m_LogSampleDiagnostics = true;
 	}
 
 	if (m_SampleDiagnosticsRun && m_ClearAccumulation)
@@ -1408,6 +1409,34 @@ bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 
 	CopySampleDiagnosticsToCpu();
 	m_SampleDiagnostics = ReadBackSampleDiagnostics();
+
+	if (m_LogSampleDiagnostics)
+	{
+		nlohmann::json sampleCaptureInfo;
+		sampleCaptureInfo["scene"] = GetSceneSetUpName(m_SceneID);
+		sampleCaptureInfo["timestamp"] = m_RunTimestamp;
+		sampleCaptureInfo["frame_index"] = m_FrameIndex;
+		sampleCaptureInfo["spp"] = m_SPP;
+		sampleCaptureInfo["Accumulated SPP"] = m_CurrentAccumSPP;
+
+		for (auto& diag : m_SampleDiagnostics)
+		{
+			sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)][std::to_string(diag.globalSampleIndex)] = diag.globalSampleIndex;
+			sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Is Valid"] = diag.valid == 1 ? "True" : "False";
+			sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Base Seed"] = diag.baseSeed;
+			sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Initial RNG State"] = diag.initialRngState;
+			sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Light Index"] = diag.lightIndex;
+			sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Point on Light"] = "x: " + std::to_string(diag.pointOnLight.x) + ", y: " + std::to_string(diag.pointOnLight.y) + ", z: " + std::to_string(diag.pointOnLight.z);
+			sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Random Coordinates Used"] = "x: " + std::to_string(diag.xi.x) + ", y: " + std::to_string(diag.xi.y);
+		}
+
+		std::filesystem::path jsonPath = m_RunPath / "sample_diagnostics.json";
+		std::ofstream jsonFile(jsonPath);
+		jsonFile << sampleCaptureInfo.dump(4);
+		jsonFile.close();
+
+	}
+
 	RenderImGuiDebugWindow(x, y);
 
 
