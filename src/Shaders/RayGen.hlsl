@@ -434,7 +434,7 @@ void RayGen()
         accumulatedAverageRadiance = (float(N) * prevAccumulatedAverageRadiance + float(M) * batchAverage) / float(N + M);
     }
     
-    gAccumBuf[launchIndex] = float4(accumulatedAverageRadiance, 1.0f);
+    gAccumBuf[launchIndex] = float4(accumColor, 1.0f);
     gPresent[launchIndex] = float4(accumColor, 1.0f);
 }
 
