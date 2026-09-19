@@ -411,7 +411,7 @@ private:
 	float  m_PassTimesMs[4] = {};  // [0]=RT, [1]=Temporal, [2]=Denoise, [3]=FinalPass
 	int m_FrameIndex = 0;
 	int m_MaxFrames = 8192;
-	int m_SPP = 1;
+	int m_SPP = 8;
 	bool m_ClearAccumulation = false;
 	void ClearAccumulation() {};
 	void SaveCurrentFrame();

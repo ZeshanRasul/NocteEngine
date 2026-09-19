@@ -1335,12 +1335,6 @@ bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 			DoAccumulationClear();
 		}
 
-		if (m_CurrentAccumSPP == 256)
-		{
-			m_SampleDiagnosticsRun = false;
-			m_LogSampleDiagnostics = true;
-		}
-
 		if (m_SampleDiagnosticsRun && m_ClearAccumulation)
 		{
 			m_FrameIndex = 0;
@@ -1400,6 +1394,12 @@ bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 	{
 		// Count each completed batch once, before capture inspects the count.
 		m_CurrentAccumSPP += m_SamplesThisFrame;
+		if (m_SampleDiagnosticsRun && m_CurrentAccumSPP == 256)
+		{
+			m_SampleDiagnosticsRun = false;
+			m_LogSampleDiagnostics = true;
+			m_SaveImage = true;
+		}
 		DoImageCapture(x, y, camera);
 		// Capture may reset the count when starting the next run.
 		m_SampleStart = m_CurrentAccumSPP;
@@ -1423,14 +1423,16 @@ bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 				sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Base Seed"] = diag.baseSeed;
 				sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Initial RNG State"] = diag.initialRngState;
 				sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Light Index"] = diag.lightIndex;
-				sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Point on Light"] = "x: " + std::to_string(diag.pointOnLight.x) + ", y: " + std::to_string(diag.pointOnLight.y) + ", z: " + std::to_string(diag.pointOnLight.z);
-				sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Random Coordinates Used"] = "x: " + std::to_string(diag.xi.x) + ", y: " + std::to_string(diag.xi.y);
+				sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Point on Light"] = { diag.pointOnLight.x, diag.pointOnLight.y, diag.pointOnLight.z };
+				sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Random Coordinates Used"] = { diag.xi.x, diag.xi.y };
 			}
 
 			std::filesystem::path jsonPath = m_RunPath / "sample_diagnostics.json";
 			std::ofstream jsonFile(jsonPath);
+			jsonFile.exceptions(std::ios::failbit | std::ios::badbit);
 			jsonFile << sampleCaptureInfo.dump(4);
 			jsonFile.close();
+			m_LogSampleDiagnostics = false;
 
 		}
 
@@ -4817,6 +4819,7 @@ void Renderer::RenderImGuiDebugWindow(UINT x, UINT y)
 	{
 		m_SampleDiagnostics.clear();
 		m_SampleDiagnosticsRun = true;
+		m_LogSampleDiagnostics = false;
 		m_CurrentAccumSPP = 0;
 		m_ClearAccumulation = true;
 		m_SampleStart = 0;
