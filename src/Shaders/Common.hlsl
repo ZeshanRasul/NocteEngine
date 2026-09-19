@@ -238,4 +238,6 @@ struct DiagnosticDetails
     uint isDiagnosticPixel;
     uint gSampleIndex;
 };
+
+
 #endif

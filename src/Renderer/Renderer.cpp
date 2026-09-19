@@ -1195,6 +1195,10 @@ bool Renderer::CompareAllRGBPixels(const std::vector<XMFLOAT3>& pixelsA, const s
 
 bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 {
+	const bool advance = !m_TestAccumulationWeights ||
+		(m_TakeOneStep && (m_ClearAccumulation || m_CurrentAccumSPP < 5));
+	m_TakeOneStep = false;
+
 	std::string folderName = m_RunTimestamp + GetSceneSetUpName(m_SceneID) + "_" + std::to_string(m_CurrentRunCapture);
 	m_RunPath = std::filesystem::path("captures/runs") / folderName;
 	std::filesystem::create_directories(m_RunPath);
@@ -1263,230 +1267,176 @@ bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 		m_CommandList->SetDescriptorHeaps(_countof(heaps), heaps);
 	}
 
-	// --- Build SBT dispatch descriptor ---
-	D3D12_DISPATCH_RAYS_DESC desc = {};
-
-	UINT64 rayGenerationSectionSizeInBytes = m_SbtHelper.GetRayGenSectionSize();
-	desc.RayGenerationShaderRecord.StartAddress = m_SbtStorage->GetGPUVirtualAddress();
-	desc.RayGenerationShaderRecord.SizeInBytes = rayGenerationSectionSizeInBytes;
-
-	UINT64 missSectionSizeInBytes = m_SbtHelper.GetMissSectionSize();
-
-	desc.MissShaderTable.StartAddress = Align(m_SbtStorage->GetGPUVirtualAddress() + rayGenerationSectionSizeInBytes, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
-	desc.MissShaderTable.SizeInBytes = missSectionSizeInBytes;
-	desc.MissShaderTable.StrideInBytes = Align(m_SbtHelper.GetMissEntrySize(), D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT);
-
-	UINT64 hitGroupsSectionSize = m_SbtHelper.GetHitGroupSectionSize();
-	desc.HitGroupTable.StartAddress = Align(m_SbtStorage->GetGPUVirtualAddress() + rayGenerationSectionSizeInBytes + missSectionSizeInBytes, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
-	desc.HitGroupTable.SizeInBytes = hitGroupsSectionSize;
-	desc.HitGroupTable.StrideInBytes = Align(m_SbtHelper.GetHitGroupEntrySize(), D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT);
-
-	desc.Width = m_ClientWidth;
-	desc.Height = m_ClientHeight;
-	desc.Depth = 1;
-
-	// --- Camera change detection → reset accumulation if needed ---
-	{
-		auto nearlyEqual = [](float a, float b, float eps = 1e-2f) { return fabsf(a - b) < eps; };
-		bool camPosChanged =
-			!nearlyEqual(m_PrevCamPos.x, m_EyePos.x) ||
-			!nearlyEqual(m_PrevCamPos.y, m_EyePos.y) ||
-			!nearlyEqual(m_PrevCamPos.z, m_EyePos.z);
-
-		bool hasViewChanged = false;
-		const float* curr = &m_View._11;
-		const float* prev = &m_PrevView._11;
-		for (int i = 0; i < 16 && !hasViewChanged; ++i)
-			hasViewChanged = fabsf(curr[i] - prev[i]) > 1e-4f;
-
-		if ((m_ClearAccumulation && m_StartCaptureSequenceNextFrame) || camPosChanged || hasViewChanged)
-		{
-			if (camPosChanged || hasViewChanged)
-				m_FrameIndex = 0;
-			else
-				m_StartCaptureSequenceNextFrame = false;
-
-			m_PrevCamPos = m_EyePos;
-			XMStoreFloat4x4(&m_PrevView, XMLoadFloat4x4(&m_View));
-			DoAccumulationClear();
-			useHistory = 0;
-			m_ClearAccumulation = false;
-		}
-		else
-		{
-			useHistory = 1;
-		}
-	}
-
-	if (m_CompareToIntegral && m_CurrentAccumSPP == 0)
-	{
-		m_FrameIndex = 0;
-
-		DoAccumulationClear();
-	}
-
-	if (m_CurrentAccumSPP == 256)
-	{
-		m_SampleDiagnosticsRun = false;
-		m_LogSampleDiagnostics = true;
-	}
-
-	if (m_SampleDiagnosticsRun && m_ClearAccumulation)
-	{
-		m_FrameIndex = 0;
-		DoAccumulationClear();
-		m_CurrentAccumSPP = 0;
-		m_ClearAccumulation = false;
-	}
-
-	m_SamplesThisFrame = m_SPP;
-
-	UpdateFrameIndexRNGCBuffer();
-
-	// Initialize all timestamp slots so skipped passes show 0 ms
+	// Paused frames still submit presentation/UI and valid timestamp queries.
 	for (UINT tsi = 0; tsi < 8; ++tsi)
 		m_CommandList->EndQuery(m_TimestampQueryHeap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, tsi);
 
-	// --- Raytracing pass ---
-	DoRaytracingPass(desc);
-	//m_PixelColor = ReadPixel(m_AccumulationBuffer.Get(), x, y);
-
-	// --- RIS initial sampling (reads the G-Buffer written above, writes reservoirs for next frame) ---
-	UpdateReSTIRConstantBuffer();
-	DoReSTIRInitialSamplingPass();
-
-	// --- Copy current frame into history buffer (always, for next frame's TA) ---
-	DoHistoryCopy();
-
-	// --- Post-processing ---
-	if (m_UseTemporal)
-		DoTemporalPass();
-
-	if (m_UseDenoiser)
+	if (advance)
 	{
-		// A-Trous spatial denoiser; reads from TA output if available, else raw accumulation.
-		// Writes final pass directly to UAV_Present.
-		DoDenoisePass();
-	}
-	else if (m_UseTemporal)
-	{
-		// TA output → tone-map → present
-		DoFinalPass(m_TemporalRadianceBuffer.Get(), SRV_TemporalRadiance);
-	}
-	else
-	{
-		// Simple path: accumulated color is already a running average in RayGen; just tone-map it.
-		DoFinalPass(m_AccumulationBuffer.Get(), SRV_Accumulation);
-	}
+		// --- Build SBT dispatch descriptor ---
+		D3D12_DISPATCH_RAYS_DESC desc = {};
 
+		UINT64 rayGenerationSectionSizeInBytes = m_SbtHelper.GetRayGenSectionSize();
+		desc.RayGenerationShaderRecord.StartAddress = m_SbtStorage->GetGPUVirtualAddress();
+		desc.RayGenerationShaderRecord.SizeInBytes = rayGenerationSectionSizeInBytes;
+
+		UINT64 missSectionSizeInBytes = m_SbtHelper.GetMissSectionSize();
+
+		desc.MissShaderTable.StartAddress = Align(m_SbtStorage->GetGPUVirtualAddress() + rayGenerationSectionSizeInBytes, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
+		desc.MissShaderTable.SizeInBytes = missSectionSizeInBytes;
+		desc.MissShaderTable.StrideInBytes = Align(m_SbtHelper.GetMissEntrySize(), D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT);
+
+		UINT64 hitGroupsSectionSize = m_SbtHelper.GetHitGroupSectionSize();
+		desc.HitGroupTable.StartAddress = Align(m_SbtStorage->GetGPUVirtualAddress() + rayGenerationSectionSizeInBytes + missSectionSizeInBytes, D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT);
+		desc.HitGroupTable.SizeInBytes = hitGroupsSectionSize;
+		desc.HitGroupTable.StrideInBytes = Align(m_SbtHelper.GetHitGroupEntrySize(), D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT);
+
+		desc.Width = m_ClientWidth;
+		desc.Height = m_ClientHeight;
+		desc.Depth = 1;
+
+		// --- Camera change detection → reset accumulation if needed ---
+		{
+			auto nearlyEqual = [](float a, float b, float eps = 1e-2f) { return fabsf(a - b) < eps; };
+			bool camPosChanged =
+				!nearlyEqual(m_PrevCamPos.x, m_EyePos.x) ||
+				!nearlyEqual(m_PrevCamPos.y, m_EyePos.y) ||
+				!nearlyEqual(m_PrevCamPos.z, m_EyePos.z);
+
+			bool hasViewChanged = false;
+			const float* curr = &m_View._11;
+			const float* prev = &m_PrevView._11;
+			for (int i = 0; i < 16 && !hasViewChanged; ++i)
+				hasViewChanged = fabsf(curr[i] - prev[i]) > 1e-4f;
+
+			if (m_ClearAccumulation || camPosChanged || hasViewChanged)
+			{
+				m_FrameIndex = 0;
+				m_SampleStart = 0;
+				m_CurrentAccumSPP = 0;
+				m_StartCaptureSequenceNextFrame = false;
+
+				m_PrevCamPos = m_EyePos;
+				XMStoreFloat4x4(&m_PrevView, XMLoadFloat4x4(&m_View));
+				DoAccumulationClear();
+				useHistory = 0;
+				m_ClearAccumulation = false;
+			}
+			else
+			{
+				useHistory = 1;
+			}
+		}
+
+		if (m_CompareToIntegral && m_CurrentAccumSPP == 0)
+		{
+			m_FrameIndex = 0;
+
+			DoAccumulationClear();
+		}
+
+		if (m_CurrentAccumSPP == 256)
+		{
+			m_SampleDiagnosticsRun = false;
+			m_LogSampleDiagnostics = true;
+		}
+
+		if (m_SampleDiagnosticsRun && m_ClearAccumulation)
+		{
+			m_FrameIndex = 0;
+			DoAccumulationClear();
+			m_CurrentAccumSPP = 0;
+			m_ClearAccumulation = false;
+		}
+
+		// Choose the test batch before uploading constants: four samples, then one.
+		m_SamplesThisFrame = m_TestAccumulationWeights
+			? (m_CurrentAccumSPP == 0 ? 4u : 1u)
+			: static_cast<UINT>(m_SPP);
+		m_SampleStart = m_CurrentAccumSPP;
+		m_PreDispatchAccumSPP = m_CurrentAccumSPP;
+		m_CurrentDispatchSPP = m_SamplesThisFrame;
+		UpdateFrameIndexRNGCBuffer();
+
+		// --- Raytracing pass ---
+		DoRaytracingPass(desc);
+		//m_PixelColor = ReadPixel(m_AccumulationBuffer.Get(), x, y);
+
+		// --- RIS initial sampling (reads the G-Buffer written above, writes reservoirs for next frame) ---
+		UpdateReSTIRConstantBuffer();
+		DoReSTIRInitialSamplingPass();
+
+		// --- Copy current frame into history buffer (always, for next frame's TA) ---
+		DoHistoryCopy();
+
+		// --- Post-processing ---
+		if (m_UseTemporal)
+			DoTemporalPass();
+
+		if (m_UseDenoiser)
+		{
+			// A-Trous spatial denoiser; reads from TA output if available, else raw accumulation.
+			// Writes final pass directly to UAV_Present.
+			DoDenoisePass();
+		}
+		else if (m_UseTemporal)
+		{
+			// TA output → tone-map → present
+			DoFinalPass(m_TemporalRadianceBuffer.Get(), SRV_TemporalRadiance);
+		}
+		else
+		{
+			// Simple path: accumulated color is already a running average in RayGen; just tone-map it.
+			DoFinalPass(m_AccumulationBuffer.Get(), SRV_Accumulation);
+		}
+	}
 
 	// --- Present UAV → backbuffer ---
 	DoPresentBlit();
 
 	//	ReadPixel(m_PresentUAV.Get(), x, y);
 
-	if (m_CompareToIntegral && m_CurrentAccumSPP == 0)
+	if (advance)
 	{
-
-		m_CurrentAccumSPP += m_SPP;
+		// Count each completed batch once, before capture inspects the count.
+		m_CurrentAccumSPP += m_SamplesThisFrame;
 		DoImageCapture(x, y, camera);
-	}
-	else if (m_CompareToIntegral && m_CurrentAccumSPP > 0)
-	{
-		m_CurrentAccumSPP += m_SPP;
-		DoImageCapture(x, y, camera);
-	}
-	else if (m_SampleDiagnosticsRun)
-	{
-		m_CurrentAccumSPP += m_SPP;
-		DoImageCapture(x, y, camera);
-	}
-	else
-	{
-		DoImageCapture(x, y, camera);
-	}
+		// Capture may reset the count when starting the next run.
+		m_SampleStart = m_CurrentAccumSPP;
 
+		CopySampleDiagnosticsToCpu();
+		m_SampleDiagnostics = ReadBackSampleDiagnostics();
 
-	CopySampleDiagnosticsToCpu();
-	m_SampleDiagnostics = ReadBackSampleDiagnostics();
-
-	if (m_LogSampleDiagnostics)
-	{
-		nlohmann::json sampleCaptureInfo;
-		sampleCaptureInfo["scene"] = GetSceneSetUpName(m_SceneID);
-		sampleCaptureInfo["timestamp"] = m_RunTimestamp;
-		sampleCaptureInfo["frame_index"] = m_FrameIndex;
-		sampleCaptureInfo["spp"] = m_SPP;
-		sampleCaptureInfo["Accumulated SPP"] = m_CurrentAccumSPP;
-
-		for (auto& diag : m_SampleDiagnostics)
+		if (m_LogSampleDiagnostics)
 		{
-			sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)][std::to_string(diag.globalSampleIndex)] = diag.globalSampleIndex;
-			sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Is Valid"] = diag.valid == 1 ? "True" : "False";
-			sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Base Seed"] = diag.baseSeed;
-			sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Initial RNG State"] = diag.initialRngState;
-			sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Light Index"] = diag.lightIndex;
-			sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Point on Light"] = "x: " + std::to_string(diag.pointOnLight.x) + ", y: " + std::to_string(diag.pointOnLight.y) + ", z: " + std::to_string(diag.pointOnLight.z);
-			sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Random Coordinates Used"] = "x: " + std::to_string(diag.xi.x) + ", y: " + std::to_string(diag.xi.y);
-		}
+			nlohmann::json sampleCaptureInfo;
+			sampleCaptureInfo["scene"] = GetSceneSetUpName(m_SceneID);
+			sampleCaptureInfo["timestamp"] = m_RunTimestamp;
+			sampleCaptureInfo["frame_index"] = m_FrameIndex;
+			sampleCaptureInfo["spp"] = m_SPP;
+			sampleCaptureInfo["Accumulated SPP"] = m_CurrentAccumSPP;
 
-		std::filesystem::path jsonPath = m_RunPath / "sample_diagnostics.json";
-		std::ofstream jsonFile(jsonPath);
-		jsonFile << sampleCaptureInfo.dump(4);
-		jsonFile.close();
+			for (auto& diag : m_SampleDiagnostics)
+			{
+				sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)][std::to_string(diag.globalSampleIndex)] = diag.globalSampleIndex;
+				sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Is Valid"] = diag.valid == 1 ? "True" : "False";
+				sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Base Seed"] = diag.baseSeed;
+				sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Initial RNG State"] = diag.initialRngState;
+				sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Light Index"] = diag.lightIndex;
+				sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Point on Light"] = "x: " + std::to_string(diag.pointOnLight.x) + ", y: " + std::to_string(diag.pointOnLight.y) + ", z: " + std::to_string(diag.pointOnLight.z);
+				sampleCaptureInfo["Sample Diagnostics" + std::to_string(diag.globalSampleIndex)]["Random Coordinates Used"] = "x: " + std::to_string(diag.xi.x) + ", y: " + std::to_string(diag.xi.y);
+			}
+
+			std::filesystem::path jsonPath = m_RunPath / "sample_diagnostics.json";
+			std::ofstream jsonFile(jsonPath);
+			jsonFile << sampleCaptureInfo.dump(4);
+			jsonFile.close();
+
+		}
 
 	}
 
 	RenderImGuiDebugWindow(x, y);
-
-
-	//// --- Image capture (if requested) ---
-	//if (m_TargetCaptureSPP >= 1)
-	//{
-	//	m_CurrentAccumSPP++;
-	//	if (m_CurrentAccumSPP > m_TargetCaptureSPP)
-	//	{
-	//		m_SaveImage = true;
-	//		m_CurrentAccumSPP = 0;
-	//		m_TargetCaptureSPP = 0;
-	//		m_StartCaptureSequenceNextFrame = false;
-	//		m_CaptureRequested = false;
-	//	}
-	//	else
-	//	{
-	//		m_ClearAccumulation = false;
-	//	}
-
-	//	if (m_SaveImage)
-	//	{
-	//		// Capturing must not end the session: an A/B pair has to be shot from
-	//		// one identical viewpoint, which is impossible if the app exits after
-	//		// the first image. Batch experiment runs can opt back in.
-	//		if (!DoImageCapture(x, y) && m_ExitAfterCapture)
-	//			return false;
-	//	}
-	//}
-
-	//if (m_FrameIndex == m_MaxFrames)
-	//{
-	//	m_SaveImage = true;
-	//	if (!DoImageCapture(x, y) && m_ExitAfterCapture)
-	//		return false;
-	//}
-
-	//if (m_CaptureRequested)
-	//{
-	//	m_ClearAccumulation = true;
-	//	m_StartCaptureSequenceNextFrame = true;
-	//}
-
-	//// --- Update per-frame state ---
-	//m_PrevFrameStats = m_FrameStats;
-	//m_HasPrevState = true;
-	//m_MaxIterations = (m_UseRL || m_UseQTable || !m_UseTemporal) ? 256 : 8192;
-
-
-
 
 	// --- ImGui overlay ---
 	DoImGuiPass();
@@ -1520,11 +1470,7 @@ bool Renderer::Draw(bool useRaster, float x, float y, Camera camera)
 		m_TimestampReadback->Unmap(0, &writeRange);
 	}
 
-	m_SampleStart += m_SPP;
-	m_CurrentAccumSPP += m_SPP;
-
 	return true;
-
 }
 
 void Renderer::CreateDebugController()
@@ -3108,7 +3054,7 @@ void Renderer::CreateShaderResourceHeap()
 	uavDesc.Buffer.StructureByteStride = sizeof(SampleDiagnostic);
 	m_SampleDiagnosticsUAV->SetName(L"SampleDiagnostics UAV");
 	m_Device->CreateUnorderedAccessView(m_SampleDiagnosticsUAV.Get(), nullptr, &uavDesc, srvHandle);
-	
+
 	srvHandle.ptr += m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 
@@ -3189,7 +3135,7 @@ void Renderer::CreateAccumulationBuffer()
 
 	ThrowIfFailed(m_Device->CreateCommittedResource(&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&m_TemporalRadianceBuffer)));
 
-	
+
 }
 
 void Renderer::CreateDenoisingResources()
@@ -4819,6 +4765,21 @@ void Renderer::RenderImGuiDebugWindow(UINT x, UINT y)
 		m_FrameIndex = 0;
 		m_ClearAccumulation = true;
 	}
+
+	if (ImGui::Checkbox("Test Accumulation Weights", &m_TestAccumulationWeights))
+	{
+		m_FrameIndex = 0;
+		m_ClearAccumulation = true;
+		m_SampleStart = 0;
+		m_CurrentAccumSPP = 0;
+		m_TakeOneStep = false;
+		m_StepNumber = 0;
+	}
+
+	ImGui::BeginDisabled(!m_TestAccumulationWeights);
+	if (ImGui::Button("Take One Step"))
+		m_TakeOneStep = true;
+	ImGui::EndDisabled();
 
 	if (ImGui::Button("Save Image"))
 	{

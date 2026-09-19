@@ -638,6 +638,13 @@ private:
 	std::vector<SampleDiagnostic> m_SampleDiagnostics = std::vector<SampleDiagnostic>(5);
 	bool m_SampleDiagnosticsRun = false;
 	bool m_LogSampleDiagnostics = false;
+	UINT m_PreDispatchAccumSPP = 0;
+	UINT m_CurrentDispatchSPP = 0;
+	XMFLOAT3 m_PrevAverageRadiance = { 0.0f, 0.0f, 0.0f };
+	XMFLOAT3 m_CurrentBatchAverageRadiance = { 0.0f, 0.0f, 0.0f };
+	bool m_TakeOneStep = false;
+	bool m_TestAccumulationWeights = false;
+	UINT m_StepNumber = 0;
 };
 
 struct Reservoir

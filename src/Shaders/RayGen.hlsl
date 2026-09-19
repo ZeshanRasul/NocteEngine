@@ -158,10 +158,11 @@ void RayGen()
     int index = 0;
     
     const uint pixelRunSeed = seed;
+    uint globalSampleIndex;
     
     for (uint s = 0; s < gSamplesThisFrame; ++s)
     {
-        uint globalSampleIndex = gSamplesStart + s;
+        globalSampleIndex = gSamplesStart + s;
         
         uint sampleSeed = Hash(pixelRunSeed ^ Hash(globalSampleIndex));
         
@@ -409,9 +410,31 @@ void RayGen()
     }
     
 
-
+    float3 accumulatedAverageRadiance;
+    uint N = gSamplesStart;
+    uint M = gSamplesThisFrame;
+    float3 batchAverage = sppSum / float(gSamplesThisFrame);
     
-    gAccumBuf[launchIndex] = float4(accumColor, 1.0f);
+    uint gTestAccumulationWeights = 1;
+    
+    if (gTestAccumulationWeights == 1)
+    {
+        batchAverage = (gSamplesStart == 0)
+        ? float3(2.0f, 2.0f, 2.0f)
+        : float3(10.0f, 10.0f, 10.0f);
+    }
+    
+    if (N == 0)
+    {
+        accumulatedAverageRadiance = batchAverage;
+    }
+    else
+    {
+        float3 prevAccumulatedAverageRadiance = gAccumHistory[launchIndex].rgb;
+        accumulatedAverageRadiance = (float(N) * prevAccumulatedAverageRadiance + float(M) * batchAverage) / float(N + M);
+    }
+    
+    gAccumBuf[launchIndex] = float4(accumulatedAverageRadiance, 1.0f);
     gPresent[launchIndex] = float4(accumColor, 1.0f);
 }
 
